@@ -532,6 +532,7 @@
         <tbody>
           <tr><td>ต้นทุนวัตถุดิบ</td><td id="sum_t_mat">0</td></tr>
           <tr><td>ต้นทุนขนม</td><td id="sum_t_bak">0</td></tr>
+          <tr><td>รายจ่ายจิปาถะ</td><td id="sum_t_misc">0</td></tr>
           <tr><td>ต้นทุนกาแฟแจกฟรี</td><td id="sum_t_coffee">0</td></tr>
           <tr><td colspan="2" style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--muted);background:#f7f0e8;letter-spacing:.5px">ค่าดำเนินการ</td></tr>
           <tr><td style="padding-left:22px;font-size:13px">ค่าใช้จ่ายดำเนินการประจำเดือน</td><td id="sum_t_opex1">0</td></tr>
@@ -807,6 +808,23 @@
     <div class="grand-total" style="border:2px solid var(--c-gold);background:#fffbf4;margin-top:4px">
       <span style="font-size:14px;font-weight:700;color:var(--c-coffee)">ยอดรวมค่าดำเนินการทั้งหมด</span>
       <strong style="font-size:20px" id="opex_all_grand_val">0.00 บาท</strong>
+    </div>
+
+    <!-- กล่องยอดนำส่งหน่วยงาน -->
+    <div style="background:#eef6ff;border:1px solid #b0ccee;border-radius:10px;padding:12px 16px;margin-top:10px;font-size:13px">
+      <div style="font-weight:700;color:#1a5fa5;margin-bottom:8px"><i class="ti ti-building-bank" style="margin-right:6px"></i>ยอดที่ต้องนำส่งหน่วยงาน <span style="font-size:11px;font-weight:400;color:#666">(ไม่ใช่รายจ่ายเพิ่ม — หักจากพนักงาน/คำนวณอัตโนมัติ)</span></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr>
+          <td style="padding:4px 0;color:#333;width:60%"><i class="ti ti-shield-check" style="color:#2d6a4f;margin-right:5px"></i>ประกันสังคมรวม (ฝั่งบริษัท + พนักงาน)</td>
+          <td style="text-align:right;font-weight:700;color:#2d6a4f" id="remit_sso_total">0 บาท</td>
+          <td style="padding-left:8px;color:#888;font-size:11px">นำส่ง สปส. ภายใน 15 เดือนถัดไป</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;color:#333"><i class="ti ti-receipt-2" style="color:#c07000;margin-right:5px"></i>ภ.ง.ด.1 ภาษีหัก ณ ที่จ่าย (Commission 3%)</td>
+          <td style="text-align:right;font-weight:700;color:#c07000" id="remit_wht_total">0 บาท</td>
+          <td style="padding-left:8px;color:#888;font-size:11px">นำส่ง สรรพากร ภายใน 7 เดือนถัดไป</td>
+        </tr>
+      </table>
     </div>
     <!-- Banner ค่า default (แสดงเมื่อ load จาก defaults อัตโนมัติ) -->
     <div id="opex_def_banner" style="display:none;align-items:flex-start;gap:10px;background:#fffbea;border:1px solid #f0c040;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:13px">
@@ -1689,7 +1707,7 @@ async function _sbPost(p){
     if(cat==='all'||cat==='sales')
       await _sb.from('sales_daily').delete().gte('date',start).lte('date',end);
     if(cat==='all'||cat==='expense')
-      await _sb.from('expenses').delete().eq('month_label',p.month).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']);
+      await _sb.from('expenses').delete().gte('date',start).lte('date',end).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']);
     if(cat==='all'||cat==='opex')
       await _sb.from('expenses').delete().eq('month_label',p.month).in('category',['ค่าใช้จ่ายดำเนินการ','ค่าแรงพนักงาน','ภาษีและอื่นๆ']);
     return { status:'ok', deleted:['Supabase'] };
@@ -2291,6 +2309,7 @@ function updateSummary(){
   const filteredSale = saleSaved.filter(r=>(!df||r.date>=df)&&(!dt||r.date<=dt));
   const filteredMat  = matSaved.filter(r=>(!df||r.date>=df)&&(!dt||r.date<=dt));
   const filteredBak  = bakSaved.filter(r=>(!df||r.date>=df)&&(!dt||r.date<=dt));
+  const filteredMisc = miscSaved.filter(r=>(!df||r.date>=df)&&(!dt||r.date<=dt));
 
   // sessionOpexTotal มาจากฟอร์ม (เงินเดือน, ค่า overhead, ภาษี) ไม่มี date tag
   // ให้ใช้เฉพาะเมื่อ date range ครอบคลุมเดือนปัจจุบัน (หรือไม่ได้กรอง)
@@ -2313,11 +2332,21 @@ function updateSummary(){
   let effectiveOpexT1=0, effectiveOpexT2=0, effectiveOpexT3=0;
   _rangeMonths.forEach(ym => {
     if(ym === opexFormMY){
-      // ใช้ session OPEX (เดือนที่ฟอร์มชี้อยู่)
-      effectiveOpexTotal += sessionOpexTotal;
-      effectiveOpexT1 += sessionOpexT1;
-      effectiveOpexT2 += sessionOpexT2;
-      effectiveOpexT3 += sessionOpexT3;
+      // ใช้ session OPEX (เดือนที่ฟอร์มชี้อยู่) แต่ถ้า session ว่าง (fresh login) ใช้ _loadedOpexByMonth แทน
+      if(sessionOpexTotal > 0){
+        effectiveOpexTotal += sessionOpexTotal;
+        effectiveOpexT1 += sessionOpexT1;
+        effectiveOpexT2 += sessionOpexT2;
+        effectiveOpexT3 += sessionOpexT3;
+      } else {
+        const _dCur = _loadedOpexByMonth[ym];
+        if(_dCur && typeof _dCur==='object'){
+          effectiveOpexTotal += _dCur.total||0;
+          effectiveOpexT1 += _dCur.t1||0;
+          effectiveOpexT2 += _dCur.t2||0;
+          effectiveOpexT3 += _dCur.t3||0;
+        }
+      }
     } else {
       const _d = _loadedOpexByMonth[ym];
       if(_d && typeof _d==='object'){
@@ -2335,8 +2364,9 @@ function updateSummary(){
   const filteredIncome = filteredSale.reduce((s,r)=>s+(r.income||0),0);
   const matTotal       = filteredMat.reduce((s,r)=>s+(r.total||0),0);
   const bakTotal       = filteredBak.reduce((s,r)=>s+(r.total||0),0);
+  const miscTotal      = filteredMisc.reduce((s,r)=>s+(r.total||0),0);
   const coffeeCost     = filteredSale.reduce((s,r)=>s+(r.freeCost||0),0);
-  const totalExp       = matTotal + bakTotal + coffeeCost + effectiveOpexTotal;
+  const totalExp       = matTotal + bakTotal + miscTotal + coffeeCost + effectiveOpexTotal;
   const profit         = filteredIncome - totalExp;
 
   const sumCoffeeCups = filteredSale.reduce((s,r)=>s+r.coffeeCups,0);
@@ -2354,6 +2384,7 @@ function updateSummary(){
 
   document.getElementById('sum_t_mat').textContent    = fmtMoney(matTotal);
   document.getElementById('sum_t_bak').textContent    = fmtMoney(bakTotal);
+  document.getElementById('sum_t_misc').textContent   = fmtMoney(miscTotal);
   document.getElementById('sum_t_coffee').textContent = fmtMoney(coffeeCost);
   document.getElementById('sum_t_opex1').textContent  = fmtMoney(effectiveOpexT1);
   document.getElementById('sum_t_opex2').textContent  = fmtMoney(effectiveOpexT2);
@@ -3889,6 +3920,22 @@ function calStaffTotal(){
   // แสดง sub-label รวม STAFF_SIMPLE ถ้ามี
   const subEl = document.getElementById('staff_simple_subtotal');
   if(subEl) subEl.textContent = staffSimpleTotal>0 ? '(+ กรรมการ/อื่นๆ '+staffSimpleTotal.toFixed(2)+' ฿ รวมทั้งหมด '+total.toFixed(2)+' ฿)' : '';
+  // ── คำนวณยอดนำส่งหน่วยงาน ──
+  let remitSso = 0, remitWht = 0;
+  EMP_CONFIG.forEach(emp => {
+    const salary   = +document.getElementById('emp_salary_'+emp.id)?.value||0;
+    const ssoBase  = Math.min(salary, 15000);
+    const ssoEmp   = Math.round(ssoBase * 0.05);
+    const ssoCo    = Math.round(ssoBase * 0.05);
+    const commAmt  = +document.getElementById('emp_comm_amt_'+emp.id)?.value||0;
+    const commTax  = Math.round(commAmt * 0.03);
+    remitSso += ssoEmp + ssoCo; // บริษัทนำส่ง สปส. ทั้งสองส่วน
+    remitWht += commTax;         // บริษัทนำส่ง ภ.ง.ด.1
+  });
+  const elSso = document.getElementById('remit_sso_total');
+  const elWht = document.getElementById('remit_wht_total');
+  if(elSso) elSso.textContent = remitSso>0 ? remitSso.toLocaleString('th-TH')+' บาท' : '0 บาท';
+  if(elWht) elWht.textContent = remitWht>0 ? remitWht.toLocaleString('th-TH')+' บาท' : '0 บาท';
   calAllOpex();
 }
 function buildTaxTable(){
