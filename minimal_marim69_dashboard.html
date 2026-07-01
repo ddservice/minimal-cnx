@@ -3803,7 +3803,8 @@ async function loadOpexForMonth(monthVal){
     // ── คำนวณ income ของเดือนนั้น (สำหรับ commission) ────────
     const salesRows = _dedupByDate(data.sales||[], 'วันที่');
     const fetchedIncome = salesRows.reduce((s,r)=>s+(+r['รายรับสุทธิ(฿)']||0),0);
-    opexMonthIncome = fetchedIncome; // ตั้ง global ให้ calEmpTotal ใช้
+    // สำหรับเดือนปัจจุบัน: ถ้า GAS ไม่มียอดขาย ให้ใช้ sessionIncome แทน (null = fallback)
+    opexMonthIncome = (isCurrent && fetchedIncome === 0) ? null : fetchedIncome;
     // rebuild commission + tax ด้วย income ของเดือนที่เลือก
     EMP_CONFIG.forEach(emp => calEmpTotal(emp.id));
     buildTaxTable(); calTaxTotal();
