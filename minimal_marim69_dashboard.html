@@ -1535,12 +1535,33 @@ function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(+p[1],+
 
 // ── FORMAT CONVERTERS: Supabase → GAS Thai format ─────────────
 function _sbSaleToThai(r){
-  return { 'วันที่':_isoToThai(r.date), 'ยอดขาย(แก้ว)':r.total_cups,
-    'K-Shop(฿)':r.kshop_amount, 'เงินสด(฿)':r.cash_amount,
-    'Shopee(฿)ก่อน GP':r.shopee_before_gp, 'Grab(฿)ก่อน GP':r.grab_before_gp,
-    'LineMan(฿)ก่อน GP':r.lineman_before_gp, 'แก้วฟรี(แก้ว)':r.free_cups,
-    'ต้นทุน/แก้วฟรี(฿)':r.free_cup_cost, 'ขนม(ชิ้น)':r.pastry_pieces,
-    'รายได้ขนม(฿)':r.pastry_revenue, 'รายรับสุทธิ(฿)':r.net_revenue };
+  const totalCups = r.total_cups||0;
+  const bakQty    = r.pastry_pieces||0;
+  const coffeeCups= Math.max(0, totalCups - bakQty);
+  // GP net ≈ before_gp (Supabase ไม่เก็บหลัง GP แยก — ใช้ค่าเดิมไปก่อน)
+  return {
+    'วันที่':             _isoToThai(r.date),
+    'ยอดขาย(แก้วรวม)':   totalCups,          // updateSessionFromImport
+    'ยอดขาย(แก้ว)':      totalCups,          // alias
+    'กาแฟ(แก้ว)':        coffeeCups,         // = total - bakery
+    'K-Shop(฿)':         r.kshop_amount||0,
+    'เงินสด(฿)':         r.cash_amount||0,
+    'Shopee(หลังGP)':    r.shopee_before_gp||0,
+    'Shopee(ก่อนGP)':    r.shopee_before_gp||0,
+    'Shopee(฿)ก่อน GP':  r.shopee_before_gp||0,
+    'Grab(หลังGP)':      r.grab_before_gp||0,
+    'Grab(ก่อนGP)':      r.grab_before_gp||0,
+    'Grab(฿)ก่อน GP':    r.grab_before_gp||0,
+    'Lineman(หลังGP)':   r.lineman_before_gp||0,
+    'Lineman(ก่อนGP)':   r.lineman_before_gp||0,
+    'LineMan(฿)ก่อน GP': r.lineman_before_gp||0,
+    'แก้วฟรี':           r.free_cups||0,     // updateSessionFromImport
+    'แก้วฟรี(แก้ว)':     r.free_cups||0,     // alias
+    'ต้นทุน/แก้วฟรี(฿)': r.free_cup_cost||0,
+    'ขนม(ชิ้น)':         bakQty,
+    'รายได้ขนม(฿)':      r.pastry_revenue||0,
+    'รายรับสุทธิ(฿)':    r.net_revenue||0,
+  };
 }
 function _sbOpexToThai(r){
   return { 'Key':r.item_key, 'รายการ':r.item_name, 'ยอด(฿)':r.total_amount, 'วิธีชำระ':r.payment_method };
