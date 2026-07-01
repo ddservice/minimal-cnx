@@ -1245,6 +1245,7 @@
           <div class="field" style="grid-column:span 3"><label>URL โลโก้บริษัท (ลิงก์รูปภาพ)</label><input type="url" id="biz_logo_url" placeholder="https://example.com/logo.png" oninput="previewBizLogo()">
             <div id="biz_logo_preview" style="display:none;margin-top:8px"><img id="biz_logo_img" style="height:64px;object-fit:contain;border:1px solid var(--border);border-radius:8px;padding:4px"></div>
           </div>
+          <div class="field" style="grid-column:span 3"><label>ชื่อผู้มีอำนาจลงนาม (สำหรับใบจ่ายเงิน)</label><input type="text" id="biz_authorized_signatory" placeholder="เช่น นายสมชาย ใจดี (ผู้จัดการ)"></div>
         </div>
         <div id="status_biz_info" class="status"></div>
 
@@ -4099,7 +4100,7 @@ body{font-family:'Sarabun',sans-serif;font-size:13.5px;color:#1a1a1a;background:
 /* ── Header ── */
 .doc-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #2c1a0e;margin-bottom:16px}
 .company-block{display:flex;align-items:flex-start;gap:14px}
-.logo{height:56px;width:56px;object-fit:contain;border-radius:6px;border:1px solid #e0d0c0}
+.logo{height:72px;width:72px;object-fit:contain;border-radius:6px}
 .bname{font-size:16px;font-weight:700;color:#2c1a0e;margin-bottom:3px}
 .bsub{font-size:11px;color:#555;line-height:1.7}
 .doc-meta{text-align:right;font-size:11.5px;color:#444;min-width:160px}
@@ -4157,7 +4158,7 @@ td{padding:7px 12px;border:1px solid #d8c8b4}
 <!-- ── Header ── -->
 <div class="doc-header">
   <div class="company-block">
-    ${biz.logo_url?`<img class="logo" src="${biz.logo_url}" alt="logo">`:'<div style="width:56px;height:56px;background:#f0e8df;border-radius:6px;border:1px solid #c8b89a;display:flex;align-items:center;justify-content:center;font-size:22px">🏢</div>'}
+    ${biz.logo_url?`<img class="logo" src="${biz.logo_url}" alt="logo">`:'<div style="width:72px;height:72px;background:#f0e8df;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:26px">🏢</div>'}
     <div>
       <div class="bname">${biz.name||'บริษัท / ร้านค้า'}</div>
       ${biz.address?`<div class="bsub">${biz.address}</div>`:''}
@@ -4181,7 +4182,7 @@ td{padding:7px 12px;border:1px solid #d8c8b4}
 <div class="info-section">
   <div class="info-section-title">ข้อมูลพนักงาน (Employee Information)</div>
   <div class="info-grid">
-    <div class="info-cell"><div class="info-label">ชื่อ-นามสกุล / Full Name</div><div class="info-value">${det.fullname||'—'}</div></div>
+    <div class="info-cell"><div class="info-label">ชื่อ-นามสกุล / Full Name</div><div class="info-value">${[det.fullname,det.lastname].filter(Boolean).join(' ')||'—'}</div></div>
     <div class="info-cell"><div class="info-label">ตำแหน่ง / Position</div><div class="info-value">${det.title||'—'}</div></div>
     <div class="info-cell"><div class="info-label">เลขที่บัตรประชาชน / ID Card No.</div><div class="info-value">${det.id_card||'—'}</div></div>
     <div class="info-cell"><div class="info-label">ประจำเดือน / Pay Period</div><div class="info-value">${monthLabel}</div></div>
@@ -4227,13 +4228,13 @@ ${(det.bank_name||det.account_no)?`
   <div>
     <div class="sign-box">
       <div class="sign-label">ลงชื่อผู้จ่ายเงิน / Authorized Signatory</div>
-      <div class="sign-name">${_auth.full_name || _auth.display_name || biz.name || ''}</div>
+      <div class="sign-name">${biz.authorized_signatory || _auth.full_name || _auth.display_name || biz.name || ''}</div>
     </div>
   </div>
   <div>
     <div class="sign-box">
       <div class="sign-label">ผู้รับเงิน / Employee's Signature</div>
-      <div class="sign-name">${det.fullname||emp.label}</div>
+      <div class="sign-name">${[det.fullname,det.lastname].filter(Boolean).join(' ')||emp.label}</div>
     </div>
   </div>
   <div>
@@ -4313,7 +4314,7 @@ function reprintSlip(idx){
 body{font-family:'Sarabun',sans-serif;font-size:13.5px;color:#1a1a1a;background:#fff;padding:28px 36px;max-width:680px;margin:0 auto;line-height:1.5}
 .doc-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #2c1a0e;margin-bottom:16px}
 .company-block{display:flex;align-items:flex-start;gap:14px}
-.logo{height:56px;width:56px;object-fit:contain;border-radius:6px;border:1px solid #e0d0c0}
+.logo{height:72px;width:72px;object-fit:contain;border-radius:6px}
 .bname{font-size:16px;font-weight:700;color:#2c1a0e;margin-bottom:3px}
 .bsub{font-size:11px;color:#555;line-height:1.7}
 .doc-meta{text-align:right;font-size:11.5px;color:#444;min-width:160px}
@@ -4354,7 +4355,7 @@ td{padding:7px 12px;border:1px solid #d8c8b4}
 <div class="reprint-badge">⚠ สำเนาพิมพ์ซ้ำ (Reprint) — เอกสารต้นฉบับออกเมื่อ ${dateStr}</div>
 <div class="doc-header">
   <div class="company-block">
-    ${biz.logo_url?`<img class="logo" src="${biz.logo_url}" alt="logo">`:'<div style="width:56px;height:56px;background:#f0e8df;border-radius:6px;border:1px solid #c8b89a;display:flex;align-items:center;justify-content:center;font-size:22px">🏢</div>'}
+    ${biz.logo_url?`<img class="logo" src="${biz.logo_url}" alt="logo">`:'<div style="width:72px;height:72px;background:#f0e8df;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:26px">🏢</div>'}
     <div>
       <div class="bname">${biz.name||'บริษัท / ร้านค้า'}</div>
       ${biz.address?`<div class="bsub">${biz.address}</div>`:''}
@@ -4368,7 +4369,7 @@ td{padding:7px 12px;border:1px solid #d8c8b4}
 <div class="info-section">
   <div class="info-section-title">ข้อมูลพนักงาน (Employee Information)</div>
   <div class="info-grid">
-    <div class="info-cell"><div class="info-label">ชื่อ-นามสกุล / Full Name</div><div class="info-value">${det.fullname||'—'}</div></div>
+    <div class="info-cell"><div class="info-label">ชื่อ-นามสกุล / Full Name</div><div class="info-value">${[det.fullname,det.lastname].filter(Boolean).join(' ')||'—'}</div></div>
     <div class="info-cell"><div class="info-label">ตำแหน่ง / Position</div><div class="info-value">${det.title||'—'}</div></div>
     <div class="info-cell"><div class="info-label">เลขที่บัตรประชาชน / ID Card No.</div><div class="info-value">${det.id_card||'—'}</div></div>
     <div class="info-cell"><div class="info-label">ประจำเดือน / Pay Period</div><div class="info-value">${monthLabel}</div></div>
@@ -4395,8 +4396,8 @@ ${(det.bank_name||det.account_no)?`<div class="bank-block"><div class="info-sect
   <tr class="tr-company-total"><td colspan="2">รวมค่าใช้จ่ายนายจ้างทั้งหมด (Total Employer Cost)</td><td class="td-num">${f(compCost)}</td></tr>
 </table>
 <div class="footer-grid">
-  <div><div class="sign-box"><div class="sign-label">ลงชื่อผู้จ่ายเงิน / Authorized Signatory</div><div class="sign-name">${signerName||biz.name||''}</div></div></div>
-  <div><div class="sign-box"><div class="sign-label">ผู้รับเงิน / Employee's Signature</div><div class="sign-name">${det.fullname||empLabel}</div></div></div>
+  <div><div class="sign-box"><div class="sign-label">ลงชื่อผู้จ่ายเงิน / Authorized Signatory</div><div class="sign-name">${biz.authorized_signatory||signerName||biz.name||''}</div></div></div>
+  <div><div class="sign-box"><div class="sign-label">ผู้รับเงิน / Employee's Signature</div><div class="sign-name">${[det.fullname,det.lastname].filter(Boolean).join(' ')||empLabel}</div></div></div>
   <div><div class="sign-box"><div class="sign-label">ประทับตราบริษัท / Company Seal</div><div class="sign-name" style="font-size:10px;color:#aaa">(ถ้ามี)</div></div></div>
 </div>
 <div class="disclaimer">เอกสารฉบับนี้ออกโดยระบบคอมพิวเตอร์ เลขที่ ${docNo} | ออกให้ ณ วันที่ ${dateStr}<br>This document is computer-generated and is valid without a wet signature unless otherwise required.</div>
@@ -5667,10 +5668,10 @@ async function loadConfigFromGAS(force=false){
 
 const BIZ_FIELD_LABELS = {
   name:'ชื่อบริษัท / ร้านค้า', phone:'เบอร์โทรศัพท์', tax_id:'หมายเลขผู้เสียภาษี',
-  address:'ที่อยู่', logo_url:'URL โลโก้',
+  address:'ที่อยู่', logo_url:'URL โลโก้', authorized_signatory:'ชื่อผู้มีอำนาจลงนาม',
 };
 const EMP_FIELD_LABELS = {
-  fullname:'ชื่อ-นามสกุล', nickname:'ชื่อเล่น', title:'ตำแหน่งงาน',
+  fullname:'ชื่อ', lastname:'นามสกุล', nickname:'ชื่อเล่น', title:'ตำแหน่งงาน',
   id_card:'หมายเลขบัตรประชาชน', bank_name:'ธนาคาร',
   account_no:'เลขที่บัญชี', account_holder:'ชื่อบัญชี',
 };
@@ -5763,6 +5764,7 @@ function loadBizInfo(){
   set('biz_tax_id', biz.tax_id);
   set('biz_address', biz.address);
   set('biz_logo_url', biz.logo_url);
+  set('biz_authorized_signatory', biz.authorized_signatory);
   if(biz.logo_url) previewBizLogo();
 }
 function previewBizLogo(){
@@ -5779,6 +5781,7 @@ function saveBizInfo(){
     tax_id:(document.getElementById('biz_tax_id')?.value||'').trim(),
     address:(document.getElementById('biz_address')?.value||'').trim(),
     logo_url:(document.getElementById('biz_logo_url')?.value||'').trim(),
+    authorized_signatory:(document.getElementById('biz_authorized_signatory')?.value||'').trim(),
   };
   const oldBiz=JSON.parse(localStorage.getItem('mm69_biz_info')||'{}');
   const hasOld=!!(oldBiz.name||oldBiz.phone||oldBiz.tax_id||oldBiz.address);
@@ -5821,7 +5824,8 @@ function buildEmpInfoSection(){
       </div>
       <div style="padding:12px 14px">
         <div class="row3">
-          <div class="field"><label>ชื่อ-นามสกุล</label><input type="text" id="emp_fullname_${emp.id}" value="${d.fullname||''}" placeholder="ชื่อ นามสกุล" style="${iS}"></div>
+          <div class="field"><label>ชื่อ / First Name</label><input type="text" id="emp_fullname_${emp.id}" value="${d.fullname||''}" placeholder="เช่น นายสมชาย" style="${iS}"></div>
+          <div class="field"><label>นามสกุล / Last Name</label><input type="text" id="emp_lastname_${emp.id}" value="${d.lastname||''}" placeholder="นามสกุล" style="${iS}"></div>
           <div class="field"><label>ชื่อเล่น</label><input type="text" id="emp_nickname_${emp.id}" value="${d.nickname||''}" placeholder="เช่น นิว, โอ๊ต" style="${iS}"></div>
           <div class="field"><label>ตำแหน่งงาน</label><input type="text" id="emp_title_${emp.id}" value="${d.title||''}" placeholder="เช่น บาริสต้า" style="${iS}"></div>
           <div class="field" style="grid-column:span 2"><label>หมายเลขบัตรประชาชน</label><input type="text" id="emp_id_card_${emp.id}" value="${d.id_card||''}" placeholder="1-xxxx-xxxxx-xx-x" maxlength="17" style="${iS}"></div>
@@ -5853,6 +5857,7 @@ function saveEmpInfo(){
   EMP_CONFIG.forEach(emp=>{
     const newDet={
       fullname:(document.getElementById('emp_fullname_'+emp.id)?.value||'').trim(),
+      lastname:(document.getElementById('emp_lastname_'+emp.id)?.value||'').trim(),
       nickname:(document.getElementById('emp_nickname_'+emp.id)?.value||'').trim(),
       title:(document.getElementById('emp_title_'+emp.id)?.value||'').trim(),
       id_card:(document.getElementById('emp_id_card_'+emp.id)?.value||'').trim(),
