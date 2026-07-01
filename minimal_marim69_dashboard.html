@@ -1531,7 +1531,7 @@ let _sb = null;
 function _thaiToISO(thai){ const p=(thai||'').split('/'); return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:''; }
 function _isoToThai(iso){ const p=(iso||'').split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''; }
 function _monthStart(mm_yyyy){ const p=mm_yyyy.split('/'); return p[1]+'-'+p[0]+'-01'; }
-function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(+p[1],+p[0],0).toISOString().split('T')[0]; }
+function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(Date.UTC(+p[1],+p[0],0)).toISOString().split('T')[0]; }
 
 // ── FORMAT CONVERTERS: Supabase → GAS Thai format ─────────────
 function _sbSaleToThai(r){
@@ -5068,7 +5068,7 @@ function onSaleHistMonthChange(){
   if(!m) return;
   const [y, mo] = m.split('-');
   const first = `${y}-${mo}-01`;
-  const last  = new Date(+y, +mo, 0).toISOString().slice(0,10);
+  const last  = new Date(Date.UTC(+y, +mo, 0)).toISOString().slice(0,10);
   const elF = document.getElementById('sale_hist_from');
   const elT = document.getElementById('sale_hist_to');
   if(elF) elF.value = first;
