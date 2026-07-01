@@ -2315,7 +2315,6 @@ function updateSummary(){
   // ให้ใช้เฉพาะเมื่อ date range ครอบคลุมเดือนปัจจุบัน (หรือไม่ได้กรอง)
   // ถ้า filter เป็นเดือนย้อนหลัง ไม่นำ OPEX form มาคิด
   const today7 = todayStr().substring(0,7); // 'YYYY-MM'
-  const rangeIncludesCurrent = (!df || df.substring(0,7) <= today7) && (!dt || dt.substring(0,7) >= today7);
   // รวม opex ทุกเดือนในช่วง: เดือนปัจจุบัน = จากฟอร์ม, เดือนย้อนหลัง = จาก GAS (_loadedOpexByMonth)
   // _monthsInRange ส่งคืนรูปแบบ 'MM/YYYY' ดังนั้นต้องแปลง today7 ให้ตรงกัน
   const now7 = new Date();
@@ -5452,9 +5451,10 @@ function _anMonthly(results){
     const bakCost=exp.filter(x=>x['หมวดหมู่']==='ต้นทุนขนมหน้าร้าน').reduce((s,x)=>s+(+x['รวม(฿)']||0),0);
     const miscCost=exp.filter(x=>x['หมวดหมู่']==='รายจ่ายจิปาถะ').reduce((s,x)=>s+(+x['รวม(฿)']||0),0);
     const opexCost=opex.reduce((s,x)=>s+(+x['ยอด(฿)']||0),0);
-    const totalCost=matCost+bakCost+miscCost+opexCost;
+    const freeCupCost=sales.reduce((s,row)=>s+(+row['ต้นทุน/แก้วฟรี(฿)']||0),0);
+    const totalCost=matCost+bakCost+miscCost+freeCupCost+opexCost;
     const dayCount=sales.length;
-    return {month:r.month,income,matCost,bakCost,miscCost,opexCost,totalCost,profit:income-totalCost,dayCount,dupCount};
+    return {month:r.month,income,matCost,bakCost,miscCost,freeCupCost,opexCost,totalCost,profit:income-totalCost,dayCount,dupCount};
   });
 }
 
@@ -5472,9 +5472,10 @@ function renderAnalysis(results){
   const monthly=_anMonthly(results);
 
   // ── Table 1: Monthly comparison ──────────────────────────────
-  let html='<div style="overflow-x:auto"><table class="tbl" style="min-width:760px">'
+  let html='<div style="overflow-x:auto"><table class="tbl" style="min-width:900px">'
     +'<thead><tr><th>เดือน</th><th style="text-align:center;color:var(--muted)">วัน</th><th style="text-align:right">รายได้</th>'
     +'<th style="text-align:right">ต้นทุนวัตถุดิบ</th><th style="text-align:right">ต้นทุนขนม</th>'
+    +'<th style="text-align:right">รายจ่ายจิปาถะ</th><th style="text-align:right">แก้วฟรี</th>'
     +'<th style="text-align:right">ค่าดำเนินการ</th><th style="text-align:right">ต้นทุนรวม</th>'
     +'<th style="text-align:right">กำไร/ขาดทุน</th></tr></thead><tbody>';
   monthly.forEach((m,i)=>{
@@ -5488,6 +5489,8 @@ function renderAnalysis(results){
       <td style="text-align:right">${fN(m.income)}${prev?trend(pct(m.income,prev.income),false):''}</td>
       <td style="text-align:right">${fN(m.matCost)}${prev?trend(pct(m.matCost,prev.matCost),true):''}</td>
       <td style="text-align:right">${fN(m.bakCost)}${prev?trend(pct(m.bakCost,prev.bakCost),true):''}</td>
+      <td style="text-align:right">${fN(m.miscCost)}${prev?trend(pct(m.miscCost,prev.miscCost),true):''}</td>
+      <td style="text-align:right">${fN(m.freeCupCost)}${prev?trend(pct(m.freeCupCost,prev.freeCupCost),true):''}</td>
       <td style="text-align:right">${fN(m.opexCost)}${prev?trend(pct(m.opexCost,prev.opexCost),true):''}</td>
       <td style="text-align:right">${fN(m.totalCost)}${prev?trend(pct(m.totalCost,prev.totalCost),true):''}</td>
       <td style="text-align:right" class="${profCls}">${m.profit>=0?'+':''}${fN(m.profit)}${prev?trend(pct(m.profit,prev.profit),false):''}</td>
@@ -5503,6 +5506,8 @@ function renderAnalysis(results){
     <td style="text-align:right">${fN(totIncome)}</td>
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.matCost,0))}</td>
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.bakCost,0))}</td>
+    <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.miscCost,0))}</td>
+    <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.freeCupCost,0))}</td>
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.opexCost,0))}</td>
     <td style="text-align:right">${fN(totCost)}</td>
     <td style="text-align:right" class="${totProfit>=0?'an-profit-pos':'an-profit-neg'}">${totProfit>=0?'+':''}${fN(totProfit)}</td>
