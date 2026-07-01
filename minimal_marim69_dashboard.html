@@ -1970,7 +1970,8 @@ function renderUserTable(users) {
             ${_roleChip(u.role)}
             ${onlineDot}
           </div>
-          ${fullName ? `<div style="font-size:12px;margin-top:4px;color:var(--text)"><i class="ti ti-user" style="font-size:11px;color:var(--muted)"></i> ${fullName}</div>` : ''}
+          ${u.email ? `<div style="font-size:12px;margin-top:4px;color:var(--muted)"><i class="ti ti-mail" style="font-size:11px"></i> ${u.email}</div>` : ''}
+          ${fullName ? `<div style="font-size:12px;margin-top:2px;color:var(--text)"><i class="ti ti-user" style="font-size:11px;color:var(--muted)"></i> ${fullName}</div>` : ''}
           ${nickname ? `<div style="font-size:11px;color:var(--muted)">ชื่อเล่น: ${nickname}</div>` : ''}
         </div>
       </div>
@@ -3966,8 +3967,17 @@ async function loadOpexForMonth(monthVal){
 
     // ── คำนวณ income ของเดือนนั้น (สำหรับ commission) ────────
     const salesRows = _dedupByDate(data.sales||[], 'วันที่');
-    const fetchedIncome = salesRows.reduce((s,r)=>s+(+r['รายรับสุทธิ(฿)']||0),0);
-    // สำหรับเดือนปัจจุบัน: ถ้า GAS ไม่มียอดขาย ให้ใช้ sessionIncome แทน (null = fallback)
+    let fetchedIncome = salesRows.reduce((s,r)=>s+(+r['รายรับสุทธิ(฿)']||0),0);
+
+    // ถ้า RPC ไม่มีข้อมูล sales → query sales_daily โดยตรง (fallback)
+    if(fetchedIncome === 0 && _sb){
+      const start = _monthStart(monthLabel), end = _monthEnd(monthLabel);
+      const { data: directSales } = await _sb.from('sales_daily')
+        .select('net_revenue').gte('date', start).lte('date', end);
+      fetchedIncome = (directSales||[]).reduce((s,r)=>s+(+r.net_revenue||0), 0);
+    }
+
+    // สำหรับเดือนปัจจุบัน: ถ้ายังไม่มีข้อมูลใน Supabase ให้ใช้ sessionIncome แทน (null = fallback)
     opexMonthIncome = (isCurrent && fetchedIncome === 0) ? null : fetchedIncome;
     // rebuild commission + tax ด้วย income ของเดือนที่เลือก
     EMP_CONFIG.forEach(emp => calEmpTotal(emp.id));
