@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#2c1a0e">
   <title>Minimal Coffee - Smart Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
 </script>
   <style>
@@ -1521,7 +1522,239 @@
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwSG-xlC742UdSz1e7lYTFjy0qHQ_srOPD2esls1NvkmwVREscMMPjDwl25Fc0WQNQnXQ/exec";
+// ── SUPABASE CONFIG ───────────────────────────────────────────
+const SUPABASE_URL = 'https://fkhfrylvronkmktlmmia.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_SoNHJNrw4yfgZI_RYHHTjg_WgQ0lan-';
+let _sb = null;
+
+// ── DATE HELPERS ───────────────────────────────────────────────
+function _thaiToISO(thai){ const p=(thai||'').split('/'); return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:''; }
+function _isoToThai(iso){ const p=(iso||'').split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''; }
+function _monthStart(mm_yyyy){ const p=mm_yyyy.split('/'); return p[1]+'-'+p[0]+'-01'; }
+function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(+p[1],+p[0],0).toISOString().split('T')[0]; }
+
+// ── FORMAT CONVERTERS: Supabase → GAS Thai format ─────────────
+function _sbSaleToThai(r){
+  return { 'วันที่':_isoToThai(r.date), 'ยอดขาย(แก้ว)':r.total_cups,
+    'K-Shop(฿)':r.kshop_amount, 'เงินสด(฿)':r.cash_amount,
+    'Shopee(฿)ก่อน GP':r.shopee_before_gp, 'Grab(฿)ก่อน GP':r.grab_before_gp,
+    'LineMan(฿)ก่อน GP':r.lineman_before_gp, 'แก้วฟรี(แก้ว)':r.free_cups,
+    'ต้นทุน/แก้วฟรี(฿)':r.free_cup_cost, 'ขนม(ชิ้น)':r.pastry_pieces,
+    'รายได้ขนม(฿)':r.pastry_revenue, 'รายรับสุทธิ(฿)':r.net_revenue };
+}
+function _sbOpexToThai(r){
+  return { 'Key':r.item_key, 'รายการ':r.item_name, 'ยอด(฿)':r.total_amount, 'วิธีชำระ':r.payment_method };
+}
+function _sbExpToThai(r){
+  return { 'วันที่':_isoToThai(r.date), 'หมวดหมู่':r.category,
+    'ซัพพลายเออร์':r.subcategory||'', 'รายการ':r.item_name,
+    'จำนวน':r.quantity, 'ราคา/หน่วย(฿)':r.unit_price,
+    'ชำระด้วย':r.payment_method, 'รวม(฿)':r.total_amount, '_id':r.id };
+}
+
+// ── SUPABASE GET (แทน fetch GET ไป GAS) ───────────────────────
+async function _sbGet(action, params){
+  if(!_sb) return {};
+  if(action==='getSale'){
+    const { data } = await _sb.from('sales_daily').select('*').eq('date',_thaiToISO(params.date)).maybeSingle();
+    if(!data) return { found:false };
+    const coffeePrice = data.free_cups>0 ? Math.round(data.free_cup_cost/data.free_cups) : 50;
+    return { found:true, sales:data.total_cups, kshop:data.kshop_amount, cash:data.cash_amount,
+      shopee_raw:data.shopee_before_gp, grab_raw:data.grab_before_gp, lineman_raw:data.lineman_before_gp,
+      coffee_qty:data.free_cups, coffee_price:coffeePrice,
+      bakery_qty:data.pastry_pieces, bakery_income:data.pastry_revenue };
+  }
+  if(action==='export' && params.period==='monthly'){
+    const { data, error } = await _sb.rpc('get_monthly_summary',{ p_month_label: params.month });
+    if(error||!data) return { sales:[], opex:[], expense:[] };
+    const d = (typeof data==='string') ? JSON.parse(data) : data;
+    const allExp = d.expenses||[];
+    const OPEX_CATS = ['ค่าใช้จ่ายดำเนินการ','ค่าแรงพนักงาน','ภาษีและอื่นๆ'];
+    const EXP_CATS  = ['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ'];
+    return {
+      sales:   (d.sales||[]).map(_sbSaleToThai),
+      opex:    allExp.filter(e=>e.item_key&&OPEX_CATS.includes(e.category)).map(_sbOpexToThai),
+      expense: allExp.filter(e=>EXP_CATS.includes(e.category)).map(_sbExpToThai),
+    };
+  }
+  if(action==='export' && params.period==='daily'){
+    const EXP_CATS = ['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ'];
+    const { data } = await _sb.from('expenses').select('*').eq('date',_thaiToISO(params.date)).in('category',EXP_CATS);
+    return { expense:(data||[]).map(_sbExpToThai) };
+  }
+  if(action==='get_config'){
+    const { data } = await _sb.from('business_config').select('*');
+    const config={};
+    (data||[]).forEach(row=>{ config[row.key]=row.value; });
+    return { status:'ok', config };
+  }
+  if(action==='validate'){
+    const { data:{ session } } = await _sb.auth.getSession();
+    if(!session) return { valid:false };
+    const { data:profile } = await _sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+    return { valid:true, role:profile?.role||'manager',
+      display_name:profile?.full_name||profile?.username||'',
+      full_name:profile?.full_name||'', nickname:profile?.nickname||'' };
+  }
+  return {};
+}
+
+// ── SUPABASE POST (แทน fetch POST ไป GAS) ────────────────────
+async function _sbPost(p){
+  if(!_sb) return { status:'error', message:'Supabase ยังไม่พร้อม' };
+  const ft=p.formType;
+  // ── SALES ──────────────────────────────────────────────────
+  if(ft==='sales_form'||ft==='update_sales_form'){
+    const net=(+p.kshop||0)+(+p.cash||0)+(+p.shopee_net||0)+(+p.grab_net||0)+(+p.lineman_net||0);
+    const { error } = await _sb.rpc('upsert_sales_daily',{ p_data:{
+      date:_thaiToISO(p.date), total_cups:+p.sales||0, kshop_amount:+p.kshop||0, cash_amount:+p.cash||0,
+      shopee_before_gp:+p.shopee_raw||0, grab_before_gp:+p.grab_raw||0, lineman_before_gp:+p.lineman_raw||0,
+      free_cups:+p.coffee_qty||0, free_cup_cost:(+p.coffee_qty||0)*(+p.coffee_price||50),
+      pastry_pieces:+p.bakery_qty||0, pastry_revenue:+p.bakery_income||0, net_revenue:net,
+    }});
+    return error?{ status:'error', message:error.message }:{ status:'ok' };
+  }
+  // ── OPEX ──────────────────────────────────────────────────
+  if(ft==='opex_form'){
+    const { error } = await _sb.rpc('upsert_opex_item',{ p_data:{
+      month_label:p.month, category:p.category, item_name:p.label,
+      item_key:p.key, total_amount:+p.amount||0, payment_method:p.method||'อัตโนมัติ',
+    }});
+    return error?{ status:'error', message:error.message }:{ status:'ok' };
+  }
+  // ── EXPENSES (mat/bak/misc) ────────────────────────────────
+  if(ft==='expense_form'){
+    const records=(p.rows||[]).map(r=>({
+      date:_thaiToISO(r.date), category:r.category, subcategory:r.supplier||'',
+      item_name:r.item_name, unit_price:+r.price_per_unit||0, quantity:+r.qty||1,
+      total_amount:+r.total_amount||0, payment_method:r.pay_method||'บัญชี หจก.', month_label:'',
+    }));
+    if(!records.length) return { status:'ok' };
+    const { error } = await _sb.from('expenses').insert(records);
+    return error?{ status:'error', message:error.message }:{ status:'ok' };
+  }
+  // ── EDIT EXPENSE (atomic delete+insert) ───────────────────
+  if(ft==='edit_expense'){
+    const isoDate=_thaiToISO(p.date);
+    await _sb.from('expenses').delete().eq('date',isoDate).eq('category',p.category);
+    if((p.rows||[]).length>0){
+      const records=p.rows.map(r=>({
+        date:isoDate, category:r.category, subcategory:r.supplier||'',
+        item_name:r.item_name, unit_price:+r.price_per_unit||0, quantity:+r.qty||1,
+        total_amount:+r.total_amount||0, payment_method:r.pay_method||'บัญชี หจก.', month_label:'',
+      }));
+      const { error } = await _sb.from('expenses').insert(records);
+      if(error) return { status:'error', message:error.message };
+    }
+    return { status:'ok' };
+  }
+  // ── DELETE EXPENSE DATE ────────────────────────────────────
+  if(ft==='delete_expense_date'){
+    await _sb.from('expenses').delete().eq('date',_thaiToISO(p.date)).eq('category',p.category);
+    return { status:'ok' };
+  }
+  // ── SAVE CONFIG ────────────────────────────────────────────
+  if(ft==='save_config'){
+    let val=p.config_value;
+    if(typeof val==='string'){ try{ val=JSON.parse(val); }catch(e){ val={ _raw:val }; } }
+    const { error } = await _sb.from('business_config').upsert({ key:p.config_key, value:val, updated_at:new Date().toISOString() });
+    return error?{ status:'error', message:error.message }:{ status:'ok' };
+  }
+  // ── DELETE MONTH ───────────────────────────────────────────
+  if(ft==='delete_month'){
+    const cat=p.category||'all';
+    const start=_monthStart(p.month), end=_monthEnd(p.month);
+    if(cat==='all'||cat==='sales')
+      await _sb.from('sales_daily').delete().gte('date',start).lte('date',end);
+    if(cat==='all'||cat==='expense')
+      await _sb.from('expenses').delete().eq('month_label',p.month).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']);
+    if(cat==='all'||cat==='opex')
+      await _sb.from('expenses').delete().eq('month_label',p.month).in('category',['ค่าใช้จ่ายดำเนินการ','ค่าแรงพนักงาน','ภาษีและอื่นๆ']);
+    return { status:'ok', deleted:['Supabase'] };
+  }
+  // ── DEDUPLICATE ───────────────────────────────────────────
+  if(ft==='deduplicate_month'){
+    const { data:sales } = await _sb.from('sales_daily').select('id,date,created_at')
+      .gte('date',_monthStart(p.month)).lte('date',_monthEnd(p.month)).order('date').order('created_at');
+    const seen={}, toDelete=[];
+    (sales||[]).forEach(r=>{ if(seen[r.date]) toDelete.push(r.id); else seen[r.date]=true; });
+    if(toDelete.length) await _sb.from('sales_daily').delete().in('id',toDelete);
+    return { status:'ok', removed:toDelete.length, remaining:(sales||[]).length-toDelete.length, shName:'sales_daily' };
+  }
+  // ── IMPORT SALES ──────────────────────────────────────────
+  if(ft==='import_sales'){
+    let imported=0;
+    for(const r of (p.rows||[])){
+      const df=r['วันที่']||r['date']||''; if(!df) continue;
+      const isoDate=df.includes('/')?_thaiToISO(df):df;
+      const net=+(r['รายรับสุทธิ(฿)']||r['net_revenue']||0);
+      const { error } = await _sb.rpc('upsert_sales_daily',{ p_data:{
+        date:isoDate, total_cups:+(r['ยอดขาย(แก้ว)']||r['total_cups']||0),
+        kshop_amount:+(r['K-Shop(฿)']||r['kshop_amount']||0), cash_amount:+(r['เงินสด(฿)']||r['cash_amount']||0),
+        shopee_before_gp:+(r['Shopee(฿)ก่อน GP']||r['shopee_before_gp']||0),
+        grab_before_gp:+(r['Grab(฿)ก่อน GP']||r['grab_before_gp']||0),
+        lineman_before_gp:+(r['LineMan(฿)ก่อน GP']||r['lineman_before_gp']||0),
+        free_cups:+(r['แก้วฟรี(แก้ว)']||r['free_cups']||0), free_cup_cost:+(r['ต้นทุน/แก้วฟรี(฿)']||r['free_cup_cost']||0),
+        pastry_pieces:+(r['ขนม(ชิ้น)']||r['pastry_pieces']||0), pastry_revenue:+(r['รายได้ขนม(฿)']||r['pastry_revenue']||0),
+        net_revenue:net,
+      }});
+      if(!error) imported++;
+    }
+    return { status:'ok', imported };
+  }
+  // ── IMPORT EXPENSE ────────────────────────────────────────
+  if(ft==='import_expense'){
+    let imported=0;
+    for(const r of (p.rows||[])){
+      const df=r['วันที่']||r['date']||''; if(!df) continue;
+      const isoDate=df.includes('/')?_thaiToISO(df):df;
+      const { error } = await _sb.from('expenses').insert({
+        date:isoDate, category:r['หมวดหมู่']||r['category']||'ต้นทุนวัตถุดิบ',
+        subcategory:r['ซัพพลายเออร์']||r['supplier']||'', item_name:r['รายการ']||r['item_name']||'',
+        unit_price:+(r['ราคา/หน่วย(฿)']||0), quantity:+(r['จำนวน']||1),
+        total_amount:+(r['รวม(฿)']||r['total_amount']||0),
+        payment_method:r['ชำระด้วย']||r['payment_method']||'บัญชี หจก.', month_label:'',
+      });
+      if(!error) imported++;
+    }
+    return { status:'ok', imported };
+  }
+  // ── IMPORT OPEX ───────────────────────────────────────────
+  if(ft==='import_opex'){
+    let imported=0;
+    for(const r of (p.rows||[])){
+      const { error } = await _sb.rpc('upsert_opex_item',{ p_data:{
+        month_label:r['เดือน']||r['month']||'',
+        category:r['หมวดหมู่']||r['category']||'ค่าใช้จ่ายดำเนินการ',
+        item_name:r['รายการ']||r['label']||'', item_key:r['Key']||r['key']||null,
+        total_amount:+(r['ยอด(฿)']||r['amount']||0), payment_method:r['วิธีชำระ']||r['method']||'อัตโนมัติ',
+      }});
+      if(!error) imported++;
+    }
+    return { status:'ok', imported };
+  }
+  // ── USERS ─────────────────────────────────────────────────
+  if(ft==='list_users'){
+    const { data } = await _sb.from('profiles').select('*').order('created_at');
+    return { status:'ok', users:(data||[]).map(u=>({ username:u.username, role:u.role, full_name:u.full_name, nickname:u.nickname, is_active:u.is_active })) };
+  }
+  if(ft==='update_user'||ft==='update_user_role'){
+    const upd={};
+    if(p.full_name!==undefined) upd.full_name=p.full_name;
+    if(p.nickname!==undefined) upd.nickname=p.nickname;
+    if(p.role!==undefined) upd.role=p.role;
+    const { error } = await _sb.from('profiles').update(upd).eq('username',p.username);
+    return error?{ status:'error', message:error.message }:{ status:'ok' };
+  }
+  if(ft==='change_password'){
+    const { error } = await _sb.auth.updateUser({ password:p.new_password });
+    return error?{ status:'error', message:error.message }:{ status:'ok' };
+  }
+  if(ft==='create_user')  return { status:'error', message:'สร้าง user ที่ Supabase Dashboard → Authentication → Users' };
+  if(ft==='delete_user'||ft==='reset_user_password') return { status:'error', message:'จัดการ user ที่ Supabase Dashboard → Authentication → Users' };
+  if(ft==='logout') return { status:'ok' };
+  return { status:'error', message:'Unknown formType: '+ft };
+}
 
 // ══════════════════════════════════════════════════════════════
 //  AUTH
@@ -1552,7 +1785,7 @@ function showApp() {
 }
 
 // กด Login
-function doLogin() {
+async function doLogin() {
   const username = document.getElementById('login_user').value.trim();
   const password = document.getElementById('login_pw').value;
   if (!username || !password) {
@@ -1562,65 +1795,60 @@ function doLogin() {
   const btn = document.getElementById('login_btn');
   btn.disabled = true;
   btn.textContent = 'กำลังเข้าสู่ระบบ...';
-
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType:'login', username, password }),
-  })
-  .then(r => r.json())
-  .then(res => {
+  try {
+    const email = username.includes('@') ? username : username + '@marim69.internal';
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password });
     btn.disabled = false; btn.innerHTML = '<i class="ti ti-login"></i> เข้าสู่ระบบ';
-    if (res.status === 'ok') {
-      _auth = { token: res.token, role: res.role, display_name: res.display_name, full_name: res.full_name||'', nickname: res.nickname||res.display_name||'', username };
-      localStorage.setItem('mm69_auth', JSON.stringify(_auth));
-      document.getElementById('login_overlay').classList.add('hidden');
-      applyRoleRestrictions();
-      initApp();
-    } else {
-      document.getElementById('login_err').textContent = res.message || 'เข้าสู่ระบบไม่สำเร็จ';
+    if (error) {
+      document.getElementById('login_err').textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      return;
     }
-  })
-  .catch((err) => {
+    const session = data.session;
+    const { data: profile } = await _sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+    _auth = {
+      token: session.access_token,
+      role: profile?.role || 'manager',
+      display_name: profile?.full_name || profile?.username || username,
+      full_name: profile?.full_name || '',
+      nickname: profile?.nickname || '',
+      username: profile?.username || username,
+    };
+    localStorage.setItem('mm69_auth', JSON.stringify(_auth));
+    document.getElementById('login_overlay').classList.add('hidden');
+    applyRoleRestrictions();
+    initApp();
+  } catch(err) {
     btn.disabled = false; btn.innerHTML = '<i class="ti ti-login"></i> เข้าสู่ระบบ';
-    const errMsg = err && err.message ? err.message : String(err);
-    document.getElementById('login_err').textContent = 'เชื่อมต่อไม่ได้: ' + errMsg;
-    console.error('[doLogin] fetch error:', err);
-  });
+    document.getElementById('login_err').textContent = 'เชื่อมต่อไม่ได้: ' + (err.message || err);
+  }
 }
 
 // Logout
 function doLogout() {
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType:'logout', username: _auth.username }),
-  }).catch(()=>{});
+  if(_sb) _sb.auth.signOut().catch(()=>{});
   _auth = { token:'', role:'', display_name:'', full_name:'', nickname:'' };
   localStorage.removeItem('mm69_auth');
   showLogin('ออกจากระบบแล้ว');
 }
 
-// ตรวจ session ใน localStorage เมื่อโหลดหน้า
-function checkStoredAuth() {
-  const stored = localStorage.getItem('mm69_auth');
-  if (!stored) return Promise.resolve(false);
+// ตรวจ session ใน Supabase เมื่อโหลดหน้า
+async function checkStoredAuth() {
+  if(!_sb) return false;
   try {
-    const a = JSON.parse(stored);
-    if (!a.token) return Promise.resolve(false);
-    return fetch(WEB_APP_URL + '?action=validate&token=' + encodeURIComponent(a.token))
-      .then(r => r.json())
-      .then(res => {
-        if (res.valid) {
-          _auth = { ...a, role: res.role, display_name: res.display_name };
-          return true;
-        }
-        localStorage.removeItem('mm69_auth');
-        return false;
-      })
-      .catch(() => {
-        // network error → แสดง login แต่ยังเก็บ localStorage ไว้ (อาจกลับมา online)
-        return false;
-      });
-  } catch(e) { return Promise.resolve(false); }
+    const { data:{ session } } = await _sb.auth.getSession();
+    if(!session) return false;
+    const { data:profile } = await _sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+    _auth = {
+      token: session.access_token,
+      role: profile?.role||'manager',
+      display_name: profile?.full_name||profile?.username||session.user.email?.split('@')[0]||'',
+      full_name: profile?.full_name||'',
+      nickname: profile?.nickname||'',
+      username: profile?.username||session.user.email?.split('@')[0]||'',
+    };
+    localStorage.setItem('mm69_auth', JSON.stringify(_auth));
+    return true;
+  } catch(e) { return false; }
 }
 
 // ใช้ role จำกัด UI
@@ -1664,10 +1892,7 @@ function doChangePw() {
   const cp = document.getElementById('chpw_confirm').value;
   if (!np || np.length < 6) { document.getElementById('chpw_err').textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; return; }
   if (np !== cp) { document.getElementById('chpw_err').textContent = 'รหัสผ่านไม่ตรงกัน'; return; }
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType:'change_password', token:_auth.token, target_user:_auth.username, username_requester:_auth.username, new_password:np }),
-  }).then(r=>r.json()).then(res=>{
+  _sbPost({ formType:'change_password', new_password:np }).then(res=>{
     if (res.status === 'ok') {
       document.getElementById('chpw_overlay').classList.add('hidden');
       alert('เปลี่ยนรหัสผ่านสำเร็จ');
@@ -1699,13 +1924,8 @@ function setUserStatus(msg, type) {
 
 function loadUsers() {
   setUserStatus('กำลังโหลด...', '');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType: 'list_users', token: getToken() }),
-  })
-  .then(r => r.json())
+  _sbPost({ formType:'list_users' })
   .then(res => {
-    if (res.code === 'unauthorized') { handleUnauthorized(); return; }
     if (res.status !== 'ok') { setUserStatus(res.message || 'เกิดข้อผิดพลาด', 'err'); return; }
     setUserStatus('', '');
     renderUserTable(res.users);
@@ -1780,13 +2000,8 @@ function doChangeRole(username, newRole) {
   const label = labels[newRole] || newRole;
   if (!confirm(`เปลี่ยนสิทธิ์ "${username}" เป็น ${label} ใช่ไหม?\n(จะออก session อัตโนมัติ)`)) { loadUsers(); return; }
   setUserStatus('กำลังอัปเดต...', '');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType: 'update_user_role', token: getToken(), username, role: newRole }),
-  })
-  .then(r => r.json())
+  _sbPost({ formType:'update_user_role', username, role:newRole })
   .then(res => {
-    if (res.code === 'unauthorized') { handleUnauthorized(); return; }
     if (res.status !== 'ok') { setUserStatus(res.message || 'เกิดข้อผิดพลาด', 'err'); return; }
     setUserStatus('เปลี่ยนสิทธิ์เรียบร้อยแล้ว ✓', 'ok');
     loadUsers();
@@ -1813,13 +2028,8 @@ function doResetPw() {
   if (!np || np.length < 6) { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; return; }
   if (np !== cp) { errEl.textContent = 'รหัสผ่านไม่ตรงกัน'; return; }
   errEl.textContent = '';
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType: 'reset_user_password', token: getToken(), username: _resetPwTarget, new_password: np }),
-  })
-  .then(r => r.json())
+  _sbPost({ formType:'reset_user_password', username:_resetPwTarget, new_password:np })
   .then(res => {
-    if (res.code === 'unauthorized') { handleUnauthorized(); return; }
     if (res.status !== 'ok') { errEl.textContent = res.message || 'เกิดข้อผิดพลาด'; return; }
     hideResetPw();
     setUserStatus('รีเซ็ตรหัสผ่าน "' + _resetPwTarget + '" เรียบร้อยแล้ว ✓', 'ok');
@@ -1831,13 +2041,8 @@ function doResetPw() {
 function doDeleteUser(username, displayName) {
   if (!confirm(`ลบบัญชี "${displayName}" (${username}) ?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้`)) return;
   setUserStatus('กำลังลบ...', '');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType: 'delete_user', token: getToken(), username, requester_username: _auth.username }),
-  })
-  .then(r => r.json())
+  _sbPost({ formType:'delete_user', username, requester_username:_auth.username })
   .then(res => {
-    if (res.code === 'unauthorized') { handleUnauthorized(); return; }
     if (res.status !== 'ok') { setUserStatus(res.message || 'เกิดข้อผิดพลาด', 'err'); return; }
     setUserStatus('ลบบัญชี "' + username + '" เรียบร้อยแล้ว ✓', 'ok');
     loadUsers();
@@ -1880,11 +2085,7 @@ function doSaveEditUser() {
   if (oldRole !== newRole) diffs.push({ field:'สิทธิ์', old:ROLE_LABEL[oldRole]||oldRole||'—', new:ROLE_LABEL[newRole] });
   if (!diffs.length) { _euStatus('ไม่มีการเปลี่ยนแปลง', ''); return; }
   _euStatus('กำลังบันทึก...', '');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType:'update_user', token:getToken(), username, full_name:newFull, nickname:newNick, role:newRole }),
-  })
-  .then(r => r.json())
+  _sbPost({ formType:'update_user', username, full_name:newFull, nickname:newNick, role:newRole })
   .then(res => {
     if (res.code === 'unauthorized') { handleUnauthorized(); return; }
     if (res.status !== 'ok') { _euStatus(res.message || 'เกิดข้อผิดพลาด', 'err'); return; }
@@ -1932,19 +2133,14 @@ function doCreateUser() {
   if (!password || password.length < 6) { setUserStatus('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', 'err'); return; }
   if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUserStatus('ชื่อผู้ใช้ใช้ได้เฉพาะ a-z, 0-9, _ เท่านั้น', 'err'); return; }
   setUserStatus('กำลังสร้างบัญชี...', '');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({
-      formType: 'create_user', token: getToken(),
+  _sbPost({
+      formType: 'create_user',
       username, full_name: fullName,
       nickname: nickname || fullName,
       display_name: nickname || fullName,
       password, role,
-    }),
   })
-  .then(r => r.json())
   .then(res => {
-    if (res.code === 'unauthorized') { handleUnauthorized(); return; }
     if (res.status !== 'ok') { setUserStatus(res.message || 'เกิดข้อผิดพลาด', 'err'); return; }
     setUserStatus('สร้างบัญชี "' + username + '" เรียบร้อยแล้ว ✓', 'ok');
     document.getElementById('nu_username').value = '';
@@ -2156,10 +2352,10 @@ function initApp(){
   initAnMonthInputs(); // ตั้งค่า from/to เดือน analytics
 
   // ── โหลดข้อมูลจาก Sheet อัตโนมัติ ──────────────────────────
-  // 1. ดึง price list
-  fetch(WEB_APP_URL).then(r=>r.json()).then(data=>{
-    if(data.prices){
-      priceDB=data.prices;
+  // 1. ดึง price list จาก Supabase
+  if(_sb) _sb.from('price_list').select('*').eq('is_active',true).then(({data:rows})=>{
+    if(rows&&rows.length){
+      priceDB=rows.map(r=>[r.category,r.item_name,String(r.price)]);
       priceDB.forEach(row=>{ if(row[0]==='Bakery_Shop'&&row[1]&&row[2]) BAKERY_DEFAULTS[row[1]]=Number(row[2]); });
       loadBakPriceOverrides();
     }
@@ -2280,8 +2476,7 @@ function loadMonthlyData() {
 
   // ดึงข้อมูลทุกเดือนในช่วง (parallel)
   const promises = months.map(m =>
-    fetch(WEB_APP_URL+'?action=export&period=monthly&month='+encodeURIComponent(m)+'&token='+encodeURIComponent(token))
-      .then(r=>r.json())
+    _sbGet('export',{period:'monthly',month:m})
       .catch(()=>null)
   );
 
@@ -2356,39 +2551,16 @@ function loadMonthlyData() {
   });
 }
 
-window.onload = function(){
-  const stored = localStorage.getItem('mm69_auth');
-  if(stored){
-    try{
-      const a = JSON.parse(stored);
-      if(a.token){
-        // ── Optimistic login: เข้าแอปทันที ไม่ต้องรอ GAS ──
-        _auth = { ...a };
-        document.getElementById('login_overlay').classList.add('hidden');
-        applyRoleRestrictions();
-        initApp();
-        // ── Validate token ใน background (ไม่บล็อก UI) ──
-        fetch(WEB_APP_URL + '?action=validate&token=' + encodeURIComponent(a.token))
-          .then(r => r.json())
-          .then(res => {
-            if(!res.valid){
-              // Token หมดอายุ → force logout
-              localStorage.removeItem('mm69_auth');
-              _auth = { token:'', role:'', display_name:'', full_name:'', nickname:'' };
-              showLogin();
-              const err = document.getElementById('login_err');
-              if(err){ err.style.color='var(--danger)'; err.textContent='Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'; }
-            } else {
-              // อัปเดต role/display_name ถ้ามีการเปลี่ยนแปลง
-              _auth = { ...a, role: res.role, display_name: res.display_name, full_name: res.full_name||a.full_name||'', nickname: res.nickname||a.nickname||res.display_name||'' };
-              localStorage.setItem('mm69_auth', JSON.stringify(_auth));
-              applyRoleRestrictions();
-            }
-          })
-          .catch(() => { /* network error — ยังใช้ token เดิมต่อ */ });
-        return;
-      }
-    }catch(e){}
+window.onload = async function(){
+  // Initialize Supabase client
+  _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // Check Supabase session
+  const ok = await checkStoredAuth();
+  if(ok){
+    document.getElementById('login_overlay').classList.add('hidden');
+    applyRoleRestrictions();
+    initApp();
+    return;
   }
   showLogin();
 };
@@ -2478,8 +2650,8 @@ function post(payload,statusId,onOk,lockKey){
   // แนบ token + logged_by อัตโนมัติทุก request
   const logged_by = _auth.display_name || _auth.username || '';
   const body = JSON.stringify({ ...payload, token: getToken(), logged_by });
-  fetch(WEB_APP_URL,{method:'POST',body})
-  .then(r=>r.json()).then(res=>{
+  _sbPost(JSON.parse(body))
+  .then(res=>{
     _postLocks.delete(key);
     document.querySelectorAll(btnSel).forEach(b=>b.disabled=false);
     if(res.code==='unauthorized'){ handleUnauthorized(); return; }
@@ -2491,10 +2663,10 @@ function post(payload,statusId,onOk,lockKey){
       setStatus(statusId,'บันทึกสำเร็จ ✓','ok');
       if(onOk) setTimeout(()=>onOk(res),700);
     } else setStatus(statusId,'เกิดข้อผิดพลาด: '+(res.message||''),'err');
-  }).catch(()=>{
+  }).catch(e=>{
     _postLocks.delete(key);
     document.querySelectorAll(btnSel).forEach(b=>b.disabled=false);
-    setStatus(statusId,'เชื่อมต่อเครือข่ายไม่ได้','err');
+    setStatus(statusId,'เกิดข้อผิดพลาด: '+(e?.message||e),'err');
   });
 }
 function calSaleTotal(){
@@ -2901,8 +3073,7 @@ function onSaleDateChange(){
   const d = document.getElementById('s_date').value;
   if(!d){ originalSaleData=null; return; }
   setSaleFetchStatus('กำลังโหลด...','#e8f0fe','#185fa5');
-  fetch(WEB_APP_URL+'?action=getSale&date='+encodeURIComponent(thaiDate(d))+'&token='+encodeURIComponent(getToken()))
-    .then(r=>r.json())
+  _sbGet('getSale',{date:thaiDate(d)})
     .then(data=>{
       if(data && data.found){
         originalSaleData = data;
@@ -3099,8 +3270,7 @@ async function loadExpenseForDate(type){
   const statusId='status_'+type;
   setStatus(statusId,'กำลังโหลดข้อมูลวันที่ '+dateLabel+'...','');
   try {
-    const res=await fetch(WEB_APP_URL+'?action=export&period=daily&date='+encodeURIComponent(dateLabel)+'&token='+encodeURIComponent(token));
-    const data=await res.json();
+    const data=await _sbGet('export',{period:'daily',date:dateLabel});
     const cat=_EXPENSE_CATS[type];
     const rows=(data.expense||[]).filter(r=>r['หมวดหมู่']===cat);
     if(!rows.length){
@@ -3256,12 +3426,9 @@ async function _atomicEdit(type, d, domRows){
   setStatus(statusId,'กำลังอัปเดตข้อมูล...','');
   let res;
   try {
-    const r = await fetch(WEB_APP_URL,{ method:'POST',
-      body:JSON.stringify({ formType:'edit_expense', token:getToken(), logged_by:by,
-        date:dateStr, category:cat, rows:rowsPayload }) });
-    res = await r.json();
+    res = await _sbPost({ formType:'edit_expense', logged_by:by, date:dateStr, category:cat, rows:rowsPayload });
   } catch(e){
-    setStatus(statusId,'เชื่อมต่อ GAS ไม่ได้: '+e.message,'err');
+    setStatus(statusId,'บันทึกไม่ได้: '+e.message,'err');
     return;
   }
 
@@ -3301,10 +3468,8 @@ async function _deleteAndSave(type, d, rows, doSaveFn){
   const statusId='status_'+type;
   setStatus(statusId,'กำลังลบข้อมูลเดิม...','');
   try {
-    await fetch(WEB_APP_URL,{ method:'POST', body:JSON.stringify({
-      formType:'delete_expense_date', token, logged_by:_auth.display_name||_auth.username||'',
-      date:thaiDate(d), category:cat,
-    })});
+    await _sbPost({ formType:'delete_expense_date', logged_by:_auth.display_name||_auth.username||'',
+      date:thaiDate(d), category:cat });
   } catch(e){}
   doSaveFn(d, rows);
 }
@@ -3797,8 +3962,7 @@ async function loadOpexForMonth(monthVal){
 
   if(statusEl){ statusEl.textContent='กำลังโหลดข้อมูลเดือน '+monthLabel+'...'; statusEl.className='status'; }
   try {
-    const res  = await fetch(WEB_APP_URL+'?action=export&period=monthly&month='+encodeURIComponent(monthLabel)+'&token='+encodeURIComponent(token));
-    const data = await res.json();
+    const data = await _sbGet('export',{period:'monthly',month:monthLabel});
 
     // ── คำนวณ income ของเดือนนั้น (สำหรับ commission) ────────
     const salesRows = _dedupByDate(data.sales||[], 'วันที่');
@@ -4923,8 +5087,8 @@ async function loadSalesHistory(){
 
     // ดึงข้อมูลทุกเดือนพร้อมกัน
     const results = await Promise.all(months.map(ml =>
-      fetch(WEB_APP_URL+'?action=export&period=monthly&month='+encodeURIComponent(ml)+'&token='+encodeURIComponent(token))
-        .then(r=>r.json()).then(d=>({ ml, rows: _dedupByDate(d.sales||[], 'วันที่') }))
+      _sbGet('export',{period:'monthly',month:ml})
+        .then(d=>({ ml, rows: _dedupByDate(d.sales||[], 'วันที่') }))
     ));
 
     // รวม rows ทั้งหมด + กรองตาม date range
@@ -5012,11 +5176,7 @@ function loadExpenseHistory() {
   statusEl.textContent = 'กำลังโหลดข้อมูลเดือน ' + monthLabel + ' ...';
   bodyEl.innerHTML = '';
 
-  const token = getToken();
-  if (!token) { statusEl.textContent = 'ไม่มี token — กรุณา login ใหม่'; return; }
-
-  fetch(WEB_APP_URL + '?action=export&period=monthly&month=' + encodeURIComponent(monthLabel) + '&token=' + encodeURIComponent(token))
-    .then(r => r.json())
+  _sbGet('export',{period:'monthly',month:monthLabel})
     .then(data => {
       if (data.error === 'unauthorized') { handleUnauthorized(); return; }
       const rows = data.expense || [];
@@ -5155,8 +5315,7 @@ async function loadAnalysis(){
   let done=0;
   try {
     const results=await Promise.all(months.map(m=>
-      fetch(WEB_APP_URL+'?action=export&period=monthly&month='+encodeURIComponent(m)+'&token='+encodeURIComponent(token))
-        .then(r=>r.json())
+      _sbGet('export',{period:'monthly',month:m})
         .then(data=>{ done++; if(msg) msg.textContent='โหลด '+done+'/'+months.length+' เดือน...'; return {...data,month:m}; })
         .catch(()=>({month:m,sales:[],expense:[],opex:[]}))
     ));
@@ -5397,35 +5556,25 @@ function printAnalysis(){
 // ══════════════════════════════════════════════════════════════
 // ── GAS Config helpers (บันทึกถาวรที่ server) ────────────────
 
-// บันทึก key/value ไปที่ GAS ScriptProperties (fire-and-forget)
+// บันทึก key/value ไปที่ Supabase business_config (fire-and-forget)
 function saveConfigToGAS(key, value, statusElId){
-  const token = getToken(); if(!token) return;
-  fetch(WEB_APP_URL, {
-    method:'POST',
-    body: JSON.stringify({
-      formType:'save_config', token,
-      logged_by: _auth.display_name||_auth.username||'',
-      config_key: key, config_value: value,
-    })
-  }).then(r=>r.json()).then(res=>{
+  if(!_sb) return;
+  _sbPost({ formType:'save_config', config_key:key, config_value:value }).then(res=>{
     if(res.status!=='ok'){
-      console.warn('saveConfigToGAS failed:', key, res);
-      if(statusElId) setStatus(statusElId,'⚠ บันทึกลง GAS ไม่ได้: '+( res.message||'unknown'),'err');
+      console.warn('saveConfig failed:', key, res);
+      if(statusElId) setStatus(statusElId,'⚠ บันทึกไม่ได้: '+(res.message||'unknown'),'err');
     }
-  }).catch(e=>{
-    console.warn('saveConfigToGAS error:', key, e.message);
-  });
+  }).catch(e=>{ console.warn('saveConfig error:', key, e?.message); });
 }
 
-// โหลด config จาก GAS แล้ว sync ลง localStorage + reload UI
+// โหลด config จาก Supabase แล้ว sync ลง localStorage + reload UI
 async function loadConfigFromGAS(force=false){
-  const token = getToken(); if(!token) return;
+  if(!_sb) return;
   const syncB = document.getElementById('settings_sync_banner');
   const emptyB = document.getElementById('settings_empty_banner');
   if(syncB && force) syncB.style.display='flex';
   try {
-    const res  = await fetch(WEB_APP_URL+'?action=get_config&token='+encodeURIComponent(token));
-    const data = await res.json();
+    const data = await _sbGet('get_config',{});
     if(syncB) syncB.style.display='none';
     if(data.status!=='ok' || !data.config){ return; }
     const cfg = data.config;
@@ -6005,11 +6154,7 @@ function doDeduplicate() {
   }
   if (!confirm(`ยืนยันการลบข้อมูลซ้ำ ยอดขาย เดือน ${month}?\n\nระบบจะเก็บแถวสุดท้ายของแต่ละวันไว้ และลบแถวที่ซ้ำออก`)) return;
   setStatus('status_dedup','กำลังตรวจสอบข้อมูล...','');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType:'deduplicate_month', token:getToken(), month, category:cat }),
-  })
-  .then(r=>r.json())
+  _sbPost({ formType:'deduplicate_month', month, category:cat })
   .then(res=>{
     if(res.code==='unauthorized'){ handleUnauthorized(); return; }
     if(res.status!=='ok'){ setStatus('status_dedup',res.message||'เกิดข้อผิดพลาด','err'); return; }
@@ -6030,11 +6175,7 @@ function doDeleteMonth() {
   const catLabel = { all:'ทั้งหมด', sales:'ยอดขาย', expense:'ต้นทุนวัตถุดิบ', opex:'ค่าดำเนินการ' }[cat] || cat;
   if (!confirm(`⚠ ยืนยันการลบข้อมูล ${catLabel} เดือน ${month} ออกจาก Google Sheet?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้`)) return;
   setStatus('status_del_month','กำลังลบข้อมูล...','');
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    body: JSON.stringify({ formType:'delete_month', token:getToken(), month, category:cat, logged_by:_auth.display_name||_auth.username||'' }),
-  })
-  .then(r=>r.json())
+  _sbPost({ formType:'delete_month', month, category:cat, logged_by:_auth.display_name||_auth.username||'' })
   .then(res=>{
     if(res.code==='unauthorized'){ handleUnauthorized(); return; }
     if(res.status!=='ok'){ setStatus('status_del_month',res.message||'เกิดข้อผิดพลาด','err'); return; }
