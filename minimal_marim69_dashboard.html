@@ -875,7 +875,7 @@
     <div class="section-date" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:180px">
         <label><i class="ti ti-calendar" style="margin-right:4px;vertical-align:-2px"></i>วันที่จ่ายเงิน</label>
-        <input type="date" id="e_main_date">
+        <input type="date" id="e_main_date" onchange="loadSavedForDate()">
       </div>
       <button class="btn" onclick="showEditExpModal()" style="margin-top:18px;background:#fff3e0;border:1.5px solid #e6961a;color:#7a4a00;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap">
         <i class="ti ti-edit"></i> ค้นหาและแก้ไขรายจ่าย
@@ -2438,6 +2438,7 @@ function initApp(){
   document.getElementById('s_date').value=today;
   onSaleDateChange(); // โหลดข้อมูลยอดขายวันนี้ทันทีเมื่อเปิดหน้า
   document.getElementById('e_main_date').value=today;
+  setTimeout(()=>loadSavedForDate(),300); // auto-load ข้อมูลวันนี้
   document.getElementById('sum_date_from').value=firstOfMonth;
   document.getElementById('sum_date_to').value=today;
   updateSumDateDisplay();
@@ -3638,12 +3639,12 @@ function finishMat(errors,batchSaved,d){
   if(errors>0){ setStatus('status_mat','มี '+errors+' รายการที่กรอกข้อมูลไม่ครบ กรุณาตรวจสอบ','err'); return; }
   savedDates.mat.add(thaiDate(d));
   batchSaved.forEach(r=>matSaved.push(r));
-  renderSavedList('mat');
   updateSummary();
   const wasEdit=!!_editMode.mat;
   cancelEditExpense('mat');
   setStatus('status_mat',(wasEdit?'อัปเดตข้อมูลแล้ว ✓':'บันทึกครบทุกรายการแล้ว ✓'),'ok');
   document.getElementById('mat_item_list').innerHTML=''; matRowId=0; addMatRow();
+  setTimeout(()=>loadSavedForDate(),400); // refresh saved list
 }
 function saveBakAll(){
   const d=document.getElementById('e_main_date').value; if(!d){alert('กรุณาระบุวันที่');return;}
@@ -3684,10 +3685,10 @@ function finishBak(errors,batchSaved,d){
   if(errors>0){ setStatus('status_bak','มี '+errors+' รายการที่ยังไม่ได้เลือกขนม','err'); return; }
   savedDates.bak.add(thaiDate(d));
   batchSaved.forEach(r=>bakSaved.push(r));
-  renderSavedList('bak');
   const wasEdit=!!_editMode.bak;
   cancelEditExpense('bak');
   setStatus('status_bak',(wasEdit?'อัปเดตข้อมูลแล้ว ✓':'บันทึกครบทุกรายการแล้ว ✓'),'ok');
+  setTimeout(()=>loadSavedForDate(),400);
   document.getElementById('bak_item_list').innerHTML=''; bakRowId=0; addBakRow();
   updateSummary();
 }
@@ -5101,7 +5102,7 @@ function finishMisc(errors,batchSaved,d){
   cancelEditExpense('misc');
   // บันทึกประวัติ
   _appendMiscHistory(thaiDate(d), batchSaved);
-  renderSavedList('misc');
+  setTimeout(()=>loadSavedForDate(),400);
   setStatus('status_misc',(wasEdit?'อัปเดตข้อมูลแล้ว ✓':'บันทึกครบทุกรายการแล้ว ✓'),'ok');
   document.getElementById('misc_item_list').innerHTML=''; miscRowId=0; addMiscRow();
   updateMiscGrand();
@@ -6728,6 +6729,11 @@ function showEditExpModal(){
   document.getElementById('editexp_form').style.display = 'none';
   document.getElementById('editexp_status').textContent = '';
   renderEditExpHistory();
+  const note = document.getElementById('editexp_role_note');
+  if(note){
+    const canEdit = _auth?.role==='admin'||_auth?.role==='co-admin';
+    note.textContent = canEdit ? '' : '⚠ บัญชีของคุณไม่มีสิทธิ์แก้ไข (ต้องเป็น admin/co-admin)';
+  }
   document.getElementById('edit_exp_overlay').classList.remove('hidden');
 }
 
@@ -6840,8 +6846,9 @@ async function _doSaveEditExp(id, date, cat, item, price, qty, amount, method, e
     st.textContent = `✅ แก้ไขสำเร็จ — ${item} (${nowStr})`;
     document.getElementById('editexp_form').style.display = 'none';
     renderEditExpHistory();
-    // refresh results
     searchExpenseByDate();
+    // reload saved list in expense tab
+    setTimeout(()=>loadSavedForDate(), 300);
   } catch(e){
     st.textContent = '❌ บันทึกไม่ได้: '+e.message;
   }
@@ -6861,6 +6868,85 @@ function renderEditExpHistory(){
     </div>`
   ).join('');
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// ── LOAD SAVED EXPENSES BY DATE ──────────────────────────────
+// ════════════════════════════════════════════════════════════════
+
+async function loadSavedForDate(){
+  const dv = document.getElementById('e_main_date').value;
+  if(!dv || !_sb) return;
+  try {
+    const { data, error } = await _sb.from('expenses').select('*')
+      .eq('date', dv)
+      .in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ'])
+      .order('category').order('item_name');
+
+    if(error) return;
+    const mat  = (data||[]).filter(r=>r.category==='ต้นทุนวัตถุดิบ');
+    const bak  = (data||[]).filter(r=>r.category==='ต้นทุนขนมหน้าร้าน');
+    const misc = (data||[]).filter(r=>r.category==='รายจ่ายจิปาถะ');
+    renderSavedFromDB('mat',  mat,  dv);
+    renderSavedFromDB('bak',  bak,  dv);
+    renderSavedFromDB('misc', misc, dv);
+  } catch(e){ /* silent */ }
+}
+
+function renderSavedFromDB(type, rows, dv){
+  const listEl  = document.getElementById(type+'_saved_list');
+  const itemsEl = document.getElementById(type+'_saved_items');
+  const titleEl = listEl?.querySelector('.saved-list-title');
+  if(!listEl || !itemsEl) return;
+
+  if(!rows.length){ listEl.style.display='none'; return; }
+  listEl.style.display = 'block';
+  if(titleEl) titleEl.innerHTML = `<i class="ti ti-circle-check"></i> บันทึกแล้ว ${_isoToThai(dv)}`;
+
+  const canEdit = _auth?.role === 'admin' || _auth?.role === 'co-admin';
+
+  itemsEl.innerHTML = rows.map(r => {
+    const meta = type==='mat'
+      ? (r.subcategory||'') + (r.quantity>1?' × '+r.quantity:'') + (r.unit?' '+r.unit:'')
+      : type==='bak'
+      ? (r.quantity>1?' × '+r.quantity:'') + (r.payment_method?' · '+r.payment_method:'')
+      : (r.payment_method||'');
+    const editBtn = canEdit
+      ? `<button onclick="openSavedItemEdit(${JSON.stringify(r).replace(/"/g,'&quot;')})"
+           style="background:#fff3e0;border:1px solid #e6961a;color:#7a4a00;border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;flex-shrink:0">
+           <i class="ti ti-edit"></i> แก้ไข
+         </button>`
+      : '';
+    return `<div class="saved-item" style="cursor:default">
+      <div style="flex:1;min-width:0">
+        <div class="saved-item-name">${r.item_name||'—'}${r.unit?' ('+r.unit+')':''}</div>
+        ${meta ? `<div class="saved-item-meta">${meta}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="saved-item-amt">${(r.total_amount||0).toLocaleString('th-TH',{minimumFractionDigits:2})} ฿</div>
+        ${editBtn}
+      </div>
+    </div>`;
+  }).join('');
+
+  // update misc grand total if needed
+  if(type==='misc'){
+    const total = rows.reduce((s,r)=>s+(r.total_amount||0),0);
+    const el = document.getElementById('misc_saved_total');
+    if(el) el.textContent = 'รวมทั้งหมด '+total.toLocaleString('th-TH',{minimumFractionDigits:2})+' บาท';
+  }
+}
+
+function openSavedItemEdit(r){
+  // Populate and open the edit modal (built in task #70)
+  loadEditExpForm(r);
+  document.getElementById('edit_exp_overlay').classList.remove('hidden');
+  // prefill date search to match
+  const iso = r.date || '';
+  if(iso) document.getElementById('editexp_date').value = iso;
+  document.getElementById('editexp_status').textContent = 'แก้ไขรายการ: ' + (r.item_name||'');
+  renderEditExpHistory();
+}
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
@@ -6869,7 +6955,9 @@ function renderEditExpHistory(){
 <div id="edit_exp_overlay" class="hidden" style="position:fixed;inset:0;background:rgba(61,43,31,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:9100;padding:16px">
   <div style="background:#fff;border-radius:20px;padding:28px 24px 24px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div style="font-size:17px;font-weight:700;color:var(--c-coffee)"><i class="ti ti-edit"></i> ค้นหาและแก้ไขรายจ่าย</div>
+      <div style="font-size:17px;font-weight:700;color:var(--c-coffee)"><i class="ti ti-edit"></i> ค้นหาและแก้ไขรายจ่าย
+        <span id="editexp_role_note" style="font-size:11px;font-weight:400;color:var(--danger);margin-left:8px"></span>
+      </div>
       <button onclick="document.getElementById('edit_exp_overlay').classList.add('hidden')" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
     </div>
 
