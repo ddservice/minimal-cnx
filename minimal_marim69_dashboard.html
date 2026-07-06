@@ -872,9 +872,14 @@
 
   <!-- รายจ่าย -->
   <div id="exp" class="panel">
-    <div class="section-date">
-      <label><i class="ti ti-calendar" style="margin-right:4px;vertical-align:-2px"></i>วันที่จ่ายเงิน</label>
-      <input type="date" id="e_main_date">
+    <div class="section-date" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px">
+        <label><i class="ti ti-calendar" style="margin-right:4px;vertical-align:-2px"></i>วันที่จ่ายเงิน</label>
+        <input type="date" id="e_main_date">
+      </div>
+      <button class="btn" onclick="showEditExpModal()" style="margin-top:18px;background:#fff3e0;border:1.5px solid #e6961a;color:#7a4a00;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap">
+        <i class="ti ti-edit"></i> ค้นหาและแก้ไขรายจ่าย
+      </button>
     </div>
 
     <!-- วัตถุดิบ -->
@@ -1201,7 +1206,7 @@
         <div style="margin-bottom:14px">
           <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">ช่วงเวลา</div>
           <div style="display:flex;gap:8px">
-            <button id="exp_daily_btn" class="btn btn-coffee" style="flex:1;font-size:13px" onclick="setExportPeriod('daily')">
+            <button id="exp_daily_btn" class="btn btn-coffee" style="flex:1;font-size:13px" id="exp_daily_btn" onclick="setExportPeriod('daily')">
               <i class="ti ti-calendar-day"></i> รายวัน
             </button>
             <button id="exp_monthly_btn" class="btn" style="flex:1;font-size:13px;background:#f3ede7;color:var(--text)" onclick="setExportPeriod('monthly')">
@@ -1694,7 +1699,7 @@ async function _sbPost(p){
     if((p.rows||[]).length>0){
       const records=p.rows.map(r=>({
         date:isoDate, category:r.category, subcategory:r.supplier||'',
-        item_name:r.item_name, unit_price:+r.price_per_unit||0, quantity:+r.qty||1,
+        item_name:r.item_name, unit:r.unit||'', unit_price:+r.price_per_unit||0, quantity:+r.qty||1,
         total_amount:+r.total_amount||0, payment_method:r.pay_method||'บัญชี หจก.', month_label:'',
       }));
       const { error } = await _sb.from('expenses').insert(records);
@@ -2814,7 +2819,24 @@ function updateMatItems(id){
   const old=document.getElementById('mat_row_'+id).querySelector('.custom-extra-input'); if(old) old.remove();
   document.getElementById('mat_price_'+id).value=''; calMatRow(id);
 }
+function saveMatUnit(id){
+  const item = document.getElementById('mat_item_'+id)?.value;
+  const unit = document.getElementById('mat_unit_'+id)?.value;
+  if(item && unit){
+    const defs = JSON.parse(localStorage.getItem('mm69_mat_unit_defaults')||'{}');
+    defs[item] = unit;
+    localStorage.setItem('mm69_mat_unit_defaults', JSON.stringify(defs));
+  }
+}
+function applyMatUnit(id){
+  const item = document.getElementById('mat_item_'+id)?.value;
+  const sel  = document.getElementById('mat_unit_'+id);
+  if(!item||!sel) return;
+  const defs = JSON.parse(localStorage.getItem('mm69_mat_unit_defaults')||'{}');
+  if(defs[item]) sel.value = defs[item];
+}
 function applyMatPrice(id){
+  applyMatUnit(id);
   const sup=document.getElementById('mat_sup_'+id).value;
   const item=document.getElementById('mat_item_'+id).value;
   const row=document.getElementById('mat_row_'+id);
@@ -3603,8 +3625,9 @@ function _doSaveMat(d,rows){
       const found=priceDB.find(r=>r[0]===sup&&r[1]===item);
       if(found && p!==Number(found[2])){ addMatPriceHistoryEntry(sup,item,Number(found[2]),p); found[2]=p; }
     }
+    const unit_val=document.getElementById('mat_unit_'+id)?.value||'';
     post({formType:'expense_form',date:thaiDate(d),category:'ต้นทุนวัตถุดิบ',supplier:sup,item_name:item,
-      price_per_unit:pEff,qty:q,total_amount:pEff*q,pay_method:method
+      price_per_unit:pEff,qty:q,total_amount:pEff*q,pay_method:method,unit:unit_val
     },'status_mat',()=>{
       batchSaved.push({name:item,sup:sup,qty:q,total:pEff*q,method:method});
       if(--pending===0) finishMat(errors,batchSaved,d);
@@ -6443,6 +6466,455 @@ async function generateForm50PDF(defId){
     if(btnEl){ btnEl.disabled=false; btnEl.innerHTML='<i class="ti ti-file-invoice"></i> ออก PDF ฟอร์ม 50 ทวิ'; }
   }
 }
+
+
+// ════════════════════════════════════════════════════════════════════
+// ── EXPORT FUNCTIONS ──────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+let _exportPeriod = 'daily';
+
+function setExportPeriod(type) {
+  _exportPeriod = type;
+  const dBtn = document.getElementById('exp_daily_btn');
+  const mBtn = document.getElementById('exp_monthly_btn');
+  [dBtn, mBtn].forEach(b => {
+    if(b){ b.style.background='#f3ede7'; b.style.color='var(--text)'; }
+  });
+  const active = type === 'daily' ? dBtn : mBtn;
+  if(active){ active.style.background='var(--c-coffee)'; active.style.color='#fff'; }
+  document.getElementById('exp_date_wrap').style.display  = type === 'daily'   ? '' : 'none';
+  document.getElementById('exp_month_wrap').style.display = type === 'monthly' ? '' : 'none';
+}
+
+function _thMonthNameTH(mm){
+  return ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][+mm]||mm;
+}
+
+async function doExport(){
+  const chkSales = document.getElementById('exp_chk_sales').checked;
+  const chkExp   = document.getElementById('exp_chk_expense').checked;
+  const chkOpex  = document.getElementById('exp_chk_opex').checked;
+  const shop     = document.getElementById('exp_shop_name').value || 'Minimal Coffee';
+  const st       = document.getElementById('status_export');
+  st.textContent = '⏳ กำลังโหลดข้อมูล...';
+  try {
+    const wb = XLSX.utils.book_new();
+
+    if(_exportPeriod === 'monthly'){
+      const mv = document.getElementById('exp_month').value;
+      if(!mv){ st.textContent='❌ กรุณาเลือกเดือน'; return; }
+      const [yr,mo] = mv.split('-');
+      const mlabel = mo+'/'+yr;
+      const mStart = yr+'-'+mo+'-01';
+      const mEnd   = yr+'-'+mo+'-31';
+      const mName  = _thMonthNameTH(mo)+' '+yr;
+
+      const [sr,er,or_] = await Promise.all([
+        chkSales ? _sb.from('sales_daily').select('*').gte('date',mStart).lte('date',mEnd).order('date') : Promise.resolve({data:[]}),
+        chkExp   ? _sb.from('expenses').select('*').gte('date',mStart).lte('date',mEnd).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']).order('date') : Promise.resolve({data:[]}),
+        chkOpex  ? _sb.from('expenses').select('*').eq('month_label',mlabel).not('item_key','is',null).order('item_name') : Promise.resolve({data:[]}),
+      ]);
+      const sales = sr.data||[]; const exps = er.data||[]; const opex = or_.data||[];
+      const mat   = exps.filter(r=>r.category==='ต้นทุนวัตถุดิบ');
+      const bak   = exps.filter(r=>r.category==='ต้นทุนขนมหน้าร้าน');
+      const misc  = exps.filter(r=>r.category==='รายจ่ายจิปาถะ');
+
+      const hdr = (t) => [[shop],[t],[`ช่วงเวลา: เดือน ${mName}`,``,`สร้างเมื่อ: ${_nowTh()}`],[]];
+
+      // ── Sheet ภาพรวม ──
+      const tIncome  = sales.reduce((s,r)=>s+(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0),0);
+      const tMat     = mat.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tBak     = bak.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tMisc    = misc.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tFree    = sales.reduce((s,r)=>s+(r.free_cup_cost||0),0);
+      const tOpex    = opex.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tExp     = tMat+tBak+tMisc+tFree+tOpex;
+      const profit   = tIncome-tExp;
+
+      const ws0 = XLSX.utils.aoa_to_sheet([
+        ...hdr('รายงานภาพรวม — '+mName),
+        ['รายการ','จำนวน (บาท)',''],
+        ['รายรับทั้งเดือน',tIncome,''],[''],
+        ['ต้นทุนวัตถุดิบ',tMat,''],
+        ['ต้นทุนขนมหน้าร้าน',tBak,''],
+        ['รายจ่ายจิปาถะ',tMisc,''],
+        ['ต้นทุนกาแฟแจกฟรี',tFree,''],
+        ['ค่าดำเนินการ (OPEX)',tOpex,''],
+        ['รวมรายจ่าย',tExp,''],[''],
+        ['กำไรสุทธิ (ก่อนค่าแรง)',profit,profit>=0?'▲ กำไร':'▼ ขาดทุน'],[''],
+        ['* ยังไม่รวมค่าแรงพนักงาน — ดูจากหน้าแดชบอร์ดค่าแรง'],
+      ]);
+      ws0['!cols']=[{wch:32},{wch:18},{wch:14}];
+      XLSX.utils.book_append_sheet(wb,ws0,'ภาพรวม');
+
+      // ── Sheet รายรับ ──
+      if(chkSales && sales.length){
+        const rows = [
+          ...hdr('รายรับ — '+mName),
+          ['วันที่','แก้วกาแฟ','ขนม(ชิ้น)','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวมรายรับ(฿)'],
+          ...sales.map(r=>{
+            const tot=(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0);
+            return [_isoToThai(r.date),r.total_cups||0,r.pastry_pieces||0,r.free_cups||0,
+              r.kshop_amount||0,r.cash_amount||0,r.shopee_before_gp||0,r.grab_before_gp||0,r.lineman_before_gp||0,r.free_cup_cost||0,tot];
+          }),
+          [],['รวม','','','',
+            sales.reduce((s,r)=>s+(r.kshop_amount||0),0),
+            sales.reduce((s,r)=>s+(r.cash_amount||0),0),
+            sales.reduce((s,r)=>s+(r.shopee_before_gp||0),0),
+            sales.reduce((s,r)=>s+(r.grab_before_gp||0),0),
+            sales.reduce((s,r)=>s+(r.lineman_before_gp||0),0),
+            tFree, tIncome],
+        ];
+        const ws=XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols']=[{wch:14},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:14}];
+        XLSX.utils.book_append_sheet(wb,ws,'รายรับ');
+      }
+
+      // ── Sheet ต้นทุนวัตถุดิบ ──
+      if(chkExp && mat.length){
+        const rows=[
+          ...hdr('ต้นทุนวัตถุดิบ — '+mName),
+          ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
+          ...mat.map(r=>[_isoToThai(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
+          [],['รวม','','','','','',tMat,''],
+        ];
+        const ws=XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols']=[{wch:14},{wch:18},{wch:26},{wch:8},{wch:14},{wch:8},{wch:14},{wch:14}];
+        XLSX.utils.book_append_sheet(wb,ws,'ต้นทุนวัตถุดิบ');
+      }
+
+      // ── Sheet ขนมหน้าร้าน ──
+      if(chkExp && bak.length){
+        const rows=[
+          ...hdr('ต้นทุนขนมหน้าร้าน — '+mName),
+          ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
+          ...bak.map(r=>[_isoToThai(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
+          [],['รวม','','','',tBak,''],
+        ];
+        const ws=XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols']=[{wch:14},{wch:30},{wch:14},{wch:8},{wch:14},{wch:14}];
+        XLSX.utils.book_append_sheet(wb,ws,'ขนมหน้าร้าน');
+      }
+
+      // ── Sheet รายจ่ายจิปาถะ ──
+      if(chkExp && misc.length){
+        const rows=[
+          ...hdr('รายจ่ายจิปาถะ — '+mName),
+          ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย/หมายเหตุ'],
+          ...misc.map(r=>[_isoToThai(r.date),r.item_name,r.total_amount||0,r.payment_method||'']),
+          [],['รวม','',tMisc,''],
+        ];
+        const ws=XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols']=[{wch:14},{wch:35},{wch:16},{wch:25}];
+        XLSX.utils.book_append_sheet(wb,ws,'รายจ่ายจิปาถะ');
+      }
+
+      // ── Sheet ค่าดำเนินการ ──
+      if(chkOpex && opex.length){
+        const rows=[
+          ...hdr('ค่าดำเนินการ (OPEX) — '+mName),
+          ['หมวดหมู่','รายการ','จำนวนเงิน(฿)'],
+          ...opex.map(r=>[r.category,r.item_name,r.total_amount||0]),
+          [],['รวม','',tOpex],
+        ];
+        const ws=XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols']=[{wch:25},{wch:35},{wch:16}];
+        XLSX.utils.book_append_sheet(wb,ws,'ค่าดำเนินการ');
+      }
+
+      const fn=`รายงาน_${shop.replace(/\s+/g,'_')}_${mv}.xlsx`;
+      XLSX.writeFile(wb,fn);
+      st.textContent='✅ ส่งออกสำเร็จ: '+fn;
+
+    } else {
+      // ── DAILY ──
+      const dv = document.getElementById('exp_date').value;
+      if(!dv){ st.textContent='❌ กรุณาเลือกวันที่'; return; }
+      const th = _isoToThai(dv);
+
+      const [sr,er] = await Promise.all([
+        chkSales ? _sb.from('sales_daily').select('*').eq('date',dv).maybeSingle() : Promise.resolve({data:null}),
+        chkExp   ? _sb.from('expenses').select('*').eq('date',dv).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']).order('category') : Promise.resolve({data:[]}),
+      ]);
+      const sale = sr.data; const exps = er.data||[];
+      const mat  = exps.filter(r=>r.category==='ต้นทุนวัตถุดิบ');
+      const bak  = exps.filter(r=>r.category==='ต้นทุนขนมหน้าร้าน');
+      const misc = exps.filter(r=>r.category==='รายจ่ายจิปาถะ');
+
+      const hdr2 = (t) => [[shop],[t],[`วันที่: ${th}`,``,`สร้างเมื่อ: ${_nowTh()}`],[]];
+
+      const income  = sale ? (sale.kshop_amount||0)+(sale.cash_amount||0)+(sale.shopee_before_gp||0)+(sale.grab_before_gp||0)+(sale.lineman_before_gp||0) : 0;
+      const tMat    = mat.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tBak    = bak.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tMisc   = misc.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tFree   = sale ? (sale.free_cup_cost||0) : 0;
+      const tExp    = tMat+tBak+tMisc+tFree;
+      const profit  = income-tExp;
+
+      const ws0 = XLSX.utils.aoa_to_sheet([
+        ...hdr2('รายงานประจำวัน — '+th),
+        ['รายการ','จำนวน (บาท)',''],
+        ['รายรับ',income,''],[''],
+        ['ต้นทุนวัตถุดิบ',tMat,''],['ต้นทุนขนมหน้าร้าน',tBak,''],
+        ['รายจ่ายจิปาถะ',tMisc,''],['ต้นทุนกาแฟแจกฟรี',tFree,''],
+        ['รวมรายจ่าย',tExp,''],[''],
+        ['กำไร (ก่อนค่าดำเนินการ)',profit,profit>=0?'▲':'▼'],
+      ]);
+      ws0['!cols']=[{wch:32},{wch:18},{wch:6}];
+      XLSX.utils.book_append_sheet(wb,ws0,'ภาพรวม');
+
+      if(chkSales && sale){
+        const tot=income;
+        const ws=XLSX.utils.aoa_to_sheet([
+          ...hdr2('รายรับ — '+th),
+          ['วันที่','แก้วกาแฟ','ขนม','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวม(฿)'],
+          [th,sale.total_cups||0,sale.pastry_pieces||0,sale.free_cups||0,sale.kshop_amount||0,sale.cash_amount||0,sale.shopee_before_gp||0,sale.grab_before_gp||0,sale.lineman_before_gp||0,sale.free_cup_cost||0,tot],
+        ]);
+        ws['!cols']=[{wch:14},{wch:10},{wch:8},{wch:8},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:12}];
+        XLSX.utils.book_append_sheet(wb,ws,'รายรับ');
+      }
+      if(chkExp && mat.length){
+        const ws=XLSX.utils.aoa_to_sheet([
+          ...hdr2('ต้นทุนวัตถุดิบ — '+th),
+          ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
+          ...mat.map(r=>[_isoToThai(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
+          [],['รวม','','','','','',tMat,''],
+        ]);
+        ws['!cols']=[{wch:14},{wch:18},{wch:26},{wch:8},{wch:14},{wch:8},{wch:14},{wch:14}];
+        XLSX.utils.book_append_sheet(wb,ws,'ต้นทุนวัตถุดิบ');
+      }
+      if(chkExp && bak.length){
+        const ws=XLSX.utils.aoa_to_sheet([
+          ...hdr2('ขนมหน้าร้าน — '+th),
+          ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
+          ...bak.map(r=>[_isoToThai(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
+          [],['รวม','','','',tBak,''],
+        ]);
+        ws['!cols']=[{wch:14},{wch:30},{wch:14},{wch:8},{wch:14},{wch:14}];
+        XLSX.utils.book_append_sheet(wb,ws,'ขนมหน้าร้าน');
+      }
+      if(chkExp && misc.length){
+        const ws=XLSX.utils.aoa_to_sheet([
+          ...hdr2('รายจ่ายจิปาถะ — '+th),
+          ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย/หมายเหตุ'],
+          ...misc.map(r=>[_isoToThai(r.date),r.item_name,r.total_amount||0,r.payment_method||'']),
+          [],['รวม','',tMisc,''],
+        ]);
+        ws['!cols']=[{wch:14},{wch:35},{wch:16},{wch:25}];
+        XLSX.utils.book_append_sheet(wb,ws,'รายจ่ายจิปาถะ');
+      }
+
+      const fn=`รายงาน_${shop.replace(/\s+/g,'_')}_${dv}.xlsx`;
+      XLSX.writeFile(wb,fn);
+      st.textContent='✅ ส่งออกสำเร็จ: '+fn;
+    }
+  } catch(e){
+    st.textContent='❌ เกิดข้อผิดพลาด: '+e.message;
+    console.error(e);
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// ── EDIT EXPENSE FUNCTIONS ────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+
+function showEditExpModal(){
+  // set today as default
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('editexp_date').value = today;
+  document.getElementById('editexp_results').innerHTML = '';
+  document.getElementById('editexp_results').style.display = 'none';
+  document.getElementById('editexp_form').style.display = 'none';
+  document.getElementById('editexp_status').textContent = '';
+  renderEditExpHistory();
+  document.getElementById('edit_exp_overlay').classList.remove('hidden');
+}
+
+async function searchExpenseByDate(){
+  const dv = document.getElementById('editexp_date').value;
+  if(!dv){ alert('กรุณาเลือกวันที่'); return; }
+  const st = document.getElementById('editexp_status');
+  st.textContent = '⏳ กำลังโหลด...';
+  document.getElementById('editexp_results').style.display = 'none';
+  document.getElementById('editexp_form').style.display = 'none';
+
+  const { data, error } = await _sb.from('expenses').select('*')
+    .eq('date', dv)
+    .in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ'])
+    .order('category').order('item_name');
+
+  if(error){ st.textContent = '❌ โหลดไม่ได้: '+error.message; return; }
+  if(!data||!data.length){ st.textContent = '⚠ ไม่พบรายจ่ายในวันที่ '+_isoToThai(dv); return; }
+  st.textContent = `พบ ${data.length} รายการ — คลิกที่รายการเพื่อแก้ไข`;
+
+  const container = document.getElementById('editexp_results');
+  // group by category
+  const groups = {};
+  data.forEach(r=>{ (groups[r.category]||(groups[r.category]=[])).push(r); });
+
+  let html2 = '';
+  const catColor = {'ต้นทุนวัตถุดิบ':'#e8f5e9','ต้นทุนขนมหน้าร้าน':'#fff3e0','รายจ่ายจิปาถะ':'#f3e5f5'};
+  Object.entries(groups).forEach(([cat, rows])=>{
+    html2 += `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-top:4px">${cat}</div>`;
+    rows.forEach(r=>{
+      html2 += `<div onclick="loadEditExpForm(${JSON.stringify(r).replace(/"/g,'&quot;')})"
+        style="background:${catColor[cat]||'#f8f5f2'};border-radius:10px;padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border:1.5px solid transparent;transition:border .1s"
+        onmouseover="this.style.border='1.5px solid var(--c-coffee)'" onmouseout="this.style.border='1.5px solid transparent'">
+        <div>
+          <div style="font-size:13px;font-weight:600">${r.item_name||'—'}</div>
+          <div style="font-size:11px;color:var(--muted)">${r.subcategory?r.subcategory+' · ':''} ${r.quantity||1} ${r.unit||''} × ${(r.unit_price||0).toLocaleString('th-TH')} ฿</div>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--c-coffee)">${(r.total_amount||0).toLocaleString('th-TH')} ฿</div>
+      </div>`;
+    });
+  });
+  container.innerHTML = html2;
+  container.style.display = 'flex';
+}
+
+function loadEditExpForm(r){
+  document.getElementById('ef_id').value     = r.id || '';
+  document.getElementById('ef_date').value   = r.date || '';
+  document.getElementById('ef_cat').value    = r.category || '';
+  document.getElementById('ef_item').value   = r.item_name || '';
+  document.getElementById('ef_price').value  = r.unit_price || 0;
+  document.getElementById('ef_qty').value    = r.quantity || 1;
+  document.getElementById('ef_amount').value = r.total_amount || 0;
+  document.getElementById('ef_method').value = r.payment_method || 'บัญชี หจก.';
+  document.getElementById('editexp_form_title').textContent = `แก้ไข: ${r.item_name}`;
+  document.getElementById('editexp_form').style.display = 'flex';
+  document.getElementById('editexp_form').scrollIntoView({behavior:'smooth',block:'nearest'});
+  // auto-calc on price/qty change
+  ['ef_price','ef_qty'].forEach(id=>{
+    document.getElementById(id).oninput = ()=>{
+      const p=+document.getElementById('ef_price').value||0;
+      const q=+document.getElementById('ef_qty').value||1;
+      document.getElementById('ef_amount').value = (p*q).toFixed(2);
+    };
+  });
+}
+
+function confirmSaveEditExp(){
+  const id     = document.getElementById('ef_id').value;
+  const date   = document.getElementById('ef_date').value;
+  const cat    = document.getElementById('ef_cat').value;
+  const item   = document.getElementById('ef_item').value.trim();
+  const price  = +document.getElementById('ef_price').value||0;
+  const qty    = +document.getElementById('ef_qty').value||1;
+  const amount = +document.getElementById('ef_amount').value||price*qty;
+  const method = document.getElementById('ef_method').value;
+  const editor = _auth?.display_name || _auth?.username || 'ไม่ระบุ';
+  const nowStr = _nowTh();
+
+  if(!item){ alert('กรุณาระบุชื่อรายการ'); return; }
+
+  // show confirm
+  const ok = confirm(`ยืนยันการแก้ไข\n\nรายการ: ${item}\nจำนวนเงิน: ${amount.toLocaleString('th-TH')} ฿\n\nแก้ไขโดย: ${editor}\nเวลา: ${nowStr}\n\nกดตกลงเพื่อบันทึก`);
+  if(!ok) return;
+
+  _doSaveEditExp(id, date, cat, item, price, qty, amount, method, editor, nowStr);
+}
+
+async function _doSaveEditExp(id, date, cat, item, price, qty, amount, method, editor, nowStr){
+  const st = document.getElementById('editexp_status');
+  st.textContent = '⏳ กำลังบันทึก...';
+  try {
+    const { error } = await _sb.from('expenses').update({
+      item_name: item,
+      unit_price: price,
+      quantity: qty,
+      total_amount: amount,
+      payment_method: method,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+
+    if(error) throw error;
+
+    // save history to localStorage
+    const hist = JSON.parse(localStorage.getItem('mm69_expense_edit_hist')||'[]');
+    hist.unshift({ at:nowStr, by:editor, date:_isoToThai(date), category:cat, item, amount });
+    if(hist.length>100) hist.length=100;
+    localStorage.setItem('mm69_expense_edit_hist', JSON.stringify(hist));
+
+    st.textContent = `✅ แก้ไขสำเร็จ — ${item} (${nowStr})`;
+    document.getElementById('editexp_form').style.display = 'none';
+    renderEditExpHistory();
+    // refresh results
+    searchExpenseByDate();
+  } catch(e){
+    st.textContent = '❌ บันทึกไม่ได้: '+e.message;
+  }
+}
+
+function renderEditExpHistory(){
+  const hist = JSON.parse(localStorage.getItem('mm69_expense_edit_hist')||'[]');
+  const wrap = document.getElementById('editexp_hist_wrap');
+  const list = document.getElementById('editexp_hist_list');
+  if(!hist.length){ wrap.style.display='none'; return; }
+  wrap.style.display = 'block';
+  list.innerHTML = hist.slice(0,20).map(h=>
+    `<div style="background:#f8f5f2;border-radius:7px;padding:6px 10px;color:var(--text)">
+      <span style="color:var(--muted)">${h.at}</span>
+      · <b>${h.by}</b> แก้ไข <b>${h.item}</b> (${h.category?.replace('ต้นทุน','')||''})
+      วันที่ ${h.date} → ${(h.amount||0).toLocaleString('th-TH')} ฿
+    </div>`
+  ).join('');
+}
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- EDIT EXPENSE SEARCH MODAL                                     -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="edit_exp_overlay" class="hidden" style="position:fixed;inset:0;background:rgba(61,43,31,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:9100;padding:16px">
+  <div style="background:#fff;border-radius:20px;padding:28px 24px 24px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:17px;font-weight:700;color:var(--c-coffee)"><i class="ti ti-edit"></i> ค้นหาและแก้ไขรายจ่าย</div>
+      <button onclick="document.getElementById('edit_exp_overlay').classList.add('hidden')" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+
+    <!-- Search bar -->
+    <div style="display:flex;gap:10px;align-items:flex-end">
+      <div class="field" style="flex:1;margin:0">
+        <label>เลือกวันที่</label>
+        <input type="date" id="editexp_date" style="font-size:15px">
+      </div>
+      <button class="btn btn-coffee" onclick="searchExpenseByDate()" style="height:44px;white-space:nowrap"><i class="ti ti-search"></i> ค้นหา</button>
+    </div>
+    <div id="editexp_status" style="font-size:12px;color:var(--muted)"></div>
+
+    <!-- Results list -->
+    <div id="editexp_results" style="display:none;display:flex;flex-direction:column;gap:8px"></div>
+
+    <!-- Edit form (hidden until item clicked) -->
+    <div id="editexp_form" style="display:none;background:var(--c-cream);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--c-coffee)" id="editexp_form_title">แก้ไขรายการ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>รายการ</label><input type="text" id="ef_item" style="font-size:13px"></div>
+        <div class="field"><label>จำนวนเงิน (฿)</label><input type="number" id="ef_amount" min="0" style="font-size:13px"></div>
+        <div class="field"><label>ราคา/หน่วย</label><input type="number" id="ef_price" min="0" style="font-size:13px"></div>
+        <div class="field"><label>จำนวน</label><input type="number" id="ef_qty" min="0" style="font-size:13px"></div>
+        <div class="field"><label>ชำระด้วย</label>
+          <select id="ef_method" style="font-size:13px">
+            <option>บัญชี หจก.</option><option>บัญชีส่วนตัว</option><option>เงินสด</option>
+          </select>
+        </div>
+        <div class="field"><label>หมวดหมู่</label><input type="text" id="ef_cat" readonly style="font-size:13px;background:#f0ebe6"></div>
+      </div>
+      <input type="hidden" id="ef_id">
+      <input type="hidden" id="ef_date">
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-coffee" style="flex:1" onclick="confirmSaveEditExp()"><i class="ti ti-device-floppy"></i> บันทึกการแก้ไข</button>
+        <button class="btn" style="flex:0 0 auto;background:#f3ede7" onclick="document.getElementById('editexp_form').style.display='none'">ยกเลิก</button>
+      </div>
+    </div>
+
+    <!-- Edit history -->
+    <div id="editexp_hist_wrap" style="display:none">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase">ประวัติการแก้ไข</div>
+      <div id="editexp_hist_list" style="font-size:12px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
