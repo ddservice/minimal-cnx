@@ -206,13 +206,12 @@
       .card-head { flex-wrap: wrap; gap: 8px; }
       /* Safe area for iPhone notch/home bar */
       body { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-      /* Login overlay — bottom sheet + keyboard safe */
-      #login_overlay { align-items: flex-end !important; padding: 0 !important; }
+      /* Login overlay — centered, scrollable when keyboard opens */
+      #login_overlay { align-items: center !important; padding: 20px !important; }
       #login_overlay > div {
-        max-width: 100% !important; width: 100% !important;
-        border-radius: 20px 20px 0 0 !important; margin: 0 !important;
+        max-width: 400px !important; width: 100% !important;
+        border-radius: 20px !important; margin: 0 auto !important;
         max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-        padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
       }
     }
 
@@ -309,7 +308,7 @@
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
-      /* Login card full width — handled in 768px block above */
+      /* Login card — max-width on small phones */
       /* Employee grid full width on phone */
       .emp-fields-grid { grid-template-columns: 1fr; }
       /* Calc grid smaller */
