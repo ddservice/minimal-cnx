@@ -206,6 +206,14 @@
       .card-head { flex-wrap: wrap; gap: 8px; }
       /* Safe area for iPhone notch/home bar */
       body { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+      /* Login overlay — bottom sheet + keyboard safe */
+      #login_overlay { align-items: flex-end !important; padding: 0 !important; }
+      #login_overlay > div {
+        max-width: 100% !important; width: 100% !important;
+        border-radius: 20px 20px 0 0 !important; margin: 0 !important;
+        max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+      }
     }
 
     /* ── Tablet (481px – 768px) ── */
@@ -301,9 +309,7 @@
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
-      /* Login card full width */
-      #login_overlay > div { max-width: 100% !important; border-radius: 20px 20px 0 0 !important; margin: 0 !important; }
-      #login_overlay { align-items: flex-end !important; }
+      /* Login card full width — handled in 768px block above */
       /* Employee grid full width on phone */
       .emp-fields-grid { grid-template-columns: 1fr; }
       /* Calc grid smaller */
@@ -428,20 +434,29 @@
       </div>
       <h2>Minimal Coffee</h2>
     </div>
+    <form onsubmit="event.preventDefault();doLogin()" autocomplete="on" style="display:contents">
     <div class="field">
       <label>ชื่อผู้ใช้</label>
-      <input type="text" id="login_user" placeholder="username" autocomplete="off"
+      <input type="text" id="login_user" name="username" placeholder="username"
+             autocomplete="username" inputmode="text"
+             autocapitalize="none" autocorrect="off" spellcheck="false"
              onkeydown="if(event.key==='Enter')document.getElementById('login_pw').focus()">
     </div>
-    <div class="field">
+    <div class="field" style="position:relative">
       <label>รหัสผ่าน</label>
-      <input type="password" id="login_pw" placeholder="••••••••" autocomplete="new-password"
+      <input type="password" id="login_pw" name="password" placeholder="••••••••"
+             autocomplete="current-password"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             style="padding-right:44px"
              onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" onclick="(function(){var p=document.getElementById('login_pw');p.type=p.type==='password'?'text':'password';})()"
+        style="position:absolute;right:10px;top:38px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px;line-height:1" tabindex="-1">👁</button>
     </div>
     <div id="login_err"></div>
-    <button class="btn-login" id="login_btn" onclick="doLogin()">
+    <button type="submit" class="btn-login" id="login_btn">
       <i class="ti ti-login"></i> เข้าสู่ระบบ
     </button>
+    </form>
     <div id="login_checking" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-top:8px;padding:8px;background:#f5ede6;border-radius:8px">
       <i class="ti ti-loader" style="animation:spin 1s linear infinite;display:inline-block"></i> กำลังตรวจสอบ session...
     </div>
@@ -1851,7 +1866,7 @@ function showApp() {
 
 // กด Login
 async function doLogin() {
-  const username = document.getElementById('login_user').value.trim();
+  const username = document.getElementById('login_user').value.trim().toLowerCase();
   const password = document.getElementById('login_pw').value;
   if (!username || !password) {
     document.getElementById('login_err').textContent = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน';
@@ -1865,7 +1880,15 @@ async function doLogin() {
     const { data, error } = await _sb.auth.signInWithPassword({ email, password });
     btn.disabled = false; btn.innerHTML = '<i class="ti ti-login"></i> เข้าสู่ระบบ';
     if (error) {
-      document.getElementById('login_err').textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      const msg = error.message || '';
+      document.getElementById('login_err').textContent =
+        msg.includes('network') || msg.includes('fetch') || msg.includes('Failed') || msg.includes('NetworkError')
+          ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบ internet'
+          : msg.includes('Email not confirmed')
+          ? 'อีเมลยังไม่ได้ยืนยัน กรุณาติดต่อ admin'
+          : msg.includes('Invalid login') || msg.includes('Invalid credentials') || msg.includes('invalid_credentials')
+          ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'
+          : 'ล็อกอินไม่ได้: ' + msg;
       return;
     }
     const session = data.session;
