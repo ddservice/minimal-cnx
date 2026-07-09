@@ -65,7 +65,12 @@
     .date-range-bar .sep { font-size: 13px; color: var(--muted); }
     .date-range-display { font-size: 12px; color: var(--c-latte); font-weight: 600; margin-left: auto; white-space: nowrap; }
     /* ── ป้ายกำกับ วว/ดด/ปปปป ใต้ native date input (กันเข้าใจผิดว่าเลือกวันผิด) ── */
-    .tdate-badge { display: block; font-size: 11px; color: var(--c-latte); font-weight: 600; margin-top: 3px; min-height: 14px; }
+    /* ── ช่องวันที่: แสดง วว/ดด/ปปปป (พ.ศ.) เอง แต่คลิก/แตะที่ไหนก็เปิดปฏิทิน native ของเบราว์เซอร์/มือถือตามปกติ ── */
+    .tdate-wrap { position: relative; display: inline-block; width: 100%; }
+    .tdate-wrap input[type="date"] { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; opacity: 0; cursor: pointer; margin: 0; }
+    .tdate-disp { pointer-events: none; }
+    .tdate-disp.tdate-empty { color: var(--muted); }
+    .date-range-bar .tdate-disp { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
     .inline-total { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #faf7f4; border-radius: 8px; font-size: 13px; margin-top: 12px; border: 1px solid var(--border); }
     .inline-total span { color: var(--muted); } .inline-total strong { font-size: 17px; font-weight: 700; color: var(--c-coffee); }
     .grand-total { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--c-gold); background: #fffbf4; margin-top: 12px; }
@@ -1594,26 +1599,38 @@ function _monthStart(mm_yyyy){ const p=mm_yyyy.split('/'); return p[1]+'-'+p[0]+
 function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(Date.UTC(+p[1],+p[0],0)).toISOString().split('T')[0]; }
 
 // ══════════════════════════════════════════════════════════════
-//  ป้ายกำกับ วว/ดด/ปปปป ใต้ native <input type="date"> ทุกช่อง
-//  เหตุผล: ช่อง <input type="date"> ตอนปิดจะโชว์รูปแบบตาม locale ของ
-//  เครื่อง/เบราว์เซอร์ผู้ใช้ (บางเครื่องเป็น เดือน/วัน/ปี แบบสหรัฐฯ) ทำให้
-//  ผู้ใช้เข้าใจผิดว่าเลือกวันผิด — เดิมเคยครอบด้วยช่องพิมพ์+ปฏิทินเอง แต่ใช้งาน
-//  ยากกว่า native picker ของแต่ละอุปกรณ์ (โดยเฉพาะมือถือ) จึงเปลี่ยนมาใช้
-//  native input ตามเดิม แล้วแปะป้าย วว/ดด/ปปปป ไว้ใต้ช่องแทน เพื่อยืนยันวันที่
-//  แบบไม่มีทางเข้าใจผิด โดยไม่ไปแตะวิธีเลือกวันที่ที่ผู้ใช้คุ้นเคยอยู่แล้ว
+//  ช่องวันที่: บังคับแสดงผลเป็น วว/ดด/ปปปป (พ.ศ.) เสมอ ไม่ว่า
+//  locale เครื่อง/เบราว์เซอร์จะเป็นอะไร — native <input type="date">
+//  เอง render ปีเป็น ค.ศ. เสมอและเรียงวันตาม locale เครื่อง แก้ไม่ได้
+//  ตรงๆ (แม้ตั้ง lang="th" ก็ได้แค่เรื่องลำดับ ไม่ได้ปี พ.ศ.) จึงซ่อน
+//  native input ไว้ (โปร่งใส ครอบเต็มช่อง คลิก/แตะได้ตามปกติ เปิดปฏิทิน
+//  native ของอุปกรณ์เหมือนเดิมทุกอย่าง) แล้ววาดข้อความที่แสดงเองทั้งหมด
 // ══════════════════════════════════════════════════════════════
 function enhanceDateInput(native){
   if(!native || native._tdEnhanced || native.type!=='date') return;
   native._tdEnhanced = true;
-  native.setAttribute('lang','th'); // ให้ browser render ปฏิทิน/ช่องปิดเป็นรูปแบบไทย (วว/ดด/ปปปป) แทน locale เครื่อง
+  native.setAttribute('lang','th');
 
-  const badge=document.createElement('span');
-  badge.className='tdate-badge';
-  native.insertAdjacentElement('afterend', badge);
+  const wrap=document.createElement('span');
+  wrap.className='tdate-wrap';
+  native.parentNode.insertBefore(wrap, native);
+  wrap.appendChild(native);
+
+  const disp=document.createElement('input');
+  disp.type='text'; disp.readOnly=true; disp.tabIndex=-1;
+  disp.className='tdate-disp'+(native.className?(' '+native.className):'');
+  const styleAttr = native.getAttribute('style');
+  if(styleAttr) disp.setAttribute('style', styleAttr);
+  wrap.appendChild(disp);
 
   const desc=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
-  function sync(){ badge.textContent = desc.get.call(native) ? thaiDateBE(desc.get.call(native)) : ''; }
-  // ครอบ .value เพื่อให้ป้ายอัปเดตแม้โค้ดอื่นตั้งค่าตรงๆ ผ่าน elem.value = 'yyyy-mm-dd'
+  function sync(){
+    const v=desc.get.call(native);
+    disp.value = v ? thaiDateBE(v) : '';
+    disp.placeholder = native.placeholder || 'วว/ดด/ปปปป';
+    disp.classList.toggle('tdate-empty', !v);
+  }
+  // ครอบ .value เพื่อให้จอ sync เสมอ แม้โค้ดอื่นตั้งค่าตรงๆ ผ่าน elem.value = 'yyyy-mm-dd'
   Object.defineProperty(native,'value',{
     get(){ return desc.get.call(this); },
     set(v){ desc.set.call(this,v); sync(); },
