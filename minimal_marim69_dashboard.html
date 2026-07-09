@@ -1611,7 +1611,7 @@ function enhanceDateInput(native){
   native.insertAdjacentElement('afterend', badge);
 
   const desc=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
-  function sync(){ badge.textContent = desc.get.call(native) ? thaiDate(desc.get.call(native)) : ''; }
+  function sync(){ badge.textContent = desc.get.call(native) ? thaiDateBE(desc.get.call(native)) : ''; }
   // ครอบ .value เพื่อให้ป้ายอัปเดตแม้โค้ดอื่นตั้งค่าตรงๆ ผ่าน elem.value = 'yyyy-mm-dd'
   Object.defineProperty(native,'value',{
     get(){ return desc.get.call(this); },
@@ -2353,8 +2353,8 @@ function showDupWarning(msg, onConfirm){
   document.getElementById('dup_msg').textContent=msg;
   document.getElementById('dup_confirm_btn').onclick=()=>{ overlay.remove(); onConfirm(); };
 }
-function checkDup(set, key, label, onProceed){
-  if(set.has(key)){ showDupWarning('มีการบันทึก'+label+'\n"'+key+'" ไปแล้ว\nต้องการบันทึกซ้ำหรือไม่?', onProceed); }
+function checkDup(set, key, label, onProceed, displayKey){
+  if(set.has(key)){ showDupWarning('มีการบันทึก'+label+'\n"'+(displayKey||key)+'" ไปแล้ว\nต้องการบันทึกซ้ำหรือไม่?', onProceed); }
   else onProceed();
 }
 // ── In-session saved lists ───────────────────────────────────
@@ -2733,8 +2733,8 @@ function updateSumDateDisplay(){
   const f=document.getElementById('sum_date_from').value;
   const t=document.getElementById('sum_date_to').value;
   const el=document.getElementById('sum_date_display');
-  if(f&&t) el.textContent=thaiDate(f)+' – '+thaiDate(t);
-  else if(f) el.textContent=thaiDate(f);
+  if(f&&t) el.textContent=thaiDateBE(f)+' – '+thaiDateBE(t);
+  else if(f) el.textContent=thaiDateBE(f);
   else el.textContent='';
   updateSummary();
 }
@@ -2799,6 +2799,9 @@ function todayStr(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function thaiDate(s){ if(!s)return''; const p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+// วันที่แบบ พ.ศ. สำหรับ "แสดงผล" เท่านั้น — ห้ามใช้กับค่าที่จะส่งไป post()/_sbGet()/checkDup()
+// เพราะฝั่งเซิร์ฟเวอร์ตีความปี ค.ศ. เสมอ ถ้าส่ง พ.ศ. ไปวันที่จะเพี้ยน 543 ปี
+function thaiDateBE(s){ if(!s)return''; const p=s.split('-'); return p.length===3?(+p[2])+'/'+(+p[1])+'/'+(+p[0]+543):''; }
 function setStatus(id,msg,type){
   const el=document.getElementById(id); el.textContent=msg; el.className='status show '+(type||'');
   setTimeout(()=>{ el.className='status'; },3500);
@@ -2982,7 +2985,7 @@ function addMatPriceHistoryEntry(sup,item,oldPrice,newPrice){
     const h=JSON.parse(localStorage.getItem('marim69_mat_history')||'{}');
     const key=sup+'::'+item;
     if(!h[key]) h[key]=[];
-    h[key].push({sup,item,price:newPrice,prevPrice:oldPrice,date:thaiDate(new Date())});
+    h[key].push({sup,item,price:newPrice,prevPrice:oldPrice,date:thaiDateBE(todayStr())});
     if(h[key].length>10) h[key]=h[key].slice(-10);
     localStorage.setItem('marim69_mat_history',JSON.stringify(h));
   }catch(e){}
@@ -3033,7 +3036,7 @@ function addBakPriceHistoryEntry(name,oldPrice,newPrice){
   try{
     const h=JSON.parse(localStorage.getItem('marim69_bak_history')||'{}');
     if(!h[name]) h[name]=[];
-    h[name].push({price:newPrice,prevPrice:oldPrice,date:thaiDate(new Date())});
+    h[name].push({price:newPrice,prevPrice:oldPrice,date:thaiDateBE(todayStr())});
     if(h[name].length>10) h[name]=h[name].slice(-10);
     localStorage.setItem('marim69_bak_history',JSON.stringify(h));
   }catch(e){}
@@ -3260,7 +3263,7 @@ function renderSaleList(){
   let html = `<div class="card" style="margin-top:10px"><div class="card-head"><div class="card-head-left"><i class="ti ti-history"></i><span>ประวัติบันทึกในเซสชันนี้</span></div><span style="font-size:11px;color:var(--muted)">${total} รายการ</span></div><div class="card-body" style="padding:0">`;
   html += '<table class="tbl"><thead><tr><th>วันที่</th><th style="text-align:center">กาแฟ (แก้ว)</th><th style="text-align:center">ขนม (ชิ้น)</th><th style="text-align:center">แก้วฟรี</th><th style="text-align:right">รายรับ (บาท)</th></tr></thead><tbody>';
   visible.forEach(r=>{
-    html += `<tr><td>${thaiDate(r.date)}</td><td style="text-align:center;font-weight:700;color:var(--c-coffee)">${r.coffeeCups}</td><td style="text-align:center;color:var(--c-latte)">${r.bakQty}</td><td style="text-align:center;color:var(--c-accent)">${r.freeCups}</td><td style="text-align:right;font-weight:700">${fmt2(r.income)}</td></tr>`;
+    html += `<tr><td>${thaiDateBE(r.date)}</td><td style="text-align:center;font-weight:700;color:var(--c-coffee)">${r.coffeeCups}</td><td style="text-align:center;color:var(--c-latte)">${r.bakQty}</td><td style="text-align:center;color:var(--c-accent)">${r.freeCups}</td><td style="text-align:right;font-weight:700">${fmt2(r.income)}</td></tr>`;
   });
   html += '</tbody></table>' + expandBtn;
 
@@ -3274,7 +3277,8 @@ function renderSaleList(){
   const totDelivery = chRows.reduce((s,r)=>s+(r.deliveryNet||0),0);
   const grandTotal  = totKshop+totCash+totDelivery;
   const monthOpts   = allMonths.map(m=>{
-    const lbl = m.split('-').reverse().join('/');
+    const [my,mm] = m.split('-');
+    const lbl = mm+'/'+(+my+543);
     return `<option value="${m}" ${m===effM?'selected':''}>${lbl}</option>`;
   }).join('');
   html += '<div style="padding:10px 12px;border-top:1px solid var(--border)">'
@@ -3323,7 +3327,7 @@ function onSaleDateChange(){
         originalSaleData = data;
         populateSaleForm(data);
         _mergeSaleIntoHistory(d, data);
-        setSaleFetchStatus('โหลดข้อมูลวันที่ '+thaiDate(d)+' แล้ว ✓','#eaf7f3','var(--success)');
+        setSaleFetchStatus('โหลดข้อมูลวันที่ '+thaiDateBE(d)+' แล้ว ✓','#eaf7f3','var(--success)');
       } else {
         originalSaleData = null;
         clearSaleForm();
@@ -3403,7 +3407,7 @@ function saveSalesData(){
   if(originalSaleData){
     if(hasSaleChanges()){
       showEditConfirm(
-        'ข้อมูลยอดขายวันที่ '+thaiDate(d)+' มีการเปลี่ยนแปลง\nต้องการบันทึกทับข้อมูลเดิมใน Sheet หรือไม่?',
+        'ข้อมูลยอดขายวันที่ '+thaiDateBE(d)+' มีการเปลี่ยนแปลง\nต้องการบันทึกทับข้อมูลเดิมใน Sheet หรือไม่?',
         ()=>_doUpdateSales(d)
       );
     } else {
@@ -3411,7 +3415,7 @@ function saveSalesData(){
     }
     return;
   }
-  checkDup(savedDates.sale, thaiDate(d), 'ยอดขายวันที่ ', ()=>_doSaveSales(d));
+  checkDup(savedDates.sale, thaiDate(d), 'ยอดขายวันที่ ', ()=>_doSaveSales(d), thaiDateBE(d));
 }
 function _doSaveSales(d){
   const kshop   = +document.getElementById('s_kshop').value||0;
@@ -3493,7 +3497,7 @@ function _doUpdateSales(d){
     renderSaleList();
     updateSalesCalcFields();
     updateSummary();
-    setSaleFetchStatus('อัปเดตข้อมูลวันที่ '+thaiDate(d)+' สำเร็จ ✓','#eaf7f3','var(--success)');
+    setSaleFetchStatus('อัปเดตข้อมูลวันที่ '+thaiDateBE(d)+' สำเร็จ ✓','#eaf7f3','var(--success)');
     setStatus('status_sale','อัปเดตข้อมูลสำเร็จ ✓','ok');
   });
 }
@@ -3512,14 +3516,15 @@ async function loadExpenseForDate(type){
   if(!dateVal){ alert('กรุณาเลือกวันที่ก่อน'); return; }
   const token=getToken(); if(!token) return;
   const dateLabel=thaiDate(dateVal);
+  const dateLabelDisp=thaiDateBE(dateVal);
   const statusId='status_'+type;
-  setStatus(statusId,'กำลังโหลดข้อมูลวันที่ '+dateLabel+'...','');
+  setStatus(statusId,'กำลังโหลดข้อมูลวันที่ '+dateLabelDisp+'...','');
   try {
     const data=await _sbGet('export',{period:'daily',date:dateLabel});
     const cat=_EXPENSE_CATS[type];
     const rows=(data.expense||[]).filter(r=>r['หมวดหมู่']===cat);
     if(!rows.length){
-      setStatus(statusId,'ไม่มีข้อมูล '+cat+' วันที่ '+dateLabel,'err');
+      setStatus(statusId,'ไม่มีข้อมูล '+cat+' วันที่ '+dateLabelDisp,'err');
       return;
     }
     // ล้าง form แล้วโหลดข้อมูล
@@ -3598,7 +3603,7 @@ async function loadExpenseForDate(type){
     const banner=document.getElementById(type+'_edit_banner');
     const bannerTxt=document.getElementById(type+'_edit_banner_txt');
     if(banner){ banner.style.display='flex'; }
-    if(bannerTxt) bannerTxt.textContent='กำลังแก้ไขข้อมูลวันที่ '+dateLabel+' ('+rows.length+' รายการ)';
+    if(bannerTxt) bannerTxt.textContent='กำลังแก้ไขข้อมูลวันที่ '+dateLabelDisp+' ('+rows.length+' รายการ)';
     setStatus(statusId,'โหลดข้อมูลแล้ว '+rows.length+' รายการ — แก้ไขแล้วกดบันทึก','ok');
   } catch(e){
     setStatus(statusId,'โหลดข้อมูลไม่ได้: '+e.message,'err');
@@ -3732,7 +3737,7 @@ async function saveMatAll(){
     if(!ok) return;
     _doSaveMat(d,rows);
   } else {
-    checkDup(savedDates.mat, thaiDate(d), 'ต้นทุนวัตถุดิบวันที่ ', ()=>_doSaveMat(d,rows));
+    checkDup(savedDates.mat, thaiDate(d), 'ต้นทุนวัตถุดิบวันที่ ', ()=>_doSaveMat(d,rows), thaiDateBE(d));
   }
 }
 function _doSaveMat(d,rows){
@@ -3786,7 +3791,7 @@ async function saveBakAll(){
     if(!ok) return;
     _doSaveBak(d,rows);
   } else {
-    checkDup(savedDates.bak, thaiDate(d), 'ต้นทุนขนมวันที่ ', ()=>_doSaveBak(d,rows));
+    checkDup(savedDates.bak, thaiDate(d), 'ต้นทุนขนมวันที่ ', ()=>_doSaveBak(d,rows), thaiDateBE(d));
   }
 }
 function _doSaveBak(d,rows){
@@ -5233,7 +5238,7 @@ async function saveMiscAll(){
     if(!ok) return;
     _doSaveMisc(d,rows);
   } else {
-    checkDup(savedDates.misc, thaiDate(d), 'รายจ่ายทั่วไปวันที่ ', ()=>_doSaveMisc(d,rows));
+    checkDup(savedDates.misc, thaiDate(d), 'รายจ่ายทั่วไปวันที่ ', ()=>_doSaveMisc(d,rows), thaiDateBE(d));
   }
 }
 
@@ -6856,7 +6861,7 @@ async function doExport(){
         let shade=false;
         sales.forEach(r=>{
           const tot=(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0);
-          addDataRow(ws1,[_isoToThai(r.date),r.total_cups||0,r.pastry_pieces||0,r.free_cups||0,r.kshop_amount||0,r.cash_amount||0,r.shopee_before_gp||0,r.grab_before_gp||0,r.lineman_before_gp||0,r.free_cup_cost||0,tot],shade);
+          addDataRow(ws1,[thaiDateBE(r.date),r.total_cups||0,r.pastry_pieces||0,r.free_cups||0,r.kshop_amount||0,r.cash_amount||0,r.shopee_before_gp||0,r.grab_before_gp||0,r.lineman_before_gp||0,r.free_cup_cost||0,tot],shade);
           shade=!shade;
         });
         ws1.addRow([]);
@@ -6876,7 +6881,7 @@ async function doExport(){
         addTitle(ws2, shop, 'ต้นทุนวัตถุดิบประจำเดือน — '+mName, period, preparer);
         addColHeaders(ws2, 6, ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
         let shade=false;
-        mat.forEach(r=>{ addDataRow(ws2,[_isoToThai(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        mat.forEach(r=>{ addDataRow(ws2,[thaiDateBE(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
         ws2.addRow([]);
         addTotalRow(ws2,['รวม','','','','','',tMat,'']);
       }
@@ -6888,7 +6893,7 @@ async function doExport(){
         addTitle(ws3, shop, 'ต้นทุนขนมหน้าร้านประจำเดือน — '+mName, period, preparer);
         addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
         let shade=false;
-        bak.forEach(r=>{ addDataRow(ws3,[_isoToThai(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        bak.forEach(r=>{ addDataRow(ws3,[thaiDateBE(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
         ws3.addRow([]);
         addTotalRow(ws3,['รวม','','','',tBak,'']);
       }
@@ -6900,7 +6905,7 @@ async function doExport(){
         addTitle(ws4, shop, 'รายจ่ายจิปาถะประจำเดือน — '+mName, period, preparer);
         addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย / หมายเหตุ']);
         let shade=false;
-        misc.forEach(r=>{ addDataRow(ws4,[_isoToThai(r.date),r.item_name,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        misc.forEach(r=>{ addDataRow(ws4,[thaiDateBE(r.date),r.item_name,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
         ws4.addRow([]);
         addTotalRow(ws4,['รวม','',tMisc,'']);
       }
@@ -6956,7 +6961,7 @@ async function doExport(){
       // ── DAILY ──
       const dv = document.getElementById('exp_date').value;
       if(!dv){ st.textContent='❌ กรุณาเลือกวันที่'; return; }
-      const th = _isoToThai(dv);
+      const th = thaiDateBE(dv);
       const period = 'วันที่: '+th;
 
       const [sr,er] = await Promise.all([
@@ -7083,7 +7088,7 @@ async function searchExpenseByDate(){
     .order('category').order('item_name');
 
   if(error){ st.textContent = '❌ โหลดไม่ได้: '+error.message; return; }
-  if(!data||!data.length){ st.textContent = '⚠ ไม่พบรายจ่ายในวันที่ '+_isoToThai(dv); return; }
+  if(!data||!data.length){ st.textContent = '⚠ ไม่พบรายจ่ายในวันที่ '+thaiDateBE(dv); return; }
   st.textContent = `พบ ${data.length} รายการ — คลิกที่รายการเพื่อแก้ไข`;
 
   const container = document.getElementById('editexp_results');
@@ -7171,7 +7176,7 @@ async function _doSaveEditExp(id, date, cat, item, price, qty, amount, method, e
 
     // save history to localStorage
     const hist = JSON.parse(localStorage.getItem('mm69_expense_edit_hist')||'[]');
-    hist.unshift({ at:nowStr, by:editor, date:_isoToThai(date), category:cat, item, amount });
+    hist.unshift({ at:nowStr, by:editor, date:thaiDateBE(date), category:cat, item, amount });
     if(hist.length>100) hist.length=100;
     localStorage.setItem('mm69_expense_edit_hist', JSON.stringify(hist));
 
@@ -7195,7 +7200,7 @@ function confirmDeleteEditExp(){
   const canEdit = _auth?.role==='admin'||_auth?.role==='co-admin';
   if(!canEdit){ document.getElementById('editexp_status').textContent='❌ ไม่มีสิทธิ์ลบ (ต้องเป็น admin/co-admin)'; return; }
   const editor = _auth?.display_name||_auth?.username||'ไม่ระบุ';
-  const ok = confirm('⚠️ ยืนยันการลบรายการ\n\nรายการ: '+item+'\nหมวด: '+cat+'\nวันที่: '+_isoToThai(date)+'\n\nลบโดย: '+editor+'\n\n⚠️ ลบแล้วไม่สามารถเรียกคืนได้');
+  const ok = confirm('⚠️ ยืนยันการลบรายการ\n\nรายการ: '+item+'\nหมวด: '+cat+'\nวันที่: '+thaiDateBE(date)+'\n\nลบโดย: '+editor+'\n\n⚠️ ลบแล้วไม่สามารถเรียกคืนได้');
   if(!ok) return;
   _doDeleteEditExp(id, item, cat, date, editor);
 }
@@ -7207,7 +7212,7 @@ async function _doDeleteEditExp(id, item, cat, date, editor){
     if(error) throw error;
     const nowStr = _nowTh();
     const hist = JSON.parse(localStorage.getItem('mm69_expense_edit_hist')||'[]');
-    hist.unshift({ at:nowStr, by:editor, date:_isoToThai(date), category:cat, item, amount:0, action:'ลบ' });
+    hist.unshift({ at:nowStr, by:editor, date:thaiDateBE(date), category:cat, item, amount:0, action:'ลบ' });
     if(hist.length>100) hist.length=100;
     localStorage.setItem('mm69_expense_edit_hist', JSON.stringify(hist));
     st.innerHTML = '🗑 <b>ลบสำเร็จ</b> — '+item;
@@ -7279,7 +7284,7 @@ function renderSavedFromDB(type, rows, dv){
 
   if(!rows.length){ listEl.style.display='none'; return; }
   listEl.style.display = 'block';
-  if(titleEl) titleEl.innerHTML = `<i class="ti ti-circle-check"></i> บันทึกแล้ว ${_isoToThai(dv)}`;
+  if(titleEl) titleEl.innerHTML = `<i class="ti ti-circle-check"></i> บันทึกแล้ว ${thaiDateBE(dv)}`;
 
   const canEdit = _auth?.role === 'admin' || _auth?.role === 'co-admin';
 
