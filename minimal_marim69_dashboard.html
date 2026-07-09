@@ -12,6 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
 </script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -63,6 +64,22 @@
     .date-range-bar input[type="date"] { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
     .date-range-bar .sep { font-size: 13px; color: var(--muted); }
     .date-range-display { font-size: 12px; color: var(--c-latte); font-weight: 600; margin-left: auto; white-space: nowrap; }
+    /* ── วันที่แบบ วว/ดด/ปปปป (ครอบ native date input กันโชว์ผิด locale) ── */
+    .tdate-wrap { position: relative; display: inline-flex; width: 100%; }
+    .tdate-wrap input.tdate-input { width: 100%; padding-right: 32px !important; }
+    .tdate-cal-btn { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); border: none; background: transparent; color: var(--c-latte); cursor: pointer; padding: 6px; font-size: 16px; line-height: 1; display: flex; align-items: center; }
+    .tdate-cal-btn:hover { color: var(--c-coffee); }
+    .tdate-pop { position: absolute; z-index: 500; top: calc(100% + 4px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 10px; width: 230px; display: none; }
+    .tdate-pop.show { display: block; }
+    .tdate-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--c-coffee); }
+    .tdate-pop-head button { border: none; background: var(--c-cream); color: var(--c-coffee); border-radius: 6px; width: 24px; height: 24px; cursor: pointer; }
+    .tdate-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; font-size: 12px; }
+    .tdate-grid .dow { text-align: center; color: var(--muted); font-weight: 600; padding: 2px 0; }
+    .tdate-grid .day { text-align: center; padding: 5px 0; border-radius: 6px; cursor: pointer; }
+    .tdate-grid .day:hover { background: var(--c-cream); }
+    .tdate-grid .day.today { border: 1px solid var(--c-latte); }
+    .tdate-grid .day.sel { background: var(--c-coffee); color: #fff; font-weight: 700; }
+    .tdate-today-btn { margin-top: 8px; width: 100%; padding: 6px; border: none; border-radius: 6px; background: var(--c-cream); color: var(--c-coffee); font-size: 12px; font-weight: 600; cursor: pointer; }
     .inline-total { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #faf7f4; border-radius: 8px; font-size: 13px; margin-top: 12px; border: 1px solid var(--border); }
     .inline-total span { color: var(--muted); } .inline-total strong { font-size: 17px; font-weight: 700; color: var(--c-coffee); }
     .grand-total { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--c-gold); background: #fffbf4; margin-top: 12px; }
@@ -74,12 +91,19 @@
     .btn-gold   { background: var(--c-gold);   color: #fff; }
     .btn-red    { background: var(--danger);   color: #fff; }
     .item-list { margin-bottom: 8px; }
-    .item-row { display: grid; gap: 8px; align-items: end; padding: 12px 14px; background: #fdf9f5; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
-    .item-row-mat  { grid-template-columns: 150px 1fr 90px 70px 120px 34px; }
-    .item-row-bak  { grid-template-columns: 1fr 90px 70px 120px 34px; }
-    .item-row-misc { grid-template-columns: 1fr 120px 130px 80px 34px; }
+    .item-row { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: #fdf9f5; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+    .mat-row-top { display: flex; gap: 8px; align-items: flex-end; }
+    .mat-row-bot { display: grid; grid-template-columns: 1.4fr 0.6fr 0.7fr 1fr auto; gap: 8px; align-items: end; }
+    .item-row-bak  { display: grid; grid-template-columns: 1fr 90px 70px 120px 34px; gap: 8px; align-items: end; }
+    .item-row-misc { display: grid; grid-template-columns: 1fr 120px 130px 80px 34px; gap: 8px; align-items: end; }
     .item-row .field label { font-size: 11px; }
     .item-row .field input, .item-row .field select { padding: 7px 9px; font-size: 12px; }
+    .unit-cmb-wrap { position: relative; }
+    .unit-cmb-wrap input { padding-right: 22px !important; }
+    .unit-cmb-arrow { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 10px; color: var(--muted); line-height:1; user-select:none; }
+    .unit-dl { position: absolute; z-index: 1100; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.13); width: 100%; top: calc(100% + 3px); left: 0; overflow-y: auto; max-height: 180px; }
+    .unit-dl-item { padding: 6px 12px; font-size: 12px; cursor: pointer; color: var(--text); border-radius: 5px; margin: 2px 4px; }
+    .unit-dl-item:hover, .unit-dl-item.focused { background: var(--c-cream); color: var(--c-coffee); font-weight: 600; }
     .item-subtotal { font-size: 12px; font-weight: 700; color: var(--c-coffee); text-align: right; padding-bottom: 3px; }
     .bak-subtotal  { font-size: 12px; font-weight: 700; color: var(--c-gold); text-align: right; padding-bottom: 3px; }
     .del-btn { width: 30px; height: 30px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--muted); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: background .15s, color .15s; align-self: end; }
@@ -220,6 +244,11 @@
       body { padding: 18px 14px; }
       .kpis { grid-template-columns: repeat(3, 1fr); gap: 10px; }
       .row3 { grid-template-columns: 1fr 1fr; }
+      .mat-row-bot { grid-template-columns: 1fr 1fr; }
+      .emp-fields-grid { grid-template-columns: 1fr 1fr; }
+      .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab { flex-shrink: 0; white-space: nowrap; }
     }
 
     /* ── Mobile (≤ 480px) ── */
@@ -267,7 +296,9 @@
       .grand-total strong { font-size: 16px; }
 
       /* Item rows */
-      .item-row-mat  { grid-template-columns: 1fr 1fr; }
+      .mat-row-top { flex-wrap: wrap; }
+      .mat-row-top .field { flex: 1 1 140px; min-width: 120px; }
+      .mat-row-bot { grid-template-columns: 1fr 1fr; }
       .item-row-bak  { grid-template-columns: 1fr 1fr; }
       .item-row-misc { grid-template-columns: 1fr 1fr; }
       .item-row { padding: 10px 10px; }
@@ -390,7 +421,7 @@
     display:flex; align-items:center; justify-content:center; z-index:9200; padding:20px;
   }
   #edit_user_overlay { z-index:9300; }
-  #confirm_overlay.hidden, #history_overlay.hidden, #misc_history_overlay.hidden, #slip_hist_overlay.hidden, #edit_user_overlay.hidden, #pay_history_overlay.hidden, #form50_overlay.hidden { display:none; }
+  #confirm_overlay.hidden, #history_overlay.hidden, #misc_history_overlay.hidden, #slip_hist_overlay.hidden, #edit_user_overlay.hidden, #pay_history_overlay.hidden, #form50_overlay.hidden, #edit_exp_overlay.hidden { display:none !important; }
   .pay-hist-card { background:var(--surface); border-radius:16px; padding:24px; width:100%; max-width:820px; max-height:85vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.2); display:flex; flex-direction:column; gap:14px; }
   .pay-hist-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
   .pay-hist-table th { background:#f0e8df; color:var(--c-coffee); font-size:11px; padding:6px 8px; text-align:right; white-space:nowrap; border-bottom:2px solid #d6bfa6; }
@@ -877,9 +908,7 @@
         <label><i class="ti ti-calendar" style="margin-right:4px;vertical-align:-2px"></i>วันที่จ่ายเงิน</label>
         <input type="date" id="e_main_date" onchange="loadSavedForDate()">
       </div>
-      <button class="btn" onclick="showEditExpModal()" style="margin-top:18px;background:#fff3e0;border:1.5px solid #e6961a;color:#7a4a00;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap">
-        <i class="ti ti-edit"></i> ค้นหาและแก้ไขรายจ่าย
-      </button>
+
     </div>
 
     <!-- วัตถุดิบ -->
@@ -1226,22 +1255,29 @@
           </div>
           <div class="field">
             <label>ชื่อร้าน (สำหรับรายงาน)</label>
-            <input type="text" id="exp_shop_name" value="Minimal Maerim 69" placeholder="ชื่อร้าน">
+            <input type="text" id="exp_shop_name" value="Minimal Maerim 69" placeholder="ชื่อร้าน" oninput="localStorage.setItem('mm69_exp_shop',this.value)">
+          </div>
+          <div class="field">
+            <label>ชื่อผู้จัดทำเอกสาร</label>
+            <input type="text" id="exp_preparer" placeholder="ชื่อ-นามสกุล ผู้จัดทำ" oninput="localStorage.setItem('mm69_exp_preparer',this.value)">
           </div>
         </div>
 
         <!-- เลือกประเภทข้อมูล -->
         <div style="margin-bottom:16px">
           <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">ข้อมูลที่ต้องการส่งออก</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;background:var(--c-cream);border-radius:8px;padding:10px">
               <input type="checkbox" id="exp_chk_sales" checked style="width:16px;height:16px"> ยอดขาย
             </label>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;background:var(--c-cream);border-radius:8px;padding:10px">
-              <input type="checkbox" id="exp_chk_expense" checked style="width:16px;height:16px"> ต้นทุน
+              <input type="checkbox" id="exp_chk_expense" checked style="width:16px;height:16px"> ต้นทุนวัตถุดิบ / ขนม / จิปาถะ
             </label>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;background:var(--c-cream);border-radius:8px;padding:10px">
-              <input type="checkbox" id="exp_chk_opex" checked style="width:16px;height:16px"> ค่าดำเนินการ
+              <input type="checkbox" id="exp_chk_opex" checked style="width:16px;height:16px"> ค่าดำเนินการ (OPEX)
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;background:var(--c-cream);border-radius:8px;padding:10px">
+              <input type="checkbox" id="exp_chk_salary" checked style="width:16px;height:16px"> ค่าแรงพนักงาน
             </label>
           </div>
         </div>
@@ -1571,6 +1607,129 @@ function _isoToThai(iso){ const p=(iso||'').split('-'); return p.length===3?p[2]
 function _monthStart(mm_yyyy){ const p=mm_yyyy.split('/'); return p[1]+'-'+p[0]+'-01'; }
 function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(Date.UTC(+p[1],+p[0],0)).toISOString().split('T')[0]; }
 
+// ══════════════════════════════════════════════════════════════
+//  วันที่แบบ วว/ดด/ปปปป — ครอบ native <input type="date"> ทุกช่อง
+//  เหตุผล: ช่อง <input type="date"> ตอนปิดจะโชว์รูปแบบตาม locale ของ
+//  เครื่อง/เบราว์เซอร์ผู้ใช้ (บางเครื่องเป็น เดือน/วัน/ปี แบบสหรัฐฯ)
+//  ทำให้ผู้ใช้เข้าใจผิดว่าเลือกวันผิด — component นี้บังคับให้แสดง
+//  วว/ดด/ปปปป เสมอ โดย native input เดิมยังอยู่ (ซ่อนไว้) เก็บค่า
+//  ISO ตามปกติ โค้ดอื่นที่อ่าน/เขียน .value ของ id เดิมยังทำงานได้เหมือนเดิม
+// ══════════════════════════════════════════════════════════════
+const _TD_DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+const _TD_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+let _tdOpenPop = null; // popup ปฏิทินที่เปิดอยู่ (ปิดเมื่อคลิกนอกช่อง)
+
+function _tdParseDisp(disp){
+  const m=(disp||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return '';
+  const dd=+m[1], mo=+m[2], yy=+m[3];
+  if(mo<1||mo>12) return '';
+  if(dd<1||dd>new Date(yy,mo,0).getDate()) return '';
+  return _thaiToISO(String(dd).padStart(2,'0')+'/'+String(mo).padStart(2,'0')+'/'+yy);
+}
+
+function enhanceDateInput(native){
+  if(!native || native._tdEnhanced || native.type!=='date') return;
+  native._tdEnhanced = true;
+  native.style.display='none';
+
+  const wrap=document.createElement('span');
+  wrap.className='tdate-wrap';
+  native.parentNode.insertBefore(wrap, native);
+  wrap.appendChild(native);
+
+  const text=document.createElement('input');
+  text.type='text'; text.className='tdate-input'; text.placeholder='วว/ดด/ปปปป';
+  text.inputMode='numeric'; text.autocomplete='off'; text.maxLength=10;
+  const styleAttr = native.getAttribute('style');
+  if(styleAttr) text.setAttribute('style', styleAttr);
+  wrap.appendChild(text);
+
+  const btn=document.createElement('button');
+  btn.type='button'; btn.className='tdate-cal-btn'; btn.tabIndex=-1;
+  btn.innerHTML='<i class="ti ti-calendar"></i>';
+  wrap.appendChild(btn);
+
+  const pop=document.createElement('div');
+  pop.className='tdate-pop';
+  wrap.appendChild(pop);
+
+  // ครอบ .value ของ native input เอง เพื่อให้จอ วว/ดด/ปปปป sync เสมอ
+  // แม้โค้ดอื่นตั้งค่าตรงๆ ผ่าน elem.value = 'yyyy-mm-dd'
+  const desc=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+  Object.defineProperty(native,'value',{
+    get(){ return desc.get.call(this); },
+    set(v){ desc.set.call(this,v); text.value=thaiDate(v); },
+    configurable:true,
+  });
+  text.value=thaiDate(desc.get.call(native));
+
+  function commit(iso){
+    desc.set.call(native, iso);
+    text.value=thaiDate(iso);
+    native.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+
+  text.addEventListener('input',()=>{
+    const digits=text.value.replace(/\D/g,'').slice(0,8);
+    let out=digits;
+    if(digits.length>4) out=digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
+    else if(digits.length>2) out=digits.slice(0,2)+'/'+digits.slice(2);
+    text.value=out;
+  });
+  text.addEventListener('change',()=>{
+    if(text.value.trim()===''){ commit(''); return; }
+    const iso=_tdParseDisp(text.value);
+    if(iso) commit(iso); else text.value=thaiDate(desc.get.call(native));
+  });
+
+  let viewY, viewM;
+  function renderCal(){
+    const iso=desc.get.call(native);
+    const first=new Date(viewY,viewM,1);
+    const startDow=first.getDay();
+    const daysInMonth=new Date(viewY,viewM+1,0).getDate();
+    const today=new Date();
+    let html=`<div class="tdate-pop-head"><button type="button" data-nav="-1">‹</button><span>${_TD_MON[viewM]} ${viewY}</span><button type="button" data-nav="1">›</button></div>`;
+    html+='<div class="tdate-grid">'+_TD_DOW.map(d=>`<div class="dow">${d}</div>`).join('');
+    for(let i=0;i<startDow;i++) html+='<div class="day"></div>';
+    for(let d=1; d<=daysInMonth; d++){
+      const isoD=viewY+'-'+String(viewM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const cls=['day'];
+      if(isoD===iso) cls.push('sel');
+      else if(today.getFullYear()===viewY&&today.getMonth()===viewM&&today.getDate()===d) cls.push('today');
+      html+=`<div class="${cls.join(' ')}" data-d="${d}">${d}</div>`;
+    }
+    html+='</div><button type="button" class="tdate-today-btn" data-today="1">วันนี้</button>';
+    pop.innerHTML=html;
+  }
+  function openPop(){
+    if(_tdOpenPop && _tdOpenPop!==pop) _tdOpenPop.classList.remove('show');
+    const iso=desc.get.call(native);
+    const base=iso?new Date(iso+'T00:00:00'):new Date();
+    viewY=base.getFullYear(); viewM=base.getMonth();
+    renderCal();
+    pop.classList.add('show');
+    _tdOpenPop=pop;
+  }
+  function closePop(){ pop.classList.remove('show'); if(_tdOpenPop===pop) _tdOpenPop=null; }
+
+  pop.addEventListener('click',(e)=>{
+    const nav=e.target.closest('[data-nav]');
+    if(nav){ viewM+=(+nav.dataset.nav); if(viewM<0){viewM=11;viewY--;} else if(viewM>11){viewM=0;viewY++;} renderCal(); return; }
+    const dayEl=e.target.closest('.day[data-d]');
+    if(dayEl){ commit(viewY+'-'+String(viewM+1).padStart(2,'0')+'-'+String(+dayEl.dataset.d).padStart(2,'0')); closePop(); return; }
+    if(e.target.closest('[data-today]')){ const t=new Date(); commit(t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')); closePop(); }
+  });
+  btn.addEventListener('click',(e)=>{ e.stopPropagation(); if(pop.classList.contains('show')) closePop(); else openPop(); });
+}
+function enhanceAllDateInputs(root){
+  (root||document).querySelectorAll('input[type="date"]').forEach(enhanceDateInput);
+}
+document.addEventListener('click',(e)=>{
+  if(_tdOpenPop && !e.target.closest('.tdate-wrap')){ _tdOpenPop.classList.remove('show'); _tdOpenPop=null; }
+});
+
 // ── FORMAT CONVERTERS: Supabase → GAS Thai format ─────────────
 function _sbSaleToThai(r){
   const totalCups = r.total_cups||0;
@@ -1621,7 +1780,8 @@ async function _sbGet(action, params){
     return { found:true, sales:data.total_cups, kshop:data.kshop_amount, cash:data.cash_amount,
       shopee_raw:data.shopee_before_gp, grab_raw:data.grab_before_gp, lineman_raw:data.lineman_before_gp,
       coffee_qty:data.free_cups, coffee_price:coffeePrice,
-      bakery_qty:data.pastry_pieces, bakery_income:data.pastry_revenue };
+      bakery_qty:data.pastry_pieces, bakery_income:data.pastry_revenue,
+      net_revenue:data.net_revenue||0 };
   }
   if(action==='export' && params.period==='monthly'){
     const { data, error } = await _sb.rpc('get_monthly_summary',{ p_month_label: params.month });
@@ -2431,6 +2591,7 @@ document.addEventListener('input',function(e){
   if(e.target.type==='number'&&+e.target.value<0) e.target.value=0;
 });
 function initApp(){
+  enhanceAllDateInputs(document); // ครอบช่องวันที่ทั้งหมดให้เป็น วว/ดด/ปปปป
   const today=todayStr();
   const d=new Date();
   // วันที่ range: ต้นเดือนถึงวันนี้
@@ -2438,7 +2599,7 @@ function initApp(){
   document.getElementById('s_date').value=today;
   onSaleDateChange(); // โหลดข้อมูลยอดขายวันนี้ทันทีเมื่อเปิดหน้า
   document.getElementById('e_main_date').value=today;
-  setTimeout(()=>loadSavedForDate(),300); // auto-load ข้อมูลวันนี้
+  setTimeout(()=>loadSavedForDate(),300); initExportUI();; // auto-load ข้อมูลวันนี้
   document.getElementById('sum_date_from').value=firstOfMonth;
   document.getElementById('sum_date_to').value=today;
   updateSumDateDisplay();
@@ -2693,7 +2854,7 @@ function sw(id,btn){
   if(id==='sum'){
     updateSummary(); // refresh numbers when coming back to overview
   }
-  if(id==='sum' && saleSaved.length===0 && getToken()){
+  if((id==='sum'||id==='sale') && saleSaved.length===0 && getToken()){
     loadMonthlyData();
   }
   // ── helper: เดือนที่เลือกในภาพรวม (sync ทุกแท็บ) ──
@@ -2791,13 +2952,19 @@ function addMatRow(){
   const supOpts=Object.keys(SUPPLIERS_ITEMS).map(s=>'<option value="'+s+'">'+s+'</option>').join('');
   const row=document.createElement('div');
   row.className='item-row item-row-mat'; row.id='mat_row_'+id;
-  row.innerHTML='<div class="field"><label>Supplier</label><select id="mat_sup_'+id+'" onchange="saveLastSup('+id+')"><option value="">— เลือก —</option>'+supOpts+'</select></div>'
-    +'<div class="field"><label>วัตถุดิบ / สินค้า</label><select id="mat_item_'+id+'" onchange="applyMatPrice('+id+')"><option value="">— เลือก Supplier ก่อน —</option></select></div>'
-    +'<div class="field"><label style="display:flex;align-items:center;gap:6px">ราคา/หน่วย <label style="font-size:10px;font-weight:normal;display:flex;align-items:center;gap:3px"><input type="checkbox" id="mat_vat_'+id+'" onchange="calMatRow('+id+')"> +VAT 7%</label></label><input type="number" id="mat_price_'+id+'" placeholder="ก่อน VAT" min="0" oninput="calMatRow('+id+')"><div id="mat_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:3px">VAT: <span id="mat_vat_a_'+id+'">0.00</span>฿ → รวม <span id="mat_vat_t_'+id+'">0.00</span>฿/หน่วย</div></div>'
+  row.innerHTML=
+    '<div class="mat-row-top">'
+    +'<div class="field" style="flex:0 0 140px;min-width:110px"><label>Supplier</label><select id="mat_sup_'+id+'" onchange="saveLastSup('+id+')"><option value="">— เลือก —</option>'+supOpts+'</select></div>'
+    +'<div class="field" style="flex:1;min-width:140px"><label>วัตถุดิบ / สินค้า</label><select id="mat_item_'+id+'" onchange="applyMatPrice('+id+')"><option value="">— เลือก Supplier ก่อน —</option></select></div>'
+    +'<button class="del-btn" onclick="removeRow(\'mat_row_'+id+'\',\'mat\')" title="ลบ" style="flex-shrink:0;align-self:flex-end"><i class="ti ti-x"></i></button>'
+    +'</div>'
+    +'<div class="mat-row-bot">'
+    +'<div class="field"><label style="display:flex;align-items:center;gap:5px">ราคา/หน่วย <span style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:normal"><input type="checkbox" id="mat_vat_'+id+'" onchange="calMatRow('+id+')"> VAT 7%</span></label><input type="number" id="mat_price_'+id+'" placeholder="ก่อน VAT" min="0" oninput="calMatRow('+id+')"><div id="mat_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="mat_vat_a_'+id+'">0</span>฿ → <span id="mat_vat_t_'+id+'">0</span>฿</div></div>'
     +'<div class="field"><label>จำนวน</label><input type="number" id="mat_qty_'+id+'" value="1" min="1" oninput="calMatRow('+id+')"></div>'
+    +'<div class="field"><label>หน่วย</label><div class="unit-cmb-wrap"><input type="text" id="mat_unit_'+id+'" placeholder="เลือก/พิมพ์" autocomplete="off" oninput="filterUnitDl('+id+')" onfocus="openUnitDl('+id+')" onblur="closeUnitDlDelay('+id+')"><span class="unit-cmb-arrow" onmousedown="event.preventDefault();toggleUnitDl('+id+')">▾</span><div id="mat_unit_dl_'+id+'" class="unit-dl" style="display:none"></div></div></div>'
     +'<div class="field"><label>ชำระด้วย</label><select id="mat_method_'+id+'"><option value="บัญชี หจก.">บัญชี หจก.</option><option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option><option value="เงินสด">เงินสด</option></select></div>'
-    +'<button class="del-btn" onclick="removeRow(\'mat_row_'+id+'\',\'mat\')" title="ลบแถว"><i class="ti ti-x"></i></button>'
-    +'<div class="item-subtotal" id="mat_sub_'+id+'" style="grid-column:1/-1;text-align:right">รวม 0.00 ฿</div>';
+    +'<div class="item-subtotal" id="mat_sub_'+id+'" style="display:flex;align-items:center;justify-content:flex-end;font-size:13px">รวม 0.00 ฿</div>'
+    +'</div>';
   document.getElementById('mat_item_list').appendChild(row);
   // จำ supplier ก่อนหน้า → pre-select อัตโนมัติ
   if(lastMatSup){
@@ -2819,6 +2986,39 @@ function updateMatItems(id){
   const c=document.createElement('option'); c.value='__custom__'; c.textContent='+ พิมพ์รายการใหม่'; sel.appendChild(c);
   const old=document.getElementById('mat_row_'+id).querySelector('.custom-extra-input'); if(old) old.remove();
   document.getElementById('mat_price_'+id).value=''; calMatRow(id);
+}
+const MAT_UNITS = ['กก.','กรัม','ลิตร','มล.','ถุง','แพ็ค','กล่อง','ชิ้น','โหล','ขวด','แผ่น','กระสอบ','ม้วน','คู่','อัน'];
+function openUnitDl(id){
+  filterUnitDl(id, true);
+}
+function closeUnitDlDelay(id){
+  setTimeout(()=>{
+    const dl=document.getElementById('mat_unit_dl_'+id);
+    if(dl) dl.style.display='none';
+  },180);
+}
+function toggleUnitDl(id){
+  const dl=document.getElementById('mat_unit_dl_'+id);
+  if(!dl) return;
+  if(dl.style.display==='none'){ filterUnitDl(id,true); document.getElementById('mat_unit_'+id)?.focus(); }
+  else { dl.style.display='none'; }
+}
+function filterUnitDl(id, forceOpen){
+  const inp=document.getElementById('mat_unit_'+id);
+  const dl=document.getElementById('mat_unit_dl_'+id);
+  if(!inp||!dl) return;
+  const q=inp.value.toLowerCase();
+  const filtered=q?MAT_UNITS.filter(u=>u.toLowerCase().includes(q)):MAT_UNITS;
+  if(!filtered.length){ dl.style.display='none'; return; }
+  dl.innerHTML=filtered.map(u=>`<div class="unit-dl-item" onmousedown="event.preventDefault();selectUnitDl(${id},'${u}')">${u}</div>`).join('');
+  dl.style.display='block';
+  saveMatUnit(id);
+}
+function selectUnitDl(id,unit){
+  const inp=document.getElementById('mat_unit_'+id);
+  const dl=document.getElementById('mat_unit_dl_'+id);
+  if(inp){ inp.value=unit; saveMatUnit(id); }
+  if(dl) dl.style.display='none';
 }
 function saveMatUnit(id){
   const item = document.getElementById('mat_item_'+id)?.value;
@@ -2972,9 +3172,10 @@ function showBakPriceHistory(){
 function addBakRow(){
   const id=++bakRowId;
   const row=document.createElement('div');
-  row.className='item-row item-row-bak'; row.id='bak_row_'+id;
+  row.className='item-row item-row-mat'; row.id='bak_row_'+id;
   row.innerHTML=
-    '<div class="field bak-ac-wrap">'
+    '<div class="mat-row-top">'
+    +'<div class="field bak-ac-wrap" style="flex:1">'
       +'<label>รายการขนม</label>'
       +'<input type="text" id="bak_item_'+id+'" placeholder="พิมพ์ชื่อขนม..." autocomplete="off"'
         +' oninput="showBakSuggestions('+id+')" onfocus="showBakSuggestions('+id+')"'
@@ -2983,11 +3184,14 @@ function addBakRow(){
       +'<div class="bak-ac-list" id="bak_ac_'+id+'"></div>'
       +'<input type="hidden" id="bak_item_key_'+id+'">'
     +'</div>'
-    +'<div class="field"><label style="display:flex;align-items:center;gap:6px">ราคา/ชิ้น (฿) <label style="font-size:10px;font-weight:normal;display:flex;align-items:center;gap:3px"><input type="checkbox" id="bak_vat_'+id+'" onchange="calBakRow('+id+')"> +VAT 7%</label></label><input type="number" id="bak_price_'+id+'" placeholder="0.00" min="0" oninput="calBakRow('+id+')"><div id="bak_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:3px">VAT: <span id="bak_vat_a_'+id+'">0.00</span>฿ → รวม <span id="bak_vat_t_'+id+'">0.00</span>฿/ชิ้น</div></div>'
+    +'<button class="del-btn" onclick="removeRow(\'bak_row_'+id+'\',\'bak\')" title="ลบ" style="flex-shrink:0;align-self:flex-end"><i class="ti ti-x"></i></button>'
+    +'</div>'
+    +'<div class="mat-row-bot">'
+    +'<div class="field"><label style="display:flex;align-items:center;gap:5px">ราคา/ชิ้น (฿) <span style="font-size:10px;font-weight:normal;display:flex;align-items:center;gap:3px"><input type="checkbox" id="bak_vat_'+id+'" onchange="calBakRow('+id+')"> VAT 7%</span></label><input type="number" id="bak_price_'+id+'" placeholder="0.00" min="0" oninput="calBakRow('+id+')"><div id="bak_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="bak_vat_a_'+id+'">0</span>฿ → <span id="bak_vat_t_'+id+'">0</span>฿</div></div>'
     +'<div class="field"><label>จำนวน</label><input type="number" id="bak_qty_'+id+'" value="1" min="1" oninput="calBakRow('+id+')"></div>'
     +'<div class="field"><label>ชำระด้วย</label><select id="bak_method_'+id+'"><option value="บัญชี หจก.">บัญชี หจก.</option><option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option><option value="เงินสด">เงินสด</option></select></div>'
-    +'<div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-end"><div id="bak_sub_'+id+'" class="bak-subtotal">รวม 0.00 ฿</div></div>'
-    +'<button class="del-btn" onclick="removeRow(\'bak_row_'+id+'\',\'bak\')" title="ลบแถว"><i class="ti ti-x"></i></button>';
+    +'<div class="item-subtotal" id="bak_sub_'+id+'" style="display:flex;align-items:center;justify-content:flex-end;color:var(--c-gold)">รวม 0.00 ฿</div>'
+    +'</div>';
   document.getElementById('bak_item_list').appendChild(row);
   updateBakGrand();
 }
@@ -3191,6 +3395,26 @@ function renderSaleList(){
   html += '</div></div>';
   el.innerHTML = html;
 }
+// เติม/อัปเดตรายการของวันที่ที่เพิ่งโหลดจาก DB เข้า "ประวัติบันทึกในเซสชันนี้"
+// (แก้ปัญหา: ข้อมูลที่บันทึกไว้ก่อนหน้า session นี้ ไม่เคยขึ้นในตารางประวัติ
+//  เพราะเดิมตารางนี้รวมเฉพาะรายการที่กด "บันทึก" ในเซสชันปัจจุบันเท่านั้น)
+function _mergeSaleIntoHistory(d, data){
+  const bakQty     = +data.bakery_qty||0;
+  const totalCups  = +data.sales||0;
+  const coffeeCups = Math.max(0, totalCups - bakQty);
+  const freeCups   = +data.coffee_qty||0;
+  const freeCost   = freeCups * (+data.coffee_price||50);
+  const kshop      = +data.kshop||0;
+  const cash       = +data.cash||0;
+  const bakIncome  = +data.bakery_income||0;
+  const income     = +data.net_revenue||0;
+  // net_revenue = kshop + cash + delivery(หลังหัก GP) + pastry_revenue - free_cup_cost
+  const deliveryNet = income - kshop - cash - bakIncome + freeCost;
+  const entry = {date:d,totalCups,coffeeCups,bakQty,freeCups,freeCost,income,kshop,cash,deliveryNet,bakIncome};
+  const idx = saleSaved.findIndex(r=>r.date===d);
+  if(idx>=0) saleSaved[idx]=entry; else saleSaved.push(entry);
+  renderSaleList();
+}
 // ── Sale date: fetch existing data ────────────────────────────
 let originalSaleData = null;
 function onSaleDateChange(){
@@ -3202,6 +3426,7 @@ function onSaleDateChange(){
       if(data && data.found){
         originalSaleData = data;
         populateSaleForm(data);
+        _mergeSaleIntoHistory(d, data);
         setSaleFetchStatus('โหลดข้อมูลวันที่ '+thaiDate(d)+' แล้ว ✓','#eaf7f3','var(--success)');
       } else {
         originalSaleData = null;
@@ -3598,11 +3823,18 @@ async function _deleteAndSave(type, d, rows, doSaveFn){
   doSaveFn(d, rows);
 }
 
-function saveMatAll(){
+async function saveMatAll(){
   const d=document.getElementById('e_main_date').value; if(!d){alert('กรุณาระบุวันที่');return;}
   const rows=document.querySelectorAll('[id^="mat_row_"]'); if(!rows.length){alert('ไม่มีรายการ');return;}
-  if(_editMode.mat){
-    _atomicEdit('mat', d, rows); // atomic: delete+insert ใน GAS call เดียว
+  if(_editMode.mat){ _atomicEdit('mat', d, rows); return; }
+  // DB-level item dup check
+  const itemNames=[];
+  rows.forEach(row=>{ const id=row.id.split('_')[2]; let v=document.getElementById('mat_item_'+id)?.value||''; if(v&&v!=='__custom__') itemNames.push(v); });
+  const dups=await checkItemDuplicates(d,'ต้นทุนวัตถุดิบ',itemNames);
+  if(dups.length){
+    const ok=confirm('⚠️ พบรายการที่มีอยู่แล้วในวันที่นี้\n\n'+dups.join('\n')+'\n\nต้องการบันทึกซ้ำหรือไม่?');
+    if(!ok) return;
+    _doSaveMat(d,rows);
   } else {
     checkDup(savedDates.mat, thaiDate(d), 'ต้นทุนวัตถุดิบวันที่ ', ()=>_doSaveMat(d,rows));
   }
@@ -3646,11 +3878,17 @@ function finishMat(errors,batchSaved,d){
   document.getElementById('mat_item_list').innerHTML=''; matRowId=0; addMatRow();
   setTimeout(()=>loadSavedForDate(),400); // refresh saved list
 }
-function saveBakAll(){
+async function saveBakAll(){
   const d=document.getElementById('e_main_date').value; if(!d){alert('กรุณาระบุวันที่');return;}
   const rows=document.querySelectorAll('[id^="bak_row_"]'); if(!rows.length){alert('ไม่มีรายการ');return;}
-  if(_editMode.bak){
-    _atomicEdit('bak', d, rows);
+  if(_editMode.bak){ _atomicEdit('bak', d, rows); return; }
+  const itemNames=[];
+  rows.forEach(row=>{ const id=row.id.split('_')[2]; const k=document.getElementById('bak_item_key_'+id); const v=k?.value||document.getElementById('bak_item_'+id)?.value.trim()||''; if(v) itemNames.push(v); });
+  const dups=await checkItemDuplicates(d,'ต้นทุนขนมหน้าร้าน',itemNames);
+  if(dups.length){
+    const ok=confirm('⚠️ พบรายการที่มีอยู่แล้วในวันที่นี้\n\n'+dups.join('\n')+'\n\nต้องการบันทึกซ้ำหรือไม่?');
+    if(!ok) return;
+    _doSaveBak(d,rows);
   } else {
     checkDup(savedDates.bak, thaiDate(d), 'ต้นทุนขนมวันที่ ', ()=>_doSaveBak(d,rows));
   }
@@ -4689,6 +4927,7 @@ function showForm50(){
         </div>
       </div>`;
   });
+  enhanceAllDateInputs(sec); // ช่อง f50_date_* ถูกสร้างใหม่ทุกครั้ง ต้องครอบใหม่
   document.getElementById('form50_overlay').classList.remove('hidden');
 }
 
@@ -5016,23 +5255,22 @@ function _doSaveOpex(m,monthLabel,silent=false){
 function addMiscRow(){
   const id=++miscRowId;
   const row=document.createElement('div');
-  row.className='item-row item-row-misc'; row.id='misc_row_'+id;
+  row.className='item-row item-row-mat'; row.id='misc_row_'+id;
   const payOpts='<option value="บัญชี หจก.">บัญชี หจก.</option><option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option><option value="เงินสด">เงินสด</option>';
   row.innerHTML=
-    '<div class="field"><label>รายการ</label>'
+    '<div class="mat-row-top">'
+    +'<div class="field" style="flex:1"><label>รายการ</label>'
       +'<input type="text" id="misc_item_'+id+'" placeholder="ระบุรายการรายจ่าย"></div>'
-    +'<div class="field"><label style="display:flex;align-items:center;gap:5px">ยอด (฿) '
-      +'<label style="font-size:10px;font-weight:normal;display:flex;align-items:center;gap:3px">'
-        +'<input type="checkbox" id="misc_vat_'+id+'" onchange="calMiscRow('+id+')"> +VAT 7%'
-      +'</label></label>'
-      +'<input type="number" id="misc_total_'+id+'" placeholder="0.00" min="0" oninput="calMiscRow('+id+')">'
-      +'<div id="misc_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:3px">VAT: <span id="misc_vat_a_'+id+'">0.00</span>฿ → รวม <span id="misc_vat_t_'+id+'">0.00</span>฿</div>'
+    +'<button class="del-btn" onclick="removeRow(\'misc_row_'+id+'\',\'misc\')" title="ลบ" style="flex-shrink:0;align-self:flex-end"><i class="ti ti-x"></i></button>'
+    +'</div>'
+    +'<div class="mat-row-bot" style="grid-template-columns:1fr 1fr auto">'
+    +'<div class="field"><label style="display:flex;align-items:center;gap:5px">ยอด (฿) <span style="font-size:10px;font-weight:normal;display:flex;align-items:center;gap:3px"><input type="checkbox" id="misc_vat_'+id+'" onchange="calMiscRow('+id+')"> VAT 7%</span></label>'
+    +'<input type="number" id="misc_total_'+id+'" placeholder="0.00" min="0" oninput="calMiscRow('+id+')">'
+    +'<div id="misc_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="misc_vat_a_'+id+'">0</span>฿ → <span id="misc_vat_t_'+id+'">0</span>฿</div>'
     +'</div>'
     +'<div class="field"><label>ชำระด้วย</label><select id="misc_method_'+id+'">'+payOpts+'</select></div>'
-    +'<div style="display:flex;align-items:flex-end;justify-content:flex-end;padding-bottom:4px">'
-      +'<span id="misc_sub_'+id+'" class="bak-subtotal">รวม 0.00 ฿</span>'
-    +'</div>'
-    +'<button class="del-btn" onclick="removeRow(\'misc_row_'+id+'\',\'misc\')" title="ลบแถว"><i class="ti ti-x"></i></button>';
+    +'<div class="item-subtotal" id="misc_sub_'+id+'" style="display:flex;align-items:center;justify-content:flex-end;color:var(--c-gold)">รวม 0.00 ฿</div>'
+    +'</div>';
   document.getElementById('misc_item_list').appendChild(row);
   updateMiscGrand();
 }
@@ -5087,11 +5325,20 @@ function _doSaveMisc(d,rows){
     },'misc_row_'+id);
   });
 }
-function saveMiscAll(){
+async function saveMiscAll(){
   const d=document.getElementById('e_main_date').value; if(!d){alert('กรุณาระบุวันที่');return;}
   const rows=document.querySelectorAll('[id^="misc_row_"]'); if(!rows.length){alert('ไม่มีรายการ');return;}
   if(_editMode.misc){ _atomicEdit('misc', d, rows); return; }
-  checkDup(savedDates.misc, thaiDate(d), 'รายจ่ายทั่วไปวันที่ ', ()=>_doSaveMisc(d,rows));
+  const itemNames=[];
+  rows.forEach(row=>{ const id=row.id.split('_')[2]; const v=document.getElementById('misc_item_'+id)?.value.trim()||''; if(v) itemNames.push(v); });
+  const dups=await checkItemDuplicates(d,'รายจ่ายจิปาถะ',itemNames);
+  if(dups.length){
+    const ok=confirm('⚠️ พบรายการที่มีอยู่แล้วในวันที่นี้\n\n'+dups.join('\n')+'\n\nต้องการบันทึกซ้ำหรือไม่?');
+    if(!ok) return;
+    _doSaveMisc(d,rows);
+  } else {
+    checkDup(savedDates.misc, thaiDate(d), 'รายจ่ายทั่วไปวันที่ ', ()=>_doSaveMisc(d,rows));
+  }
 }
 
 function finishMisc(errors,batchSaved,d){
@@ -6472,17 +6719,32 @@ async function generateForm50PDF(defId){
 // ════════════════════════════════════════════════════════════════════
 // ── EXPORT FUNCTIONS ──────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════
+
+function initExportUI(){
+  const today = new Date();
+  const yyyy  = today.getFullYear();
+  const mm    = String(today.getMonth()+1).padStart(2,'0');
+  const dd    = String(today.getDate()).padStart(2,'0');
+  const dateEl  = document.getElementById('exp_date');
+  const monthEl = document.getElementById('exp_month');
+  const shopEl  = document.getElementById('exp_shop_name');
+  const prepEl  = document.getElementById('exp_preparer');
+  if(dateEl)  dateEl.value  = yyyy+'-'+mm+'-'+dd;
+  if(monthEl) monthEl.value = yyyy+'-'+mm;
+  const savedShop = localStorage.getItem('mm69_exp_shop');
+  const savedPrep = localStorage.getItem('mm69_exp_preparer');
+  if(savedShop && shopEl) shopEl.value = savedShop;
+  if(savedPrep && prepEl) prepEl.value = savedPrep;
+}
+
 let _exportPeriod = 'daily';
 
 function setExportPeriod(type) {
   _exportPeriod = type;
   const dBtn = document.getElementById('exp_daily_btn');
   const mBtn = document.getElementById('exp_monthly_btn');
-  [dBtn, mBtn].forEach(b => {
-    if(b){ b.style.background='#f3ede7'; b.style.color='var(--text)'; }
-  });
-  const active = type === 'daily' ? dBtn : mBtn;
-  if(active){ active.style.background='var(--c-coffee)'; active.style.color='#fff'; }
+  if(dBtn){ dBtn.classList.toggle('btn-coffee', type==='daily'); dBtn.style.background=''; dBtn.style.color=''; }
+  if(mBtn){ mBtn.classList.toggle('btn-coffee', type==='monthly'); mBtn.style.background=''; mBtn.style.color=''; }
   document.getElementById('exp_date_wrap').style.display  = type === 'daily'   ? '' : 'none';
   document.getElementById('exp_month_wrap').style.display = type === 'monthly' ? '' : 'none';
 }
@@ -6492,27 +6754,152 @@ function _thMonthNameTH(mm){
 }
 
 async function doExport(){
-  const chkSales = document.getElementById('exp_chk_sales').checked;
-  const chkExp   = document.getElementById('exp_chk_expense').checked;
-  const chkOpex  = document.getElementById('exp_chk_opex').checked;
-  const shop     = document.getElementById('exp_shop_name').value || 'Minimal Coffee';
-  const st       = document.getElementById('status_export');
-  st.textContent = '⏳ กำลังโหลดข้อมูล...';
+  if(typeof ExcelJS === 'undefined'){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+  }
+  const chkSales   = document.getElementById('exp_chk_sales').checked;
+  const chkExp     = document.getElementById('exp_chk_expense').checked;
+  const chkOpex    = document.getElementById('exp_chk_opex').checked;
+  const shop       = document.getElementById('exp_shop_name').value  || 'Minimal Coffee';
+  const preparer   = document.getElementById('exp_preparer').value   || '-';
+  const st         = document.getElementById('status_export');
+  st.textContent   = '⏳ กำลังโหลดข้อมูล...';
+
+  // ── helpers ──
+  const THB = n => (+n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const brown     = { argb:'FF3D2B1F' };
+  const brownMid  = { argb:'FF7B4F2E' };
+  const cream     = { argb:'FFF9F0E6' };
+  const white     = { argb:'FFFFFFFF' };
+  const yellow    = { argb:'FFFFF8E1' };
+  const green     = { argb:'FFE8F5E9' };
+  const red       = { argb:'FFFCE4EC' };
+  const greenTxt  = { argb:'FF1B5E20' };
+  const redTxt    = { argb:'FFB71C1C' };
+  const darkTxt   = { argb:'FF1A0A00' };
+  const mutedTxt  = { argb:'FF6D4C2A' };
+
+  const thin = { style:'thin', color:{ argb:'FFCBA989' } };
+  const border = { top:thin, left:thin, bottom:thin, right:thin };
+  const borderB = { top:thin, left:thin, bottom:{ style:'medium', color:{ argb:'FF3D2B1F' } }, right:thin };
+
+  function styleRow(row, bg, fontColor, bold, sz){
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.fill    = { type:'pattern', pattern:'solid', fgColor: bg };
+      cell.font    = { bold: bold||false, color: fontColor||{argb:'FF1A0A00'}, size: sz||10, name:'Cordia New' };
+      cell.border  = border;
+      cell.alignment = { vertical:'middle', wrapText:true };
+    });
+  }
+
+  function addTitle(ws, shop, title, period, preparer){
+    ws.mergeCells('A1:H1');
+    const r1 = ws.getRow(1);
+    r1.getCell(1).value = shop;
+    r1.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: brown };
+    r1.getCell(1).font  = { bold:true, color:white, size:14, name:'Cordia New' };
+    r1.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+    r1.height = 24;
+
+    ws.mergeCells('A2:H2');
+    const r2 = ws.getRow(2);
+    r2.getCell(1).value = title;
+    r2.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: brownMid };
+    r2.getCell(1).font  = { bold:true, color:white, size:12, name:'Cordia New' };
+    r2.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+    r2.height = 20;
+
+    const r3 = ws.getRow(3);
+    r3.getCell(1).value = period;
+    r3.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: cream };
+    r3.getCell(1).font  = { color:mutedTxt, size:10, name:'Cordia New' };
+    ws.mergeCells('A3:D3');
+    r3.getCell(5).value = 'สร้างเมื่อ: '+_nowTh();
+    ws.mergeCells('E3:H3');
+    r3.getCell(5).fill  = { type:'pattern', pattern:'solid', fgColor: cream };
+    r3.getCell(5).font  = { color:mutedTxt, size:10, name:'Cordia New' };
+    r3.getCell(5).alignment = { horizontal:'right' };
+    r3.height = 18;
+
+    const r4 = ws.getRow(4);
+    r4.getCell(1).value = 'ผู้จัดทำ: ' + preparer;
+    r4.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: cream };
+    r4.getCell(1).font  = { italic:true, color:mutedTxt, size:10, name:'Cordia New' };
+    ws.mergeCells('A4:H4');
+    r4.height = 16;
+
+    ws.getRow(5).height = 6; // spacer
+  }
+
+  function addColHeaders(ws, rowNum, headers, widths){
+    const r = ws.getRow(rowNum);
+    r.height = 20;
+    headers.forEach((h,i)=>{
+      const cell = r.getCell(i+1);
+      cell.value = h;
+      cell.fill  = { type:'pattern', pattern:'solid', fgColor: brown };
+      cell.font  = { bold:true, color:white, size:10, name:'Cordia New' };
+      cell.border = border;
+      cell.alignment = { horizontal:'center', vertical:'middle', wrapText:true };
+    });
+    if(widths) ws.columns = widths.map(w=>({width:w}));
+  }
+
+  function addDataRow(ws, vals, shade){
+    const r = ws.addRow(vals);
+    r.height = 18;
+    styleRow(r, shade ? cream : white, darkTxt, false, 10);
+    // right-align numeric cells
+    r.eachCell({includeEmpty:true}, (cell,ci)=>{
+      if(typeof cell.value === 'number'){
+        cell.numFmt = '#,##0.00';
+        cell.alignment = { horizontal:'right', vertical:'middle' };
+      } else {
+        cell.alignment = { horizontal:'left', vertical:'middle' };
+      }
+    });
+    return r;
+  }
+
+  function addTotalRow(ws, vals){
+    const r = ws.addRow(vals);
+    r.height = 20;
+    styleRow(r, yellow, darkTxt, true, 10);
+    r.eachCell({includeEmpty:true}, (cell)=>{
+      if(typeof cell.value === 'number'){
+        cell.numFmt = '#,##0.00';
+        cell.alignment = { horizontal:'right', vertical:'middle' };
+      }
+      cell.border = borderB;
+    });
+    return r;
+  }
+
   try {
-    const wb = XLSX.utils.book_new();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = preparer;
+    wb.lastModifiedBy = preparer;
+    wb.created = new Date();
+    wb.modified = new Date();
 
     if(_exportPeriod === 'monthly'){
       const mv = document.getElementById('exp_month').value;
       if(!mv){ st.textContent='❌ กรุณาเลือกเดือน'; return; }
       const [yr,mo] = mv.split('-');
-      const mlabel = mo+'/'+yr;
-      const mStart = yr+'-'+mo+'-01';
-      const mEnd   = yr+'-'+mo+'-31';
-      const mName  = _thMonthNameTH(mo)+' '+yr;
+      const mlabel  = mo+'/'+yr;
+      const mStart  = yr+'-'+mo+'-01';
+      const lastDay = new Date(+yr, +mo, 0).getDate();
+      const mEnd    = yr+'-'+mo+'-'+String(lastDay).padStart(2,'0');
+      const mName   = _thMonthNameTH(mo)+' '+yr;
+      const period  = 'ช่วงเวลา: เดือน '+mName;
 
       const [sr,er,or_] = await Promise.all([
         chkSales ? _sb.from('sales_daily').select('*').gte('date',mStart).lte('date',mEnd).order('date') : Promise.resolve({data:[]}),
-        chkExp   ? _sb.from('expenses').select('*').gte('date',mStart).lte('date',mEnd).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']).order('date') : Promise.resolve({data:[]}),
+        chkExp   ? _sb.from('expenses').select('*').gte('date',mStart).lte('date',mEnd).in('category',['ต้นทุนวัตถุดิบ','ต้นทุนขนมหน้าร้าน','รายจ่ายจิปาถะ']).order('date').order('category') : Promise.resolve({data:[]}),
         chkOpex  ? _sb.from('expenses').select('*').eq('month_label',mlabel).not('item_key','is',null).order('item_name') : Promise.resolve({data:[]}),
       ]);
       const sales = sr.data||[]; const exps = er.data||[]; const opex = or_.data||[];
@@ -6520,118 +6907,161 @@ async function doExport(){
       const bak   = exps.filter(r=>r.category==='ต้นทุนขนมหน้าร้าน');
       const misc  = exps.filter(r=>r.category==='รายจ่ายจิปาถะ');
 
-      const hdr = (t) => [[shop],[t],[`ช่วงเวลา: เดือน ${mName}`,``,`สร้างเมื่อ: ${_nowTh()}`],[]];
+      const tIncome = sales.reduce((s,r)=>s+(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0),0);
+      const tMat    = mat.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tBak    = bak.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tMisc   = misc.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tFree   = sales.reduce((s,r)=>s+(r.free_cup_cost||0),0);
+      const tOpex   = opex.reduce((s,r)=>s+(r.total_amount||0),0);
+      // salary from localStorage
+      const chkSalaryPre = document.getElementById('exp_chk_salary').checked;
+      let tSalary = 0;
+      if(chkSalaryPre){ EMP_CONFIG.forEach(emp=>{ const hist=JSON.parse(localStorage.getItem('mm69_emp_pay_history_'+emp.id)||'[]'); const rec=hist.find(r=>r.month===mlabel); if(rec) tSalary+=(rec.compCost||0); }); }
+      const tExp    = tMat+tBak+tMisc+tFree+tOpex+tSalary;
+      const profit  = tIncome-tExp;
 
-      // ── Sheet ภาพรวม ──
-      const tIncome  = sales.reduce((s,r)=>s+(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0),0);
-      const tMat     = mat.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tBak     = bak.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tMisc    = misc.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tFree    = sales.reduce((s,r)=>s+(r.free_cup_cost||0),0);
-      const tOpex    = opex.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tExp     = tMat+tBak+tMisc+tFree+tOpex;
-      const profit   = tIncome-tExp;
+      // ── Sheet 1: ภาพรวม ──
+      const ws0 = wb.addWorksheet('ภาพรวม');
+      ws0.columns = [{width:36},{width:20},{width:16},{width:10},{width:10},{width:10},{width:10},{width:10}];
+      addTitle(ws0, shop, 'รายงานภาพรวมประจำเดือน — '+mName, period, preparer);
+      addColHeaders(ws0, 6, ['รายการ','จำนวนเงิน (บาท)','หมายเหตุ']);
+      let shade=false;
+      addDataRow(ws0, ['รายรับรวมทั้งเดือน', tIncome, ''], shade); shade=!shade;
+      ws0.addRow([]);
+      const grpHdr = ws0.addRow(['  รายละเอียดรายจ่าย','','']);
+      grpHdr.getCell(1).fill = {type:'pattern',pattern:'solid',fgColor:brownMid};
+      grpHdr.getCell(1).font = {bold:true,color:white,size:10,name:'Cordia New'};
+      ws0.mergeCells(`A${grpHdr.number}:C${grpHdr.number}`);
+      shade=false;
+      addDataRow(ws0, ['  ต้นทุนวัตถุดิบ', tMat, ''], shade); shade=!shade;
+      addDataRow(ws0, ['  ต้นทุนขนมหน้าร้าน', tBak, ''], shade); shade=!shade;
+      addDataRow(ws0, ['  รายจ่ายจิปาถะ', tMisc, ''], shade); shade=!shade;
+      addDataRow(ws0, ['  ต้นทุนแก้วกาแฟฟรี', tFree, ''], shade); shade=!shade;
+      addDataRow(ws0, ['  ค่าดำเนินการ (OPEX)', tOpex, ''], shade); shade=!shade;
+      if(chkSalaryPre) addDataRow(ws0, ['  ค่าแรงพนักงาน (ต้นทุนบริษัท)', tSalary, ''], shade);
+      ws0.addRow([]);
+      addTotalRow(ws0, ['รวมรายจ่ายทั้งหมด', tExp, '']);
+      ws0.addRow([]);
+      const profRow = ws0.addRow(['กำไรสุทธิ (ก่อนค่าแรงพนักงาน)', profit, profit>=0?'▲ กำไร':'▼ ขาดทุน']);
+      profRow.height = 22;
+      styleRow(profRow, profit>=0?green:red, profit>=0?greenTxt:redTxt, true, 11);
+      profRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
+      ws0.addRow([]);
+      const noteRow = ws0.addRow(['หมายเหตุ: ยังไม่รวมค่าแรงพนักงาน กรุณาดูรายละเอียดจากหน้าแดชบอร์ดค่าแรง']);
+      noteRow.getCell(1).font = {italic:true,color:mutedTxt,size:9,name:'Cordia New'};
+      ws0.mergeCells(`A${noteRow.number}:H${noteRow.number}`);
 
-      const ws0 = XLSX.utils.aoa_to_sheet([
-        ...hdr('รายงานภาพรวม — '+mName),
-        ['รายการ','จำนวน (บาท)',''],
-        ['รายรับทั้งเดือน',tIncome,''],[''],
-        ['ต้นทุนวัตถุดิบ',tMat,''],
-        ['ต้นทุนขนมหน้าร้าน',tBak,''],
-        ['รายจ่ายจิปาถะ',tMisc,''],
-        ['ต้นทุนกาแฟแจกฟรี',tFree,''],
-        ['ค่าดำเนินการ (OPEX)',tOpex,''],
-        ['รวมรายจ่าย',tExp,''],[''],
-        ['กำไรสุทธิ (ก่อนค่าแรง)',profit,profit>=0?'▲ กำไร':'▼ ขาดทุน'],[''],
-        ['* ยังไม่รวมค่าแรงพนักงาน — ดูจากหน้าแดชบอร์ดค่าแรง'],
-      ]);
-      ws0['!cols']=[{wch:32},{wch:18},{wch:14}];
-      XLSX.utils.book_append_sheet(wb,ws0,'ภาพรวม');
-
-      // ── Sheet รายรับ ──
+      // ── Sheet 2: รายรับ ──
       if(chkSales && sales.length){
-        const rows = [
-          ...hdr('รายรับ — '+mName),
-          ['วันที่','แก้วกาแฟ','ขนม(ชิ้น)','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวมรายรับ(฿)'],
-          ...sales.map(r=>{
-            const tot=(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0);
-            return [_isoToThai(r.date),r.total_cups||0,r.pastry_pieces||0,r.free_cups||0,
-              r.kshop_amount||0,r.cash_amount||0,r.shopee_before_gp||0,r.grab_before_gp||0,r.lineman_before_gp||0,r.free_cup_cost||0,tot];
-          }),
-          [],['รวม','','','',
-            sales.reduce((s,r)=>s+(r.kshop_amount||0),0),
-            sales.reduce((s,r)=>s+(r.cash_amount||0),0),
-            sales.reduce((s,r)=>s+(r.shopee_before_gp||0),0),
-            sales.reduce((s,r)=>s+(r.grab_before_gp||0),0),
-            sales.reduce((s,r)=>s+(r.lineman_before_gp||0),0),
-            tFree, tIncome],
-        ];
-        const ws=XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols']=[{wch:14},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:14}];
-        XLSX.utils.book_append_sheet(wb,ws,'รายรับ');
+        const ws1 = wb.addWorksheet('รายรับ');
+        ws1.columns = [{width:14},{width:10},{width:10},{width:10},{width:14},{width:14},{width:14},{width:14},{width:14},{width:16},{width:16}];
+        addTitle(ws1, shop, 'รายรับประจำเดือน — '+mName, period, preparer);
+        addColHeaders(ws1, 6, ['วันที่','แก้วกาแฟ','ขนม(ชิ้น)','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวมรายรับ(฿)']);
+        let shade=false;
+        sales.forEach(r=>{
+          const tot=(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0);
+          addDataRow(ws1,[_isoToThai(r.date),r.total_cups||0,r.pastry_pieces||0,r.free_cups||0,r.kshop_amount||0,r.cash_amount||0,r.shopee_before_gp||0,r.grab_before_gp||0,r.lineman_before_gp||0,r.free_cup_cost||0,tot],shade);
+          shade=!shade;
+        });
+        ws1.addRow([]);
+        addTotalRow(ws1,['รวม','','','',
+          sales.reduce((s,r)=>s+(r.kshop_amount||0),0),
+          sales.reduce((s,r)=>s+(r.cash_amount||0),0),
+          sales.reduce((s,r)=>s+(r.shopee_before_gp||0),0),
+          sales.reduce((s,r)=>s+(r.grab_before_gp||0),0),
+          sales.reduce((s,r)=>s+(r.lineman_before_gp||0),0),
+          tFree, tIncome]);
       }
 
-      // ── Sheet ต้นทุนวัตถุดิบ ──
+      // ── Sheet 3: ต้นทุนวัตถุดิบ ──
       if(chkExp && mat.length){
-        const rows=[
-          ...hdr('ต้นทุนวัตถุดิบ — '+mName),
-          ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
-          ...mat.map(r=>[_isoToThai(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
-          [],['รวม','','','','','',tMat,''],
-        ];
-        const ws=XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols']=[{wch:14},{wch:18},{wch:26},{wch:8},{wch:14},{wch:8},{wch:14},{wch:14}];
-        XLSX.utils.book_append_sheet(wb,ws,'ต้นทุนวัตถุดิบ');
+        const ws2 = wb.addWorksheet('ต้นทุนวัตถุดิบ');
+        ws2.columns = [{width:14},{width:20},{width:28},{width:8},{width:14},{width:10},{width:14},{width:16}];
+        addTitle(ws2, shop, 'ต้นทุนวัตถุดิบประจำเดือน — '+mName, period, preparer);
+        addColHeaders(ws2, 6, ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        let shade=false;
+        mat.forEach(r=>{ addDataRow(ws2,[_isoToThai(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        ws2.addRow([]);
+        addTotalRow(ws2,['รวม','','','','','',tMat,'']);
       }
 
-      // ── Sheet ขนมหน้าร้าน ──
+      // ── Sheet 4: ขนมหน้าร้าน ──
       if(chkExp && bak.length){
-        const rows=[
-          ...hdr('ต้นทุนขนมหน้าร้าน — '+mName),
-          ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
-          ...bak.map(r=>[_isoToThai(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
-          [],['รวม','','','',tBak,''],
-        ];
-        const ws=XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols']=[{wch:14},{wch:30},{wch:14},{wch:8},{wch:14},{wch:14}];
-        XLSX.utils.book_append_sheet(wb,ws,'ขนมหน้าร้าน');
+        const ws3 = wb.addWorksheet('ขนมหน้าร้าน');
+        ws3.columns = [{width:14},{width:34},{width:14},{width:10},{width:14},{width:16}];
+        addTitle(ws3, shop, 'ต้นทุนขนมหน้าร้านประจำเดือน — '+mName, period, preparer);
+        addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        let shade=false;
+        bak.forEach(r=>{ addDataRow(ws3,[_isoToThai(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        ws3.addRow([]);
+        addTotalRow(ws3,['รวม','','','',tBak,'']);
       }
 
-      // ── Sheet รายจ่ายจิปาถะ ──
+      // ── Sheet 5: รายจ่ายจิปาถะ ──
       if(chkExp && misc.length){
-        const rows=[
-          ...hdr('รายจ่ายจิปาถะ — '+mName),
-          ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย/หมายเหตุ'],
-          ...misc.map(r=>[_isoToThai(r.date),r.item_name,r.total_amount||0,r.payment_method||'']),
-          [],['รวม','',tMisc,''],
-        ];
-        const ws=XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols']=[{wch:14},{wch:35},{wch:16},{wch:25}];
-        XLSX.utils.book_append_sheet(wb,ws,'รายจ่ายจิปาถะ');
+        const ws4 = wb.addWorksheet('รายจ่ายจิปาถะ');
+        ws4.columns = [{width:14},{width:38},{width:18},{width:26}];
+        addTitle(ws4, shop, 'รายจ่ายจิปาถะประจำเดือน — '+mName, period, preparer);
+        addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย / หมายเหตุ']);
+        let shade=false;
+        misc.forEach(r=>{ addDataRow(ws4,[_isoToThai(r.date),r.item_name,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        ws4.addRow([]);
+        addTotalRow(ws4,['รวม','',tMisc,'']);
       }
 
-      // ── Sheet ค่าดำเนินการ ──
+      // ── Sheet 6: ค่าดำเนินการ OPEX ──
       if(chkOpex && opex.length){
-        const rows=[
-          ...hdr('ค่าดำเนินการ (OPEX) — '+mName),
-          ['หมวดหมู่','รายการ','จำนวนเงิน(฿)'],
-          ...opex.map(r=>[r.category,r.item_name,r.total_amount||0]),
-          [],['รวม','',tOpex],
-        ];
-        const ws=XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols']=[{wch:25},{wch:35},{wch:16}];
-        XLSX.utils.book_append_sheet(wb,ws,'ค่าดำเนินการ');
+        const ws5 = wb.addWorksheet('ค่าดำเนินการ');
+        ws5.columns = [{width:28},{width:36},{width:18}];
+        addTitle(ws5, shop, 'ค่าดำเนินการ (OPEX) ประจำเดือน — '+mName, period, preparer);
+        addColHeaders(ws5, 6, ['หมวดหมู่','รายการ','จำนวนเงิน(฿)']);
+        let shade=false;
+        opex.forEach(r=>{ addDataRow(ws5,[r.category,r.item_name,r.total_amount||0],shade); shade=!shade; });
+        ws5.addRow([]);
+        addTotalRow(ws5,['รวม','',tOpex]);
       }
 
-      const fn=`รายงาน_${shop.replace(/\s+/g,'_')}_${mv}.xlsx`;
-      XLSX.writeFile(wb,fn);
-      st.textContent='✅ ส่งออกสำเร็จ: '+fn;
+      // ── Sheet 7: ค่าแรงพนักงาน (from localStorage) ──
+      const chkSalary = document.getElementById('exp_chk_salary').checked;
+      if(chkSalary){
+        const salaryRows = [];
+        EMP_CONFIG.forEach(emp => {
+          const hist = JSON.parse(localStorage.getItem('mm69_emp_pay_history_'+emp.id)||'[]');
+          const rec  = hist.find(r=>r.month===mlabel);
+          if(rec) salaryRows.push({emp:emp.label, ...rec});
+        });
+        if(salaryRows.length){
+          const ws6 = wb.addWorksheet('ค่าแรงพนักงาน');
+          ws6.columns = [{width:22},{width:14},{width:12},{width:12},{width:12},{width:12},{width:14},{width:14},{width:14},{width:14},{width:14}];
+          addTitle(ws6, shop, 'ค่าแรงพนักงานประจำเดือน — '+mName, period, preparer);
+          addColHeaders(ws6, 6, ['พนักงาน','เงินเดือน(฿)','ค่าตำแหน่ง(฿)','Commission(฿)','เบี้ยขยัน(฿)','รวมรายได้(฿)','หักปกส.พนักงาน(฿)','สุทธิโอน(฿)','ปกส.บริษัท(฿)','หัก ณ ที่จ่าย(฿)','ต้นทุนบริษัทรวม(฿)']);
+          let shade=false, tComp=0;
+          salaryRows.forEach(r=>{
+            const gross = (r.salary||0)+(r.position||0)+(r.commAmt||0)+(r.diligence||0);
+            addDataRow(ws6,[r.emp,r.salary||0,r.position||0,r.commAmt||0,r.diligence||0,gross,r.ssoEmp||0,r.netTrans||0,r.ssoCo||0,r.commTax||0,r.compCost||0],shade);
+            shade=!shade; tComp+=(r.compCost||0);
+          });
+          ws6.addRow([]);
+          addTotalRow(ws6,['รวมต้นทุนค่าแรง','','','','','','','','','',tComp]);
+          // update overview
+          tOpex_total_exp = tExp + tComp;
+        }
+      }
+
+            const fn = `รายงาน_${shop.replace(/\s+/g,'_')}_${mv}.xlsx`;
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=fn; a.click();
+      URL.revokeObjectURL(url);
+      st.textContent = '✅ ส่งออกสำเร็จ: '+fn;
 
     } else {
       // ── DAILY ──
       const dv = document.getElementById('exp_date').value;
       if(!dv){ st.textContent='❌ กรุณาเลือกวันที่'; return; }
       const th = _isoToThai(dv);
+      const period = 'วันที่: '+th;
 
       const [sr,er] = await Promise.all([
         chkSales ? _sb.from('sales_daily').select('*').eq('date',dv).maybeSingle() : Promise.resolve({data:null}),
@@ -6642,75 +7072,81 @@ async function doExport(){
       const bak  = exps.filter(r=>r.category==='ต้นทุนขนมหน้าร้าน');
       const misc = exps.filter(r=>r.category==='รายจ่ายจิปาถะ');
 
-      const hdr2 = (t) => [[shop],[t],[`วันที่: ${th}`,``,`สร้างเมื่อ: ${_nowTh()}`],[]];
+      const income = sale ? (sale.kshop_amount||0)+(sale.cash_amount||0)+(sale.shopee_before_gp||0)+(sale.grab_before_gp||0)+(sale.lineman_before_gp||0) : 0;
+      const tMat   = mat.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tBak   = bak.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tMisc  = misc.reduce((s,r)=>s+(r.total_amount||0),0);
+      const tFree  = sale?(sale.free_cup_cost||0):0;
+      const tExp   = tMat+tBak+tMisc+tFree;
+      const profit = income-tExp;
 
-      const income  = sale ? (sale.kshop_amount||0)+(sale.cash_amount||0)+(sale.shopee_before_gp||0)+(sale.grab_before_gp||0)+(sale.lineman_before_gp||0) : 0;
-      const tMat    = mat.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tBak    = bak.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tMisc   = misc.reduce((s,r)=>s+(r.total_amount||0),0);
-      const tFree   = sale ? (sale.free_cup_cost||0) : 0;
-      const tExp    = tMat+tBak+tMisc+tFree;
-      const profit  = income-tExp;
+      const wb2 = new ExcelJS.Workbook();
+      wb2.creator = preparer; wb2.created = new Date();
 
-      const ws0 = XLSX.utils.aoa_to_sheet([
-        ...hdr2('รายงานประจำวัน — '+th),
-        ['รายการ','จำนวน (บาท)',''],
-        ['รายรับ',income,''],[''],
-        ['ต้นทุนวัตถุดิบ',tMat,''],['ต้นทุนขนมหน้าร้าน',tBak,''],
-        ['รายจ่ายจิปาถะ',tMisc,''],['ต้นทุนกาแฟแจกฟรี',tFree,''],
-        ['รวมรายจ่าย',tExp,''],[''],
-        ['กำไร (ก่อนค่าดำเนินการ)',profit,profit>=0?'▲':'▼'],
-      ]);
-      ws0['!cols']=[{wch:32},{wch:18},{wch:6}];
-      XLSX.utils.book_append_sheet(wb,ws0,'ภาพรวม');
+      const ws0 = wb2.addWorksheet('ภาพรวม');
+      ws0.columns = [{width:36},{width:20},{width:16},{width:10},{width:10},{width:10},{width:10},{width:10}];
+      addTitle(ws0, shop, 'รายงานประจำวัน — '+th, period, preparer);
+      addColHeaders(ws0, 6, ['รายการ','จำนวนเงิน (บาท)','']);
+      addDataRow(ws0,['รายรับ',income,''],false);
+      ws0.addRow([]);
+      addDataRow(ws0,['  ต้นทุนวัตถุดิบ',tMat,''],false);
+      addDataRow(ws0,['  ต้นทุนขนมหน้าร้าน',tBak,''],true);
+      addDataRow(ws0,['  รายจ่ายจิปาถะ',tMisc,''],false);
+      addDataRow(ws0,['  ต้นทุนแก้วกาแฟฟรี',tFree,''],true);
+      ws0.addRow([]);
+      addTotalRow(ws0,['รวมรายจ่าย',tExp,'']);
+      ws0.addRow([]);
+      const pRow = ws0.addRow(['กำไร (ก่อนค่าดำเนินการ)',profit,profit>=0?'▲ กำไร':'▼ ขาดทุน']);
+      styleRow(pRow,profit>=0?green:red,profit>=0?greenTxt:redTxt,true,11);
+      pRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
 
       if(chkSales && sale){
-        const tot=income;
-        const ws=XLSX.utils.aoa_to_sheet([
-          ...hdr2('รายรับ — '+th),
-          ['วันที่','แก้วกาแฟ','ขนม','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวม(฿)'],
-          [th,sale.total_cups||0,sale.pastry_pieces||0,sale.free_cups||0,sale.kshop_amount||0,sale.cash_amount||0,sale.shopee_before_gp||0,sale.grab_before_gp||0,sale.lineman_before_gp||0,sale.free_cup_cost||0,tot],
-        ]);
-        ws['!cols']=[{wch:14},{wch:10},{wch:8},{wch:8},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:12}];
-        XLSX.utils.book_append_sheet(wb,ws,'รายรับ');
+        const ws1 = wb2.addWorksheet('รายรับ');
+        ws1.columns = [{width:14},{width:10},{width:10},{width:10},{width:14},{width:14},{width:14},{width:14},{width:14},{width:16},{width:14}];
+        addTitle(ws1, shop, 'รายรับประจำวัน — '+th, period, preparer);
+        addColHeaders(ws1, 6, ['วันที่','แก้วกาแฟ','ขนม','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวม(฿)']);
+        addDataRow(ws1,[th,sale.total_cups||0,sale.pastry_pieces||0,sale.free_cups||0,sale.kshop_amount||0,sale.cash_amount||0,sale.shopee_before_gp||0,sale.grab_before_gp||0,sale.lineman_before_gp||0,sale.free_cup_cost||0,income],false);
+        ws1.addRow([]);
+        addTotalRow(ws1,['รวม','','','','','','','','','',income]);
       }
       if(chkExp && mat.length){
-        const ws=XLSX.utils.aoa_to_sheet([
-          ...hdr2('ต้นทุนวัตถุดิบ — '+th),
-          ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
-          ...mat.map(r=>[_isoToThai(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
-          [],['รวม','','','','','',tMat,''],
-        ]);
-        ws['!cols']=[{wch:14},{wch:18},{wch:26},{wch:8},{wch:14},{wch:8},{wch:14},{wch:14}];
-        XLSX.utils.book_append_sheet(wb,ws,'ต้นทุนวัตถุดิบ');
+        const ws2 = wb2.addWorksheet('ต้นทุนวัตถุดิบ');
+        ws2.columns = [{width:14},{width:20},{width:28},{width:8},{width:14},{width:10},{width:14},{width:16}];
+        addTitle(ws2, shop, 'ต้นทุนวัตถุดิบ — '+th, period, preparer);
+        addColHeaders(ws2, 6, ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        let shade=false;
+        mat.forEach(r=>{ addDataRow(ws2,[th,r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        ws2.addRow([]); addTotalRow(ws2,['รวม','','','','','',tMat,'']);
       }
       if(chkExp && bak.length){
-        const ws=XLSX.utils.aoa_to_sheet([
-          ...hdr2('ขนมหน้าร้าน — '+th),
-          ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย'],
-          ...bak.map(r=>[_isoToThai(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||'']),
-          [],['รวม','','','',tBak,''],
-        ]);
-        ws['!cols']=[{wch:14},{wch:30},{wch:14},{wch:8},{wch:14},{wch:14}];
-        XLSX.utils.book_append_sheet(wb,ws,'ขนมหน้าร้าน');
+        const ws3 = wb2.addWorksheet('ขนมหน้าร้าน');
+        ws3.columns = [{width:14},{width:34},{width:14},{width:10},{width:14},{width:16}];
+        addTitle(ws3, shop, 'ขนมหน้าร้าน — '+th, period, preparer);
+        addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        let shade=false;
+        bak.forEach(r=>{ addDataRow(ws3,[th,r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        ws3.addRow([]); addTotalRow(ws3,['รวม','','','',tBak,'']);
       }
       if(chkExp && misc.length){
-        const ws=XLSX.utils.aoa_to_sheet([
-          ...hdr2('รายจ่ายจิปาถะ — '+th),
-          ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย/หมายเหตุ'],
-          ...misc.map(r=>[_isoToThai(r.date),r.item_name,r.total_amount||0,r.payment_method||'']),
-          [],['รวม','',tMisc,''],
-        ]);
-        ws['!cols']=[{wch:14},{wch:35},{wch:16},{wch:25}];
-        XLSX.utils.book_append_sheet(wb,ws,'รายจ่ายจิปาถะ');
+        const ws4 = wb2.addWorksheet('รายจ่ายจิปาถะ');
+        ws4.columns = [{width:14},{width:38},{width:18},{width:26}];
+        addTitle(ws4, shop, 'รายจ่ายจิปาถะ — '+th, period, preparer);
+        addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย / หมายเหตุ']);
+        let shade=false;
+        misc.forEach(r=>{ addDataRow(ws4,[th,r.item_name,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
+        ws4.addRow([]); addTotalRow(ws4,['รวม','',tMisc,'']);
       }
 
-      const fn=`รายงาน_${shop.replace(/\s+/g,'_')}_${dv}.xlsx`;
-      XLSX.writeFile(wb,fn);
-      st.textContent='✅ ส่งออกสำเร็จ: '+fn;
+      const fn = `รายงานวัน_${shop.replace(/\s+/g,'_')}_${dv}.xlsx`;
+      const buf = await wb2.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=fn; a.click();
+      URL.revokeObjectURL(url);
+      st.textContent = '✅ ส่งออกสำเร็จ: '+fn;
     }
   } catch(e){
-    st.textContent='❌ เกิดข้อผิดพลาด: '+e.message;
+    st.textContent = '❌ เกิดข้อผิดพลาด: '+e.message;
     console.error(e);
   }
 }
@@ -6854,19 +7290,65 @@ async function _doSaveEditExp(id, date, cat, item, price, qty, amount, method, e
   }
 }
 
+function confirmDeleteEditExp(){
+  const id   = document.getElementById('ef_id').value;
+  const item = document.getElementById('ef_item').value.trim();
+  const cat  = document.getElementById('ef_cat').value;
+  const date = document.getElementById('ef_date').value;
+  if(!id){ alert('ไม่พบรายการที่จะลบ'); return; }
+  const canEdit = _auth?.role==='admin'||_auth?.role==='co-admin';
+  if(!canEdit){ document.getElementById('editexp_status').textContent='❌ ไม่มีสิทธิ์ลบ (ต้องเป็น admin/co-admin)'; return; }
+  const editor = _auth?.display_name||_auth?.username||'ไม่ระบุ';
+  const ok = confirm('⚠️ ยืนยันการลบรายการ\n\nรายการ: '+item+'\nหมวด: '+cat+'\nวันที่: '+_isoToThai(date)+'\n\nลบโดย: '+editor+'\n\n⚠️ ลบแล้วไม่สามารถเรียกคืนได้');
+  if(!ok) return;
+  _doDeleteEditExp(id, item, cat, date, editor);
+}
+async function _doDeleteEditExp(id, item, cat, date, editor){
+  const st = document.getElementById('editexp_status');
+  st.textContent = '⏳ กำลังลบ...';
+  try {
+    const { error } = await _sb.from('expenses').delete().eq('id', id);
+    if(error) throw error;
+    const nowStr = _nowTh();
+    const hist = JSON.parse(localStorage.getItem('mm69_expense_edit_hist')||'[]');
+    hist.unshift({ at:nowStr, by:editor, date:_isoToThai(date), category:cat, item, amount:0, action:'ลบ' });
+    if(hist.length>100) hist.length=100;
+    localStorage.setItem('mm69_expense_edit_hist', JSON.stringify(hist));
+    st.innerHTML = '🗑 <b>ลบสำเร็จ</b> — '+item;
+    document.getElementById('editexp_form').style.display='none';
+    renderEditExpHistory();
+    searchExpenseByDate();
+    setTimeout(()=>loadSavedForDate(),300);
+  } catch(e){
+    st.textContent = '❌ ลบไม่ได้: '+e.message;
+  }
+}
+async function checkItemDuplicates(d, category, itemNames){
+  if(!_sb||!itemNames.length) return [];
+  try {
+    const { data } = await _sb.from('expenses').select('item_name')
+      .eq('date', d).eq('category', category).in('item_name', itemNames);
+    return (data||[]).map(r=>r.item_name);
+  } catch(e){ return []; }
+}
 function renderEditExpHistory(){
   const hist = JSON.parse(localStorage.getItem('mm69_expense_edit_hist')||'[]');
   const wrap = document.getElementById('editexp_hist_wrap');
   const list = document.getElementById('editexp_hist_list');
   if(!hist.length){ wrap.style.display='none'; return; }
   wrap.style.display = 'block';
-  list.innerHTML = hist.slice(0,20).map(h=>
-    `<div style="background:#f8f5f2;border-radius:7px;padding:6px 10px;color:var(--text)">
+  list.innerHTML = hist.slice(0,20).map(h=>{
+    const isDelete = h.action==='ลบ';
+    const bg = isDelete ? '#fde8e2' : '#f8f5f2';
+    const icon = isDelete ? '🗑' : '✏️';
+    const verb = isDelete ? 'ลบ' : 'แก้ไข';
+    const extra = isDelete ? '' : ' → '+(h.amount||0).toLocaleString('th-TH')+' ฿';
+    return `<div style="background:${bg};border-radius:7px;padding:6px 10px;color:var(--text)">
       <span style="color:var(--muted)">${h.at}</span>
-      · <b>${h.by}</b> แก้ไข <b>${h.item}</b> (${h.category?.replace('ต้นทุน','')||''})
-      วันที่ ${h.date} → ${(h.amount||0).toLocaleString('th-TH')} ฿
-    </div>`
-  ).join('');
+      · <b>${h.by}</b> ${icon} ${verb} <b>${h.item}</b> (${h.category?.replace('ต้นทุน','')||''})
+      วันที่ ${h.date}${extra}
+    </div>`;
+  }).join('');
 }
 
 
@@ -6991,8 +7473,9 @@ function openSavedItemEdit(r){
       </div>
       <input type="hidden" id="ef_id">
       <input type="hidden" id="ef_date">
-      <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn btn-coffee" style="flex:1" onclick="confirmSaveEditExp()"><i class="ti ti-device-floppy"></i> บันทึกการแก้ไข</button>
+      <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+        <button class="btn btn-coffee" style="flex:1;min-width:160px" onclick="confirmSaveEditExp()"><i class="ti ti-device-floppy"></i> บันทึกการแก้ไข</button>
+        <button class="btn" style="flex:0 0 auto;background:#fde8e2;border:1.5px solid #f5c2b0;color:#c0392b;font-weight:700" onclick="confirmDeleteEditExp()"><i class="ti ti-trash"></i> ลบรายการนี้</button>
         <button class="btn" style="flex:0 0 auto;background:#f3ede7" onclick="document.getElementById('editexp_form').style.display='none'">ยกเลิก</button>
       </div>
     </div>
@@ -7004,5 +7487,6 @@ function openSavedItemEdit(r){
     </div>
   </div>
 </div>
+
 </body>
 </html>

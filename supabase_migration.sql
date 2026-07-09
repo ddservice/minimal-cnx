@@ -88,8 +88,7 @@ order by 2 desc;
 create table public.expenses (
   id              uuid        primary key default uuid_generate_v4(),
   date            date        not null,                   -- วันที่
-  month_label     text        not null                    -- MM/YYYY
-                    generated always as (to_char(date, 'MM/YYYY')) stored,
+  month_label     text        not null default '',       -- MM/YYYY (set by trigger)
   category        text        not null,                   -- หมวดหมู่ใหญ่
   subcategory     text,                                   -- หมวดย่อย
   item_name       text        not null,                   -- รายการ
@@ -243,6 +242,22 @@ begin
   new.updated_at = now();
   return new;
 end; $$;
+
+
+-- ================================================================
+-- TRIGGER: auto-set month_label บน expenses
+-- ================================================================
+
+create or replace function public.fn_set_month_label()
+returns trigger language plpgsql as $$
+begin
+  new.month_label := to_char(new.date, 'MM/YYYY');
+  return new;
+end; $$;
+
+create trigger tr_expenses_month_label
+  before insert or update of date on public.expenses
+  for each row execute function public.fn_set_month_label();
 
 create trigger tr_profiles_updated_at
   before update on public.profiles
