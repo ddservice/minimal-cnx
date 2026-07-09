@@ -59,18 +59,18 @@
     .section-date { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #fdf9f5; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; flex-wrap: wrap; }
     .section-date label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
     .section-date input { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); flex: 1; max-width: 200px; }
-    .date-range-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #fdf9f5; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .date-range-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 16px; background: #fdf9f5; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; flex-wrap: wrap; }
     .date-range-bar label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
     .date-range-bar input[type="date"] { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
     .date-range-bar .sep { font-size: 13px; color: var(--muted); }
-    .date-range-display { font-size: 12px; color: var(--c-latte); font-weight: 600; margin-left: auto; white-space: nowrap; }
-    /* ── ป้ายกำกับ วว/ดด/ปปปป ใต้ native date input (กันเข้าใจผิดว่าเลือกวันผิด) ── */
+    .date-range-display { font-size: 12px; color: var(--c-latte); font-weight: 600; white-space: nowrap; }
     /* ── ช่องวันที่: แสดง วว/ดด/ปปปป (พ.ศ.) เอง แต่คลิก/แตะที่ไหนก็เปิดปฏิทิน native ของเบราว์เซอร์/มือถือตามปกติ ── */
     .tdate-wrap { position: relative; display: inline-block; width: 100%; }
     .tdate-wrap input[type="date"] { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; opacity: 0; cursor: pointer; margin: 0; }
     .tdate-disp { pointer-events: none; }
     .tdate-disp.tdate-empty { color: var(--muted); }
     .date-range-bar .tdate-disp { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
+    .date-range-bar .tdate-wrap { width: auto; flex: 1; min-width: 120px; }
     .inline-total { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #faf7f4; border-radius: 8px; font-size: 13px; margin-top: 12px; border: 1px solid var(--border); }
     .inline-total span { color: var(--muted); } .inline-total strong { font-size: 17px; font-weight: 700; color: var(--c-coffee); }
     .grand-total { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--c-gold); background: #fffbf4; margin-top: 12px; }
@@ -277,8 +277,7 @@
 
       /* Date bars */
       .date-range-bar { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
-      .date-range-bar input[type="date"] { flex: 1; min-width: 120px; }
-      .date-range-display { margin-left: 0; flex-basis: 100%; text-align: center; }
+      .date-range-display { flex-basis: 100%; text-align: center; }
       .section-date { flex-wrap: wrap; gap: 6px; }
       .section-date input { max-width: 100%; }
 
@@ -1226,7 +1225,7 @@
         <div style="margin-bottom:14px">
           <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">ช่วงเวลา</div>
           <div style="display:flex;gap:8px">
-            <button id="exp_daily_btn" class="btn btn-coffee" style="flex:1;font-size:13px" id="exp_daily_btn" onclick="setExportPeriod('daily')">
+            <button id="exp_daily_btn" class="btn btn-coffee" style="flex:1;font-size:13px" onclick="setExportPeriod('daily')">
               <i class="ti ti-calendar-day"></i> รายวัน
             </button>
             <button id="exp_monthly_btn" class="btn" style="flex:1;font-size:13px;background:#f3ede7;color:var(--text)" onclick="setExportPeriod('monthly')">
@@ -6662,8 +6661,13 @@ function setExportPeriod(type) {
   _exportPeriod = type;
   const dBtn = document.getElementById('exp_daily_btn');
   const mBtn = document.getElementById('exp_monthly_btn');
-  if(dBtn){ dBtn.classList.toggle('btn-coffee', type==='daily'); dBtn.style.background=''; dBtn.style.color=''; }
-  if(mBtn){ mBtn.classList.toggle('btn-coffee', type==='monthly'); mBtn.style.background=''; mBtn.style.color=''; }
+  [[dBtn,'daily'],[mBtn,'monthly']].forEach(([btn,key])=>{
+    if(!btn) return;
+    const active = type===key;
+    btn.classList.toggle('btn-coffee', active);
+    btn.style.background = active ? '' : '#f3ede7';
+    btn.style.color      = active ? '' : 'var(--text)';
+  });
   document.getElementById('exp_date_wrap').style.display  = type === 'daily'   ? '' : 'none';
   document.getElementById('exp_month_wrap').style.display = type === 'monthly' ? '' : 'none';
 }
