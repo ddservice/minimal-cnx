@@ -64,22 +64,8 @@
     .date-range-bar input[type="date"] { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
     .date-range-bar .sep { font-size: 13px; color: var(--muted); }
     .date-range-display { font-size: 12px; color: var(--c-latte); font-weight: 600; margin-left: auto; white-space: nowrap; }
-    /* ── วันที่แบบ วว/ดด/ปปปป (ครอบ native date input กันโชว์ผิด locale) ── */
-    .tdate-wrap { position: relative; display: inline-flex; width: 100%; }
-    .tdate-wrap input.tdate-input { width: 100%; padding-right: 32px !important; }
-    .tdate-cal-btn { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); border: none; background: transparent; color: var(--c-latte); cursor: pointer; padding: 6px; font-size: 16px; line-height: 1; display: flex; align-items: center; }
-    .tdate-cal-btn:hover { color: var(--c-coffee); }
-    .tdate-pop { position: absolute; z-index: 500; top: calc(100% + 4px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 10px; width: 230px; display: none; }
-    .tdate-pop.show { display: block; }
-    .tdate-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--c-coffee); }
-    .tdate-pop-head button { border: none; background: var(--c-cream); color: var(--c-coffee); border-radius: 6px; width: 24px; height: 24px; cursor: pointer; }
-    .tdate-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; font-size: 12px; }
-    .tdate-grid .dow { text-align: center; color: var(--muted); font-weight: 600; padding: 2px 0; }
-    .tdate-grid .day { text-align: center; padding: 5px 0; border-radius: 6px; cursor: pointer; }
-    .tdate-grid .day:hover { background: var(--c-cream); }
-    .tdate-grid .day.today { border: 1px solid var(--c-latte); }
-    .tdate-grid .day.sel { background: var(--c-coffee); color: #fff; font-weight: 700; }
-    .tdate-today-btn { margin-top: 8px; width: 100%; padding: 6px; border: none; border-radius: 6px; background: var(--c-cream); color: var(--c-coffee); font-size: 12px; font-weight: 600; cursor: pointer; }
+    /* ── ป้ายกำกับ วว/ดด/ปปปป ใต้ native date input (กันเข้าใจผิดว่าเลือกวันผิด) ── */
+    .tdate-badge { display: block; font-size: 11px; color: var(--c-latte); font-weight: 600; margin-top: 3px; min-height: 14px; }
     .inline-total { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #faf7f4; border-radius: 8px; font-size: 13px; margin-top: 12px; border: 1px solid var(--border); }
     .inline-total span { color: var(--muted); } .inline-total strong { font-size: 17px; font-weight: 700; color: var(--c-coffee); }
     .grand-total { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--c-gold); background: #fffbf4; margin-top: 12px; }
@@ -1608,127 +1594,37 @@ function _monthStart(mm_yyyy){ const p=mm_yyyy.split('/'); return p[1]+'-'+p[0]+
 function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(Date.UTC(+p[1],+p[0],0)).toISOString().split('T')[0]; }
 
 // ══════════════════════════════════════════════════════════════
-//  วันที่แบบ วว/ดด/ปปปป — ครอบ native <input type="date"> ทุกช่อง
+//  ป้ายกำกับ วว/ดด/ปปปป ใต้ native <input type="date"> ทุกช่อง
 //  เหตุผล: ช่อง <input type="date"> ตอนปิดจะโชว์รูปแบบตาม locale ของ
-//  เครื่อง/เบราว์เซอร์ผู้ใช้ (บางเครื่องเป็น เดือน/วัน/ปี แบบสหรัฐฯ)
-//  ทำให้ผู้ใช้เข้าใจผิดว่าเลือกวันผิด — component นี้บังคับให้แสดง
-//  วว/ดด/ปปปป เสมอ โดย native input เดิมยังอยู่ (ซ่อนไว้) เก็บค่า
-//  ISO ตามปกติ โค้ดอื่นที่อ่าน/เขียน .value ของ id เดิมยังทำงานได้เหมือนเดิม
+//  เครื่อง/เบราว์เซอร์ผู้ใช้ (บางเครื่องเป็น เดือน/วัน/ปี แบบสหรัฐฯ) ทำให้
+//  ผู้ใช้เข้าใจผิดว่าเลือกวันผิด — เดิมเคยครอบด้วยช่องพิมพ์+ปฏิทินเอง แต่ใช้งาน
+//  ยากกว่า native picker ของแต่ละอุปกรณ์ (โดยเฉพาะมือถือ) จึงเปลี่ยนมาใช้
+//  native input ตามเดิม แล้วแปะป้าย วว/ดด/ปปปป ไว้ใต้ช่องแทน เพื่อยืนยันวันที่
+//  แบบไม่มีทางเข้าใจผิด โดยไม่ไปแตะวิธีเลือกวันที่ที่ผู้ใช้คุ้นเคยอยู่แล้ว
 // ══════════════════════════════════════════════════════════════
-const _TD_DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
-const _TD_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-let _tdOpenPop = null; // popup ปฏิทินที่เปิดอยู่ (ปิดเมื่อคลิกนอกช่อง)
-
-function _tdParseDisp(disp){
-  const m=(disp||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(!m) return '';
-  const dd=+m[1], mo=+m[2], yy=+m[3];
-  if(mo<1||mo>12) return '';
-  if(dd<1||dd>new Date(yy,mo,0).getDate()) return '';
-  return _thaiToISO(String(dd).padStart(2,'0')+'/'+String(mo).padStart(2,'0')+'/'+yy);
-}
-
 function enhanceDateInput(native){
   if(!native || native._tdEnhanced || native.type!=='date') return;
   native._tdEnhanced = true;
-  native.style.display='none';
 
-  const wrap=document.createElement('span');
-  wrap.className='tdate-wrap';
-  native.parentNode.insertBefore(wrap, native);
-  wrap.appendChild(native);
+  const badge=document.createElement('span');
+  badge.className='tdate-badge';
+  native.insertAdjacentElement('afterend', badge);
 
-  const text=document.createElement('input');
-  text.type='text'; text.className='tdate-input'; text.placeholder='วว/ดด/ปปปป';
-  text.inputMode='numeric'; text.autocomplete='off'; text.maxLength=10;
-  const styleAttr = native.getAttribute('style');
-  if(styleAttr) text.setAttribute('style', styleAttr);
-  wrap.appendChild(text);
-
-  const btn=document.createElement('button');
-  btn.type='button'; btn.className='tdate-cal-btn'; btn.tabIndex=-1;
-  btn.innerHTML='<i class="ti ti-calendar"></i>';
-  wrap.appendChild(btn);
-
-  const pop=document.createElement('div');
-  pop.className='tdate-pop';
-  wrap.appendChild(pop);
-
-  // ครอบ .value ของ native input เอง เพื่อให้จอ วว/ดด/ปปปป sync เสมอ
-  // แม้โค้ดอื่นตั้งค่าตรงๆ ผ่าน elem.value = 'yyyy-mm-dd'
   const desc=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+  function sync(){ badge.textContent = desc.get.call(native) ? thaiDate(desc.get.call(native)) : ''; }
+  // ครอบ .value เพื่อให้ป้ายอัปเดตแม้โค้ดอื่นตั้งค่าตรงๆ ผ่าน elem.value = 'yyyy-mm-dd'
   Object.defineProperty(native,'value',{
     get(){ return desc.get.call(this); },
-    set(v){ desc.set.call(this,v); text.value=thaiDate(v); },
+    set(v){ desc.set.call(this,v); sync(); },
     configurable:true,
   });
-  text.value=thaiDate(desc.get.call(native));
-
-  function commit(iso){
-    desc.set.call(native, iso);
-    text.value=thaiDate(iso);
-    native.dispatchEvent(new Event('change',{bubbles:true}));
-  }
-
-  text.addEventListener('input',()=>{
-    const digits=text.value.replace(/\D/g,'').slice(0,8);
-    let out=digits;
-    if(digits.length>4) out=digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
-    else if(digits.length>2) out=digits.slice(0,2)+'/'+digits.slice(2);
-    text.value=out;
-  });
-  text.addEventListener('change',()=>{
-    if(text.value.trim()===''){ commit(''); return; }
-    const iso=_tdParseDisp(text.value);
-    if(iso) commit(iso); else text.value=thaiDate(desc.get.call(native));
-  });
-
-  let viewY, viewM;
-  function renderCal(){
-    const iso=desc.get.call(native);
-    const first=new Date(viewY,viewM,1);
-    const startDow=first.getDay();
-    const daysInMonth=new Date(viewY,viewM+1,0).getDate();
-    const today=new Date();
-    let html=`<div class="tdate-pop-head"><button type="button" data-nav="-1">‹</button><span>${_TD_MON[viewM]} ${viewY}</span><button type="button" data-nav="1">›</button></div>`;
-    html+='<div class="tdate-grid">'+_TD_DOW.map(d=>`<div class="dow">${d}</div>`).join('');
-    for(let i=0;i<startDow;i++) html+='<div class="day"></div>';
-    for(let d=1; d<=daysInMonth; d++){
-      const isoD=viewY+'-'+String(viewM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-      const cls=['day'];
-      if(isoD===iso) cls.push('sel');
-      else if(today.getFullYear()===viewY&&today.getMonth()===viewM&&today.getDate()===d) cls.push('today');
-      html+=`<div class="${cls.join(' ')}" data-d="${d}">${d}</div>`;
-    }
-    html+='</div><button type="button" class="tdate-today-btn" data-today="1">วันนี้</button>';
-    pop.innerHTML=html;
-  }
-  function openPop(){
-    if(_tdOpenPop && _tdOpenPop!==pop) _tdOpenPop.classList.remove('show');
-    const iso=desc.get.call(native);
-    const base=iso?new Date(iso+'T00:00:00'):new Date();
-    viewY=base.getFullYear(); viewM=base.getMonth();
-    renderCal();
-    pop.classList.add('show');
-    _tdOpenPop=pop;
-  }
-  function closePop(){ pop.classList.remove('show'); if(_tdOpenPop===pop) _tdOpenPop=null; }
-
-  pop.addEventListener('click',(e)=>{
-    const nav=e.target.closest('[data-nav]');
-    if(nav){ viewM+=(+nav.dataset.nav); if(viewM<0){viewM=11;viewY--;} else if(viewM>11){viewM=0;viewY++;} renderCal(); return; }
-    const dayEl=e.target.closest('.day[data-d]');
-    if(dayEl){ commit(viewY+'-'+String(viewM+1).padStart(2,'0')+'-'+String(+dayEl.dataset.d).padStart(2,'0')); closePop(); return; }
-    if(e.target.closest('[data-today]')){ const t=new Date(); commit(t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')); closePop(); }
-  });
-  btn.addEventListener('click',(e)=>{ e.stopPropagation(); if(pop.classList.contains('show')) closePop(); else openPop(); });
+  native.addEventListener('input', sync);
+  native.addEventListener('change', sync);
+  sync();
 }
 function enhanceAllDateInputs(root){
   (root||document).querySelectorAll('input[type="date"]').forEach(enhanceDateInput);
 }
-document.addEventListener('click',(e)=>{
-  if(_tdOpenPop && !e.target.closest('.tdate-wrap')){ _tdOpenPop.classList.remove('show'); _tdOpenPop=null; }
-});
 
 // ── FORMAT CONVERTERS: Supabase → GAS Thai format ─────────────
 function _sbSaleToThai(r){
