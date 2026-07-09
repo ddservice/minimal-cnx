@@ -1605,6 +1605,7 @@ function _monthEnd(mm_yyyy){ const p=mm_yyyy.split('/'); return new Date(Date.UT
 function enhanceDateInput(native){
   if(!native || native._tdEnhanced || native.type!=='date') return;
   native._tdEnhanced = true;
+  native.setAttribute('lang','th'); // ให้ browser render ปฏิทิน/ช่องปิดเป็นรูปแบบไทย (วว/ดด/ปปปป) แทน locale เครื่อง
 
   const badge=document.createElement('span');
   badge.className='tdate-badge';
