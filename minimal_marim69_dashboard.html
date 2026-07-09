@@ -67,11 +67,26 @@
     /* ── ช่องวันที่: แสดง วว/ดด/ปปปป (พ.ศ.) เอง แต่คลิก/แตะที่ไหนก็เปิดปฏิทิน native ของเบราว์เซอร์/มือถือตามปกติ ── */
     .tdate-wrap { position: relative; display: grid; }
     .tdate-wrap > * { grid-area: 1 / 1; }
-    .tdate-wrap input[type="date"] { opacity: 0; cursor: pointer; z-index: 1; margin: 0; }
+    /* หมายเหตุ: ใช้ color/background/border โปร่งใส แทน opacity:0 เพราะ Chrome/Edge
+       บางเวอร์ชันจะไม่เปิด popup ปฏิทิน native ถ้า element opacity เป็น 0 */
+    .tdate-wrap input[type="date"] { cursor: pointer; z-index: 1; margin: 0; background: transparent; border: none; color: transparent; }
+    .tdate-wrap input[type="date"]::-webkit-datetime-edit,
+    .tdate-wrap input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+    .tdate-wrap input[type="date"]::-webkit-datetime-edit-text,
+    .tdate-wrap input[type="date"]::-webkit-datetime-edit-month-field,
+    .tdate-wrap input[type="date"]::-webkit-datetime-edit-day-field,
+    .tdate-wrap input[type="date"]::-webkit-datetime-edit-year-field { color: transparent; }
     .tdate-disp { pointer-events: none; }
     .tdate-disp.tdate-empty { color: var(--muted); }
     .date-range-bar .tdate-disp { font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
     .date-range-bar .tdate-wrap { flex: 1; min-width: 120px; }
+    /* ── VAT 7% toggle switch (ครอบ checkbox เดิม ไม่แตะ logic การคำนวณ) ── */
+    .vat-switch { position: relative; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10px; font-weight: normal; color: var(--text); }
+    .vat-switch input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .vat-slider { position: relative; display: inline-block; flex-shrink: 0; width: 28px; height: 15px; background: #ccc; border-radius: 16px; transition: background .15s; }
+    .vat-slider::before { content: ''; position: absolute; left: 2px; top: 2px; width: 11px; height: 11px; background: #fff; border-radius: 50%; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+    .vat-switch input:checked + .vat-slider { background: var(--c-coffee); }
+    .vat-switch input:checked + .vat-slider::before { transform: translateX(13px); }
     .inline-total { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #faf7f4; border-radius: 8px; font-size: 13px; margin-top: 12px; border: 1px solid var(--border); }
     .inline-total span { color: var(--muted); } .inline-total strong { font-size: 17px; font-weight: 700; color: var(--c-coffee); }
     .grand-total { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--c-gold); background: #fffbf4; margin-top: 12px; }
@@ -2880,7 +2895,7 @@ function addMatRow(){
     +'<button class="del-btn" onclick="removeRow(\'mat_row_'+id+'\',\'mat\')" title="ลบ" style="flex-shrink:0;align-self:flex-end"><i class="ti ti-x"></i></button>'
     +'</div>'
     +'<div class="mat-row-bot">'
-    +'<div class="field"><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)">ราคา/หน่วย <label style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:normal;color:var(--text);cursor:pointer"><input type="checkbox" id="mat_vat_'+id+'" onchange="calMatRow('+id+')"> VAT 7%</label></div><input type="number" id="mat_price_'+id+'" placeholder="ก่อน VAT" min="0" oninput="calMatRow('+id+')"><div id="mat_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="mat_vat_a_'+id+'">0</span>฿ → <span id="mat_vat_t_'+id+'">0</span>฿</div></div>'
+    +'<div class="field"><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)">ราคา/หน่วย <label class="vat-switch"><input type="checkbox" id="mat_vat_'+id+'" onchange="calMatRow('+id+')"><span class="vat-slider"></span>VAT 7%</label></div><input type="number" id="mat_price_'+id+'" placeholder="ก่อน VAT" min="0" oninput="calMatRow('+id+')"><div id="mat_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="mat_vat_a_'+id+'">0</span>฿ → <span id="mat_vat_t_'+id+'">0</span>฿</div></div>'
     +'<div class="field"><label>จำนวน</label><input type="number" id="mat_qty_'+id+'" value="1" min="1" oninput="calMatRow('+id+')"></div>'
     +'<div class="field"><label>หน่วย</label><div class="unit-cmb-wrap"><input type="text" id="mat_unit_'+id+'" placeholder="เลือก/พิมพ์" autocomplete="off" oninput="filterUnitDl('+id+')" onfocus="openUnitDl('+id+')" onblur="closeUnitDlDelay('+id+')"><span class="unit-cmb-arrow" onmousedown="event.preventDefault();toggleUnitDl('+id+')">▾</span><div id="mat_unit_dl_'+id+'" class="unit-dl" style="display:none"></div></div></div>'
     +'<div class="field"><label>ชำระด้วย</label><select id="mat_method_'+id+'"><option value="บัญชี หจก.">บัญชี หจก.</option><option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option><option value="เงินสด">เงินสด</option></select></div>'
@@ -3108,7 +3123,7 @@ function addBakRow(){
     +'<button class="del-btn" onclick="removeRow(\'bak_row_'+id+'\',\'bak\')" title="ลบ" style="flex-shrink:0;align-self:flex-end"><i class="ti ti-x"></i></button>'
     +'</div>'
     +'<div class="mat-row-bot">'
-    +'<div class="field"><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)">ราคา/ชิ้น (฿) <label style="font-size:10px;font-weight:normal;color:var(--text);display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" id="bak_vat_'+id+'" onchange="calBakRow('+id+')"> VAT 7%</label></div><input type="number" id="bak_price_'+id+'" placeholder="0.00" min="0" oninput="calBakRow('+id+')"><div id="bak_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="bak_vat_a_'+id+'">0</span>฿ → <span id="bak_vat_t_'+id+'">0</span>฿</div></div>'
+    +'<div class="field"><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)">ราคา/ชิ้น (฿) <label class="vat-switch"><input type="checkbox" id="bak_vat_'+id+'" onchange="calBakRow('+id+')"><span class="vat-slider"></span>VAT 7%</label></div><input type="number" id="bak_price_'+id+'" placeholder="0.00" min="0" oninput="calBakRow('+id+')"><div id="bak_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="bak_vat_a_'+id+'">0</span>฿ → <span id="bak_vat_t_'+id+'">0</span>฿</div></div>'
     +'<div class="field"><label>จำนวน</label><input type="number" id="bak_qty_'+id+'" value="1" min="1" oninput="calBakRow('+id+')"></div>'
     +'<div class="field"><label>ชำระด้วย</label><select id="bak_method_'+id+'"><option value="บัญชี หจก.">บัญชี หจก.</option><option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option><option value="เงินสด">เงินสด</option></select></div>'
     +'<div class="item-subtotal" id="bak_sub_'+id+'" style="display:flex;align-items:center;justify-content:flex-end;color:var(--c-gold)">รวม 0.00 ฿</div>'
@@ -5187,7 +5202,7 @@ function addMiscRow(){
     +'<button class="del-btn" onclick="removeRow(\'misc_row_'+id+'\',\'misc\')" title="ลบ" style="flex-shrink:0;align-self:flex-end"><i class="ti ti-x"></i></button>'
     +'</div>'
     +'<div class="mat-row-bot" style="grid-template-columns:1fr 1fr auto">'
-    +'<div class="field"><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)">ยอด (฿) <label style="font-size:10px;font-weight:normal;color:var(--text);display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" id="misc_vat_'+id+'" onchange="calMiscRow('+id+')"> VAT 7%</label></div>'
+    +'<div class="field"><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)">ยอด (฿) <label class="vat-switch"><input type="checkbox" id="misc_vat_'+id+'" onchange="calMiscRow('+id+')"><span class="vat-slider"></span>VAT 7%</label></div>'
     +'<input type="number" id="misc_total_'+id+'" placeholder="0.00" min="0" oninput="calMiscRow('+id+')">'
     +'<div id="misc_vat_info_'+id+'" style="display:none;font-size:10px;color:var(--c-coffee);margin-top:2px">VAT: <span id="misc_vat_a_'+id+'">0</span>฿ → <span id="misc_vat_t_'+id+'">0</span>฿</div>'
     +'</div>'
