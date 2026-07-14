@@ -12,14 +12,14 @@ A single-page management dashboard ("Minimal Maerim 69" / "Minimal Coffee") for 
 - `add_email_to_profiles.sql`, `add_unit_column.sql`, `fix_admin_email.sql`, `fix_bugs.sql`, `fix_passwords.sql`, `fix_imm_login.sql`, `supabase_set_admin.sql` — one-off migration/patch scripts, applied manually and individually via the Supabase SQL editor (not run as an ordered migration chain). Check the header comment in each before assuming it still needs to run.
 - `Code.gs`, `minimal_marim69_gas.gs` — legacy Google Apps Script backend (Google Sheets as the datastore). Superseded by the Supabase backend but kept for reference; `_sbGet`/`_sbPost` in the dashboard JS were written as drop-in replacements for the old GAS `fetch` calls, and Thai-language field names/converters (`_sbSaleToThai`, `_sbOpexToThai`, `_sbExpToThai`) exist specifically to keep the new Supabase data shape compatible with the old GAS-era UI code.
 - `import_*.xlsx` — one-time data import spreadsheets used to seed historical data.
-- `netlify.toml` — deploys `minimal_marim69_dashboard.html` as the site root (`/` → the dashboard).
+- `netlify.toml` — leftover from the old Netlify setup; production now runs on a VPS (see Deploy below).
 
 ## Commands
 
 There is no build, lint, or test tooling in this repo. Development is edit-the-HTML-and-reload.
 
 - **Run locally**: open `minimal_marim69_dashboard.html` directly in a browser, or serve the directory (e.g. `npx serve .`) — it talks to the live Supabase project directly from the client, so no local backend is needed.
-- **Deploy**: push to the `main` branch on GitHub; Netlify auto-deploys per `netlify.toml`. `push_update.bat` commits/pushes just the dashboard HTML with a canned message.
+- **Deploy**: production runs on a self-managed VPS (`minimalcnx.ddserviceth.com`, proxied via Cloudflare), **not Netlify** — `netlify.toml` is a leftover from the old setup. Flow: push to `main` on GitHub (`push_update.bat` commits/pushes just the dashboard HTML with a canned message), then on the VPS run `cd /var/www/minimalcnx && git pull origin main`. nginx serves the HTML as static content directly (no pm2/process restart needed). After pulling, purge the Cloudflare cache (Caching → Purge Everything) and hard-refresh, or the old version will keep showing.
 - **DB changes**: apply SQL files manually by pasting into the Supabase SQL editor (project ref `fkhfrylvronkmktlmmia`) — there is no migration runner.
 
 ## Architecture
