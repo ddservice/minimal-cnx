@@ -540,10 +540,10 @@
   </div>
 
   <div class="tabs">
-    <button class="tab on" onclick="sw('sum',this)"><i class="ti ti-chart-bar"></i> ภาพรวม</button>
-    <button class="tab" onclick="sw('sale',this)"><i class="ti ti-cash"></i> ยอดขาย</button>
-    <button class="tab" onclick="sw('exp',this)"><i class="ti ti-receipt"></i> รายจ่าย</button>
-    <button class="tab" onclick="sw('opex',this)"><i class="ti ti-building-store"></i> ค่าดำเนินการ</button>
+    <button class="tab on" id="tab_sum" onclick="sw('sum',this)"><i class="ti ti-chart-bar"></i> ภาพรวม</button>
+    <button class="tab" id="tab_sale" onclick="sw('sale',this)"><i class="ti ti-cash"></i> ยอดขาย</button>
+    <button class="tab" id="tab_exp" onclick="sw('exp',this)"><i class="ti ti-receipt"></i> รายจ่าย</button>
+    <button class="tab" id="tab_opex" onclick="sw('opex',this)"><i class="ti ti-building-store"></i> ค่าดำเนินการ</button>
     <button class="tab" id="tab_analytics" onclick="sw('analytics',this)"><i class="ti ti-chart-line"></i> วิเคราะห์</button>
     <button class="tab" id="tab_settings" onclick="sw('settings',this)"><i class="ti ti-settings"></i> ตั้งค่า</button>
   </div>
@@ -1091,7 +1091,7 @@
   <div id="settings" class="panel">
 
     <!-- ── นำเข้าข้อมูล ── -->
-    <div class="card">
+    <div class="card" id="card_import">
       <div class="card-head">
         <div class="card-head-left"><i class="ti ti-file-import"></i><span>นำเข้าข้อมูล (Import Excel)</span></div>
       </div>
@@ -1167,7 +1167,7 @@
     </div>
 
     <!-- ── ลบข้อมูลทั้งเดือน ── -->
-    <div class="card">
+    <div class="card" id="card_del_month">
       <div class="card-head">
         <div class="card-head-left"><i class="ti ti-trash" style="color:var(--danger)"></i><span>ลบข้อมูลทั้งเดือน</span></div>
       </div>
@@ -1200,7 +1200,7 @@
     </div>
 
     <!-- ── ลบข้อมูลซ้ำ (Deduplication) ── -->
-    <div class="card">
+    <div class="card" id="card_dedup">
       <div class="card-head">
         <div class="card-head-left"><i class="ti ti-filter-off" style="color:#e07b00"></i><span>ลบข้อมูลซ้ำในเดือน</span></div>
       </div>
@@ -1231,7 +1231,7 @@
     </div>
 
     <!-- ── ส่งออกข้อมูล ── -->
-    <div class="card">
+    <div class="card" id="card_export">
       <div class="card-head">
         <div class="card-head-left"><i class="ti ti-file-export"></i><span>ส่งออกรายงาน (Export Excel)</span></div>
       </div>
@@ -1361,6 +1361,25 @@
     </div>
 
     <!-- ── จัดการผู้ใช้งาน (Admin เท่านั้น) ── -->
+    <!-- ── สิทธิ์การมองเห็น (Admin เท่านั้น) ── -->
+    <div class="card" id="card_role_perms" style="display:none">
+      <div class="card-head">
+        <div class="card-head-left"><i class="ti ti-shield-lock"></i><span>สิทธิ์การมองเห็นของแต่ละตำแหน่ง</span></div>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+          ติ๊กเลือกสิ่งที่อนุญาตให้แต่ละตำแหน่งมองเห็น — <strong>จัดการผู้ใช้งาน</strong> และ <strong>ลบข้อมูลทั้งเดือน</strong> สงวนไว้สำหรับ Admin เสมอ
+        </p>
+        <div id="role_perms_body" style="overflow-x:auto">
+          <p style="font-size:12px;color:var(--muted)">กำลังโหลด...</p>
+        </div>
+        <div id="status_role_perms" class="status" style="margin:10px 0"></div>
+        <button class="btn btn-coffee" style="font-size:13px" onclick="saveRolePerms()">
+          <i class="ti ti-device-floppy"></i> บันทึกสิทธิ์
+        </button>
+      </div>
+    </div>
+
     <div class="card" id="card_user_mgmt" style="display:none">
       <div class="card-head">
         <div class="card-head-left"><i class="ti ti-users"></i><span>จัดการผู้ใช้งาน</span></div>
@@ -2041,20 +2060,28 @@ async function checkStoredAuth() {
 
 // ใช้ role จำกัด UI
 function applyRoleRestrictions() {
-  // แสดง badge
+  // แสดง badge — ชื่อบน badge ใช้ชื่อเล่น ส่วนชื่อ-สกุลจริง (_auth.full_name) ใช้บนเอกสาร/สลิป
   const badge = document.getElementById('user_badge');
   badge.style.display = 'flex';
-  document.getElementById('user_display_name').textContent = _auth.display_name;
+  document.getElementById('user_display_name').textContent = _auth.nickname || _auth.display_name;
   const chip = document.getElementById('user_role_chip');
   chip.textContent = _auth.role === 'admin' ? 'Admin' : _auth.role === 'co-admin' ? 'Co-Admin' : 'Manager';
   chip.className = 'role-chip' + (_auth.role === 'admin' ? ' admin' : _auth.role === 'co-admin' ? ' co-admin' : '');
 
-  // admin: แสดงหน้าจัดการ users
   if (_auth.role === 'admin') {
+    // admin: แสดงหน้าจัดการ users + ตารางกำหนดสิทธิ์
     const umCard = document.getElementById('card_user_mgmt');
     if (umCard) umCard.style.display = '';
+    renderRolePermsCard();
+  } else {
+    // จัดการผู้ใช้งาน / ลบข้อมูลทั้งเดือน / กำหนดสิทธิ์ = admin เท่านั้นเสมอ
+    ['card_user_mgmt','card_del_month','card_role_perms'].forEach(id=>{
+      const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    // ใช้สิทธิ์การมองเห็นที่ admin กำหนดไว้ (มี default ถ้ายังไม่เคยตั้ง)
+    loadRolePermsAndApply();
   }
-  // manager: ซ่อน tab ตั้งค่า + lock วันที่เป็นวันนี้เท่านั้น
+  // manager: ซ่อน tab ตั้งค่า (ค่าเริ่มต้น — admin เปิดให้ได้จากตารางสิทธิ์) + lock วันที่เป็นวันนี้เท่านั้น
   if (_auth.role === 'manager') {
     document.getElementById('tab_settings').style.display = 'none';
     // lock date input
@@ -2064,7 +2091,114 @@ function applyRoleRestrictions() {
       sDate.min = todayStr();
       sDate.readOnly = true;
     }
-    // ซ่อนปุ่ม import ใน settings (ถ้าเข้าไม่ได้อยู่แล้วก็โอเค)
+  }
+}
+
+// ── สิทธิ์การมองเห็นตามตำแหน่ง (เก็บใน business_config key 'role_permissions') ──
+const PERM_ROLES = ['co-admin','manager'];
+const PERM_ITEMS = [
+  { key:'tab_sum',       label:'แท็บ ภาพรวม' },
+  { key:'tab_sale',      label:'แท็บ ยอดขาย' },
+  { key:'tab_exp',       label:'แท็บ รายจ่าย' },
+  { key:'tab_opex',      label:'แท็บ ค่าดำเนินการ' },
+  { key:'tab_analytics', label:'แท็บ วิเคราะห์' },
+  { key:'tab_settings',  label:'แท็บ ตั้งค่า' },
+  { key:'card_import',   label:'ตั้งค่า: นำเข้าข้อมูล (Import)' },
+  { key:'card_dedup',    label:'ตั้งค่า: ลบข้อมูลซ้ำในเดือน' },
+  { key:'card_export',   label:'ตั้งค่า: ส่งออกรายงาน (Export)' },
+  { key:'card_biz_info', label:'ตั้งค่า: ข้อมูลบริษัท / ร้านค้า' },
+  { key:'card_emp_info', label:'ตั้งค่า: ข้อมูลพนักงาน' },
+];
+// ค่าเริ่มต้น = พฤติกรรมเดิม: co-admin เห็นทุกอย่าง, manager เห็นทุกแท็บยกเว้นตั้งค่า
+function defaultRolePerms(){
+  const p = {};
+  PERM_ROLES.forEach(role=>{
+    p[role] = {};
+    PERM_ITEMS.forEach(it=>{
+      p[role][it.key] = role === 'manager'
+        ? (it.key.startsWith('tab_') && it.key !== 'tab_settings')
+        : true;
+    });
+  });
+  return p;
+}
+function _mergePerms(saved){
+  const base = defaultRolePerms();
+  if (saved && typeof saved === 'object'){
+    PERM_ROLES.forEach(role=>{
+      if (saved[role]) PERM_ITEMS.forEach(it=>{
+        if (typeof saved[role][it.key] === 'boolean') base[role][it.key] = saved[role][it.key];
+      });
+    });
+  }
+  return base;
+}
+function applyRolePerms(saved){
+  if (_auth.role === 'admin') return;
+  const mine = _mergePerms(saved)[_auth.role];
+  if (!mine) return;
+  PERM_ITEMS.forEach(it=>{
+    const el = document.getElementById(it.key);
+    if (el) el.style.display = mine[it.key] ? '' : 'none';
+  });
+  // ถ้าแท็บที่เปิดอยู่ถูกซ่อน → สลับไปแท็บแรกที่ยังมองเห็นได้
+  const onTab = document.querySelector('.tab.on');
+  if (onTab && onTab.style.display === 'none'){
+    const firstVisible = [...document.querySelectorAll('.tabs .tab')].find(t=>t.style.display !== 'none');
+    if (firstVisible) firstVisible.click();
+  }
+}
+async function loadRolePermsAndApply(){
+  // ใช้ค่า cache ก่อนเพื่อไม่ให้ UI กระพริบ แล้วค่อยอัปเดตจากเซิร์ฟเวอร์
+  try {
+    const cached = JSON.parse(localStorage.getItem('mm69_role_perms')||'null');
+    if (cached) applyRolePerms(cached);
+  } catch(e){}
+  try {
+    const res = await _sbGet('get_config');
+    const perms = res?.config?.role_permissions || null;
+    if (perms) localStorage.setItem('mm69_role_perms', JSON.stringify(perms));
+    applyRolePerms(perms);
+  } catch(e){ /* ใช้ default/cache ต่อไป */ }
+}
+async function renderRolePermsCard(){
+  const card = document.getElementById('card_role_perms');
+  if (card) card.style.display = '';
+  const body = document.getElementById('role_perms_body');
+  if (!body) return;
+  let saved = null;
+  try {
+    const res = await _sbGet('get_config');
+    saved = res?.config?.role_permissions || null;
+  } catch(e){}
+  const perms = _mergePerms(saved);
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:420px">'
+    + '<tr style="border-bottom:1.5px solid var(--border)"><th style="text-align:left;padding:8px 6px;color:var(--c-coffee)">รายการ</th>'
+    + PERM_ROLES.map(r=>`<th style="padding:8px 6px;text-align:center;color:var(--c-coffee)">${r==='co-admin'?'Co-Admin':'Manager'}</th>`).join('')
+    + '</tr>';
+  PERM_ITEMS.forEach(it=>{
+    html += `<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 6px">${it.label}</td>`;
+    PERM_ROLES.forEach(role=>{
+      html += `<td style="text-align:center;padding:7px 6px"><input type="checkbox" data-perm-role="${role}" data-perm-key="${it.key}" ${perms[role][it.key]?'checked':''} style="width:16px;height:16px;cursor:pointer"></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  body.innerHTML = html;
+}
+async function saveRolePerms(){
+  const perms = defaultRolePerms();
+  document.querySelectorAll('#role_perms_body input[type="checkbox"]').forEach(cb=>{
+    const role = cb.dataset.permRole, key = cb.dataset.permKey;
+    if (perms[role] && key in perms[role]) perms[role][key] = cb.checked;
+  });
+  const res = await _sbPost({ formType:'save_config', config_key:'role_permissions',
+    config_value: JSON.stringify(perms), logged_by:_auth.display_name||_auth.username||'' });
+  if (res.status === 'ok'){
+    localStorage.setItem('mm69_role_perms', JSON.stringify(perms));
+    setStatus('status_role_perms','บันทึกสิทธิ์เรียบร้อย ✓ มีผลเมื่อผู้ใช้เข้าระบบ/รีเฟรชครั้งถัดไป','ok');
+  } else {
+    setStatus('status_role_perms','บันทึกไม่สำเร็จ: '+(res.message||''),'err');
   }
 }
 
