@@ -664,11 +664,21 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-head-left"><i class="ti ti-coffee"></i><span>กาแฟแจกฟรีประจำวัน</span></div></div>
+      <div class="card-head"><div class="card-head-left"><i class="ti ti-coffee"></i><span>กาแฟแจกฟรีประจำวัน (โปรโมชั่น)</span></div></div>
       <div class="card-body">
         <div class="row2">
           <div class="field"><label>จำนวนแก้ว</label><input type="number" id="coffee_qty" value="0" min="0" oninput="calSaleTotal();calSaleCoffee()"></div>
-          <div class="field"><label>ต้นทุน/แก้ว (บาท)</label><input type="number" id="coffee_price" value="50" min="0" oninput="calSaleTotal()"></div>
+          <div class="field"><label>ต้นทุนวัตถุดิบ/แก้ว (บาท) <span style="font-size:10px;color:var(--muted)">Admin ตั้งค่าในหน้าตั้งค่า</span></label><input type="number" id="coffee_price" value="55" min="0" oninput="calSaleTotal()"></div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>หลักฐานยอดแก้วฟรี (แคปหน้าจอ LINE OA — Used Coupon / รายงาน POS)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="btn" style="font-size:12px;min-height:0;padding:7px 12px;background:var(--c-cream);border:1px solid var(--border);color:var(--c-coffee)" onclick="document.getElementById('free_evidence_file').click()"><i class="ti ti-paperclip"></i> แนบไฟล์/รูปภาพ</button>
+            <input type="file" id="free_evidence_file" accept="image/*,.pdf" style="display:none" onchange="uploadFreeCupEvidence(this)">
+            <a id="free_evidence_link" href="#" target="_blank" rel="noopener" style="display:none;font-size:12px;color:#1a73e8"><i class="ti ti-photo"></i> ดูหลักฐานที่แนบไว้</a>
+            <span id="free_evidence_status" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <input type="hidden" id="free_evidence_url" value="">
         </div>
       </div>
     </div>
@@ -1368,6 +1378,30 @@
     </div>
 
     <!-- ── จัดการผู้ใช้งาน (Admin เท่านั้น) ── -->
+    <!-- ── ต้นทุนวัตถุดิบแก้วฟรี (Admin เท่านั้น) ── -->
+    <div class="card" id="card_free_cup_cost" style="display:none">
+      <div class="card-head">
+        <div class="card-head-left"><i class="ti ti-coffee"></i><span>ต้นทุนวัตถุดิบแก้วฟรี (Actual Unit Cost)</span></div>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+          ต้นทุนวัตถุดิบเฉลี่ยต่อแก้วจริง ใช้คำนวณมูลค่า "ค่าใช้จ่ายส่งเสริมการขาย" ของแก้วแจกฟรี
+          (จำนวนแก้ว × ต้นทุนนี้) — ปรับตามรอบการคำนวณต้นทุนวัตถุดิบของร้าน
+          เพื่อให้สำนักงานบัญชีใช้เป็นรายจ่ายทางภาษีได้อย่างปลอดภัย
+        </p>
+        <div class="row2" style="align-items:end">
+          <div class="field">
+            <label>ต้นทุนวัตถุดิบต่อแก้ว (บาท)</label>
+            <input type="number" id="set_free_cup_cost" value="55" min="0" step="0.01">
+          </div>
+          <button class="btn btn-coffee" style="font-size:13px" onclick="saveFreeCupUnitCost()">
+            <i class="ti ti-device-floppy"></i> บันทึกต้นทุนต่อแก้ว
+          </button>
+        </div>
+        <div id="status_free_cup_cost" class="status" style="margin-top:10px"></div>
+      </div>
+    </div>
+
     <!-- ── สิทธิ์การมองเห็น (Admin เท่านั้น) ── -->
     <div class="card" id="card_role_perms" style="display:none">
       <div class="card-head">
@@ -1738,11 +1772,12 @@ async function _sbGet(action, params){
   if(action==='getSale'){
     const { data } = await _sb.from('sales_daily').select('*').eq('date',_thaiToISO(params.date)).maybeSingle();
     if(!data) return { found:false };
-    const coffeePrice = data.free_cups>0 ? Math.round(data.free_cup_cost/data.free_cups) : 50;
+    const coffeePrice = data.free_cups>0 ? Math.round(data.free_cup_cost/data.free_cups) : freeCupUnitCost();
     return { found:true, sales:data.total_cups, kshop:data.kshop_amount, cash:data.cash_amount,
       shopee_raw:data.shopee_before_gp, grab_raw:data.grab_before_gp, lineman_raw:data.lineman_before_gp,
       coffee_qty:data.free_cups, coffee_price:coffeePrice,
       bakery_qty:data.pastry_pieces, bakery_income:data.pastry_revenue,
+      evidence_url:data.free_cup_evidence_url||'',
       net_revenue:data.net_revenue||0 };
   }
   if(action==='export' && params.period==='monthly'){
@@ -1790,8 +1825,9 @@ async function _sbPost(p){
     const { error } = await _sb.rpc('upsert_sales_daily',{ p_data:{
       date:_thaiToISO(p.date), total_cups:+p.sales||0, kshop_amount:+p.kshop||0, cash_amount:+p.cash||0,
       shopee_before_gp:+p.shopee_raw||0, grab_before_gp:+p.grab_raw||0, lineman_before_gp:+p.lineman_raw||0,
-      free_cups:+p.coffee_qty||0, free_cup_cost:(+p.coffee_qty||0)*(+p.coffee_price||50),
+      free_cups:+p.coffee_qty||0, free_cup_cost:(+p.coffee_qty||0)*(+p.coffee_price||freeCupUnitCost()),
       pastry_pieces:+p.bakery_qty||0, pastry_revenue:+p.bakery_income||0, net_revenue:net,
+      free_cup_evidence_url:p.free_evidence||'',
     }});
     return error?{ status:'error', message:error.message }:{ status:'ok' };
   }
@@ -2076,18 +2112,25 @@ function applyRoleRestrictions() {
   chip.className = 'role-chip' + (_auth.role === 'admin' ? ' admin' : _auth.role === 'co-admin' ? ' co-admin' : '');
 
   if (_auth.role === 'admin') {
-    // admin: แสดงหน้าจัดการ users + ตารางกำหนดสิทธิ์
+    // admin: แสดงหน้าจัดการ users + ตารางกำหนดสิทธิ์ + ตั้งค่าต้นทุนแก้วฟรี
     const umCard = document.getElementById('card_user_mgmt');
     if (umCard) umCard.style.display = '';
+    const fcCard = document.getElementById('card_free_cup_cost');
+    if (fcCard) fcCard.style.display = '';
+    const fcInput = document.getElementById('set_free_cup_cost');
+    if (fcInput) fcInput.value = freeCupUnitCost();
     renderRolePermsCard();
   } else {
-    // จัดการผู้ใช้งาน / ลบข้อมูลทั้งเดือน / กำหนดสิทธิ์ = admin เท่านั้นเสมอ
-    ['card_user_mgmt','card_del_month','card_role_perms'].forEach(id=>{
+    // จัดการผู้ใช้งาน / ลบข้อมูลทั้งเดือน / กำหนดสิทธิ์ / ต้นทุนแก้วฟรี = admin เท่านั้นเสมอ
+    ['card_user_mgmt','card_del_month','card_role_perms','card_free_cup_cost'].forEach(id=>{
       const el = document.getElementById(id); if (el) el.style.display = 'none';
     });
     // ใช้สิทธิ์การมองเห็นที่ admin กำหนดไว้ (มี default ถ้ายังไม่เคยตั้ง)
     loadRolePermsAndApply();
   }
+  // ต้นทุน/แก้วฟรีในฟอร์มรายวัน: แก้ได้เฉพาะ admin (คนอื่นใช้ค่าที่ตั้งไว้)
+  const cpInput = document.getElementById('coffee_price');
+  if (cpInput) cpInput.readOnly = (_auth.role !== 'admin');
   // manager: ซ่อน tab ตั้งค่า (ค่าเริ่มต้น — admin เปิดให้ได้จากตารางสิทธิ์) + lock วันที่เป็นวันนี้เท่านั้น
   if (_auth.role === 'manager') {
     document.getElementById('tab_settings').style.display = 'none';
@@ -2207,6 +2250,58 @@ async function saveRolePerms(){
   } else {
     setStatus('status_role_perms','บันทึกไม่สำเร็จ: '+(res.message||''),'err');
   }
+}
+
+// ── ต้นทุนวัตถุดิบจริงต่อแก้วฟรี (Actual Unit Cost) ─────────────
+// เก็บใน business_config key 'free_cup_unit_cost' + cache ใน localStorage
+// default 55 บาท — Admin ปรับได้จากหน้าตั้งค่า
+function freeCupUnitCost(){
+  const v = +(localStorage.getItem('mm69_free_cup_unit_cost')||0);
+  return v > 0 ? v : 55;
+}
+async function saveFreeCupUnitCost(){
+  const v = +document.getElementById('set_free_cup_cost').value || 0;
+  if (v <= 0){ setStatus('status_free_cup_cost','กรุณากรอกต้นทุนต่อแก้วให้ถูกต้อง','err'); return; }
+  const res = await _sbPost({ formType:'save_config', config_key:'free_cup_unit_cost',
+    config_value: JSON.stringify({cost:v}), logged_by:_auth.display_name||_auth.username||'' });
+  if (res.status === 'ok'){
+    localStorage.setItem('mm69_free_cup_unit_cost', String(v));
+    const cp = document.getElementById('coffee_price');
+    if (cp){ cp.value = v; if (typeof calSaleTotal === 'function') calSaleTotal(); }
+    setStatus('status_free_cup_cost','บันทึกต้นทุนต่อแก้ว '+v+' บาทแล้ว ✓ ใช้กับการบันทึกยอดขายครั้งถัดไป','ok');
+  } else {
+    setStatus('status_free_cup_cost','บันทึกไม่สำเร็จ: '+(res.message||''),'err');
+  }
+}
+
+// ── แนบหลักฐานแก้วฟรี (LINE OA / POS) → Supabase Storage bucket 'evidence' ──
+async function uploadFreeCupEvidence(inp){
+  const f = inp.files && inp.files[0];
+  if (!f) return;
+  const st = document.getElementById('free_evidence_status');
+  if (f.size > 5*1024*1024){ st.textContent = '❌ ไฟล์ใหญ่เกิน 5MB'; inp.value=''; return; }
+  const d = document.getElementById('s_date')?.value || todayStr();
+  st.textContent = '⏳ กำลังอัปโหลด...';
+  try {
+    const ext  = (f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    const path = 'free_cups/'+d+'_'+Date.now()+'.'+ext;
+    const { error } = await _sb.storage.from('evidence').upload(path, f, { upsert:true, contentType:f.type||undefined });
+    if (error) throw error;
+    const { data } = _sb.storage.from('evidence').getPublicUrl(path);
+    _setFreeEvidenceUI(data?.publicUrl||'');
+    st.textContent = '✓ แนบแล้ว — จะบันทึกลงระบบเมื่อกดบันทึกยอดขาย';
+  } catch(e){
+    const msg = e?.message||String(e);
+    st.textContent = '❌ อัปโหลดไม่สำเร็จ: '+msg+(/bucket/i.test(msg)?' (ยังไม่ได้รัน add_free_cup_actual_cost.sql ใน Supabase)':'');
+  } finally { inp.value=''; }
+}
+function _setFreeEvidenceUI(url){
+  const h = document.getElementById('free_evidence_url');
+  const a = document.getElementById('free_evidence_link');
+  const st = document.getElementById('free_evidence_status');
+  if (h) h.value = url||'';
+  if (a){ a.href = url||'#'; a.style.display = url ? '' : 'none'; }
+  if (st) st.textContent = '';
 }
 
 // เปลี่ยนรหัสผ่าน
@@ -3487,7 +3582,7 @@ function _mergeSaleIntoHistory(d, data){
   const totalCups  = +data.sales||0;
   const coffeeCups = Math.max(0, totalCups - bakQty);
   const freeCups   = +data.coffee_qty||0;
-  const freeCost   = freeCups * (+data.coffee_price||50);
+  const freeCost   = freeCups * (+data.coffee_price||freeCupUnitCost());
   const kshop      = +data.kshop||0;
   const cash       = +data.cash||0;
   const bakIncome  = +data.bakery_income||0;
@@ -3535,8 +3630,9 @@ function clearSaleForm(){
   const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
   set('s_total',''); set('s_kshop',''); set('s_cash','');
   set('s_shopee',''); set('s_grab',''); set('s_lineman','');
-  set('coffee_qty',0); set('coffee_price',50);
+  set('coffee_qty',0); set('coffee_price',freeCupUnitCost());
   set('bakery_qty',''); set('bakery_income','');
+  _setFreeEvidenceUI('');
   calGPNets(); calSaleCoffee(); calSaleTotal(); calSalePreview();
 }
 function populateSaleForm(data){
@@ -3548,9 +3644,10 @@ function populateSaleForm(data){
   set('s_grab',    data.grab_raw);
   set('s_lineman', data.lineman_raw);
   set('coffee_qty',    data.coffee_qty);
-  set('coffee_price',  data.coffee_price||50);
+  set('coffee_price',  data.coffee_price||freeCupUnitCost());
   set('bakery_qty',    data.bakery_qty);
   set('bakery_income', data.bakery_income);
+  _setFreeEvidenceUI(data.evidence_url||'');
   calGPNets(); calSaleCoffee(); calSaleTotal(); calSalePreview();
 }
 function getSaleSnapshot(){
@@ -3623,13 +3720,14 @@ function _doSaveSales(d){
     shopee_raw:shopeeRaw,shopee_net:shopeeNet,
     grab_raw:grabRaw,grab_net:grabNet,
     lineman_raw:linemanRaw,lineman_net:linemanNet,
-    coffee_qty:freeCups,coffee_price:document.getElementById('coffee_price').value||50,
+    coffee_qty:freeCups,coffee_price:document.getElementById('coffee_price').value||freeCupUnitCost(),
+    free_evidence:document.getElementById('free_evidence_url')?.value||'',
     bakery_qty:bakQty,bakery_income:bakIncome
   },'status_sale',()=>{
     savedDates.sale.add(thaiDate(d));
     sessionIncome += dayIncome;
     const deliveryNet = shopeeNet+grabNet+linemanNet;
-    const freeCost = freeCups * (+document.getElementById('coffee_price').value||50);
+    const freeCost = freeCups * (+document.getElementById('coffee_price').value||freeCupUnitCost());
     saleSaved.push({date:d,totalCups,coffeeCups,bakQty,freeCups,freeCost,income:dayIncome,kshop,cash,deliveryNet,bakIncome});
     renderSaleList();
     updateSalesCalcFields();
@@ -3657,7 +3755,8 @@ function _doUpdateSales(d){
     shopee_raw:shopeeRaw,shopee_net:shopeeNet,
     grab_raw:grabRaw,grab_net:grabNet,
     lineman_raw:linemanRaw,lineman_net:linemanNet,
-    coffee_qty:freeCups,coffee_price:document.getElementById('coffee_price').value||50,
+    coffee_qty:freeCups,coffee_price:document.getElementById('coffee_price').value||freeCupUnitCost(),
+    free_evidence:document.getElementById('free_evidence_url')?.value||'',
     bakery_qty:bakQty,bakery_income:bakIncome
   },'status_sale',()=>{
     // Update originalSaleData to reflect new saved state
@@ -3674,7 +3773,7 @@ function _doUpdateSales(d){
     if(idx>=0){
       sessionIncome -= saleSaved[idx].income;
       sessionIncome += dayIncome;
-      const freeCost = freeCups * (+document.getElementById('coffee_price').value||50);
+      const freeCost = freeCups * (+document.getElementById('coffee_price').value||freeCupUnitCost());
       saleSaved[idx]={date:d,totalCups,coffeeCups,bakQty,freeCups,freeCost,income:dayIncome,kshop,cash,deliveryNet,bakIncome};
     }
     originalSaleData._income = dayIncome;
@@ -5895,7 +5994,7 @@ function renderAnalysis(results){
     <td style="text-align:right" class="${totProfit>=0?'an-profit-pos':'an-profit-neg'}">${totProfit>=0?'+':''}${fN(totProfit)}</td>
   </tr>`;
   html+='</tbody></table></div>';
-  html+='<div style="font-size:11px;color:var(--muted);margin-top:6px">* แก้วฟรี = มูลค่าประมาณของโปรโมชั่น (จำนวนแก้ว × ~50 บาท) แสดงเพื่ออ้างอิงเท่านั้น ไม่รวมใน "ต้นทุนรวม" เพราะวัตถุดิบที่ใช้ชงรวมอยู่ในต้นทุนวัตถุดิบแล้ว</div>';
+  html+='<div style="font-size:11px;color:var(--muted);margin-top:6px">* แก้วฟรี = ค่าส่งเสริมการขาย (จำนวนแก้ว × ต้นทุนวัตถุดิบจริงต่อแก้วที่ Admin ตั้งค่า) แสดงเพื่ออ้างอิงเท่านั้น ไม่รวมใน "ต้นทุนรวม" เพราะวัตถุดิบที่ใช้ชงรวมอยู่ในต้นทุนวัตถุดิบแล้ว</div>';
 
   // Mini bar chart (income vs totalCost per month)
   const maxVal=Math.max(...monthly.map(m=>m.income),1);
@@ -6076,6 +6175,12 @@ async function loadConfigFromGAS(force=false){
     if(cfg.biz_info && typeof cfg.biz_info==='object'){
       localStorage.setItem('mm69_biz_info', JSON.stringify(cfg.biz_info));
       changed = true;
+    }
+    // ต้นทุนวัตถุดิบต่อแก้วฟรี (Actual Unit Cost)
+    if(cfg.free_cup_unit_cost && +cfg.free_cup_unit_cost.cost > 0){
+      localStorage.setItem('mm69_free_cup_unit_cost', String(+cfg.free_cup_unit_cost.cost));
+      const fcInput = document.getElementById('set_free_cup_cost');
+      if(fcInput) fcInput.value = +cfg.free_cup_unit_cost.cost;
     }
     if(cfg.biz_history && Array.isArray(cfg.biz_history)){
       localStorage.setItem('mm69_biz_history', JSON.stringify(cfg.biz_history));
@@ -7081,7 +7186,7 @@ async function doExport(){
       styleRow(profRow, profit>=0?green:red, profit>=0?greenTxt:redTxt, true, 13);
       profRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
       ws0.addRow([]);
-      const freeRefRow = ws0.addRow(['รายการอ้างอิง: มูลค่าโปรโมชั่นแก้วฟรีโดยประมาณ', tFree, 'ไม่รวมในรายจ่าย — วัตถุดิบรวมอยู่ในต้นทุนวัตถุดิบแล้ว']);
+      const freeRefRow = ws0.addRow(['รายการอ้างอิง: ค่าส่งเสริมการขาย (แก้วฟรี — ต้นทุนวัตถุดิบจริง)', tFree, 'ดูรายละเอียดชีต "ค่าส่งเสริมการขาย" — วัตถุดิบรวมอยู่ในต้นทุนวัตถุดิบแล้ว']);
       freeRefRow.eachCell({includeEmpty:true},cell=>{
         cell.font = {italic:true,color:mutedTxt,size:11,name:FONT};
         if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; }
@@ -7115,6 +7220,33 @@ async function doExport(){
           sales.reduce((s,r)=>s+(r.lineman_before_gp||0),0),
           tFree, tIncome]);
         addSignBlock(ws1, 11);
+      }
+
+      // ── Sheet: ค่าส่งเสริมการขาย (แก้วฟรี — ต้นทุนวัตถุดิบจริง) ──
+      const promoDays = sales.filter(r=>(r.free_cups||0)>0);
+      if(chkSales && promoDays.length){
+        const wsP = wb.addWorksheet('ค่าส่งเสริมการขาย');
+        wsP.columns = [{width:14},{width:15},{width:22},{width:26},{width:26}];
+        addTitle(wsP, shop, 'ค่าใช้จ่ายในการส่งเสริมการขาย (Marketing & Promotion Expense) ประจำเดือน'+mName, period, preparer, 5);
+        pageSetup(wsP, false);
+        addColHeaders(wsP, 6, ['วันที่','จำนวนแก้วฟรี','ต้นทุนวัตถุดิบ/แก้ว (บาท)','รวมมูลค่าต้นทุนจริง (บาท)','หลักฐานแนบ']);
+        let pShade=false, pCups=0, pCost=0;
+        promoDays.forEach(r=>{
+          const unit = r.free_cups ? Math.round((r.free_cup_cost||0)/r.free_cups*100)/100 : 0;
+          const row = addDataRow(wsP,[thaiDateBE(r.date), r.free_cups||0, unit, r.free_cup_cost||0, ''], pShade);
+          if(r.free_cup_evidence_url){
+            const c = row.getCell(5);
+            c.value = { text:'เปิดไฟล์หลักฐาน', hyperlink:r.free_cup_evidence_url };
+            c.font  = { color:{argb:'FF1155CC'}, underline:true, size:12, name:FONT };
+          }
+          pShade=!pShade; pCups+=(r.free_cups||0); pCost+=(r.free_cup_cost||0);
+        });
+        wsP.addRow([]);
+        addTotalRow(wsP,['รวมทั้งสิ้น', pCups, '', pCost, '']);
+        const noteP = wsP.addRow(['หมายเหตุ: มูลค่าคำนวณจากต้นทุนวัตถุดิบจริงต่อแก้ว (Actual Cost) — วัตถุดิบส่วนนี้รวมอยู่ในยอดซื้อหมวดต้นทุนวัตถุดิบแล้ว โปรดปรับปรุงบัญชี (reclass) เข้าหมวดค่าใช้จ่ายส่งเสริมการขายตามความเหมาะสม']);
+        noteP.getCell(1).font = {italic:true,color:mutedTxt,size:11,name:FONT};
+        wsP.mergeCells(`A${noteP.number}:E${noteP.number}`);
+        addSignBlock(wsP, 5);
       }
 
       // ── Sheet 3: ต้นทุนวัตถุดิบ ──
