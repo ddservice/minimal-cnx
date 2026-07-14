@@ -584,7 +584,7 @@
     <div class="kpis">
       <div class="kpi"><div class="kpi-label"><i class="ti ti-coffee"></i> ยอดขายกาแฟ</div><div class="kpi-val" id="sum_coffee_cups" style="color:var(--c-coffee)">0</div><div class="kpi-sub">แก้ว</div></div>
       <div class="kpi"><div class="kpi-label"><i class="ti ti-slice"></i> ยอดขายขนม</div><div class="kpi-val" id="sum_bak_qty" style="color:var(--c-latte)">0</div><div class="kpi-sub">ชิ้น</div></div>
-      <div class="kpi"><div class="kpi-label"><i class="ti ti-gift"></i> ยอดแก้วฟรี</div><div class="kpi-val" id="sum_free_cups" style="color:var(--c-accent)">0</div><div class="kpi-sub">แก้ว</div></div>
+      <div class="kpi"><div class="kpi-label"><i class="ti ti-gift"></i> ยอดแก้วฟรี (โปรโมชั่น)</div><div class="kpi-val" id="sum_free_cups" style="color:#e07b00">0</div><div class="kpi-sub" id="sum_free_sub">แก้ว</div></div>
     </div>
     <div class="card">
       <div class="card-head"><div class="card-head-left"><i class="ti ti-list"></i><span>รายจ่ายแยกหมวดหมู่</span></div></div>
@@ -594,7 +594,7 @@
           <tr><td>ต้นทุนวัตถุดิบ</td><td id="sum_t_mat">0</td></tr>
           <tr><td>ต้นทุนขนม</td><td id="sum_t_bak">0</td></tr>
           <tr><td>รายจ่ายจิปาถะ</td><td id="sum_t_misc">0</td></tr>
-          <tr><td>ต้นทุนกาแฟแจกฟรี</td><td id="sum_t_coffee">0</td></tr>
+          <tr style="color:#e07b00"><td>ต้นทุนกาแฟแจกฟรี <span style="font-size:11px;color:var(--muted)">(อ้างอิงโปรโมชั่น — ไม่รวมในยอดรวม เพราะรวมอยู่ในต้นทุนวัตถุดิบแล้ว)</span></td><td id="sum_t_coffee">0</td></tr>
           <tr><td colspan="2" style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--muted);background:#f7f0e8;letter-spacing:.5px">ค่าดำเนินการ</td></tr>
           <tr><td style="padding-left:22px;font-size:13px">ค่าใช้จ่ายดำเนินการประจำเดือน</td><td id="sum_t_opex1">0</td></tr>
           <tr><td style="padding-left:22px;font-size:13px">ค่าแรงพนักงาน</td><td id="sum_t_opex2">0</td></tr>
@@ -2628,8 +2628,10 @@ function updateSummary(){
   const matTotal       = filteredMat.reduce((s,r)=>s+(r.total||0),0);
   const bakTotal       = filteredBak.reduce((s,r)=>s+(r.total||0),0);
   const miscTotal      = filteredMisc.reduce((s,r)=>s+(r.total||0),0);
+  // ต้นทุนแก้วฟรี = ตัวเลขอ้างอิงโปรโมชั่นเท่านั้น ไม่รวมในรายจ่าย
+  // (วัตถุดิบของแก้วฟรีถูกซื้อจริงและรวมอยู่ใน "ต้นทุนวัตถุดิบ" แล้ว — บวกเพิ่ม = นับซ้ำ)
   const coffeeCost     = filteredSale.reduce((s,r)=>s+(r.freeCost||0),0);
-  const totalExp       = matTotal + bakTotal + miscTotal + coffeeCost + effectiveOpexTotal;
+  const totalExp       = matTotal + bakTotal + miscTotal + effectiveOpexTotal;
   const profit         = filteredIncome - totalExp;
 
   const sumCoffeeCups = filteredSale.reduce((s,r)=>s+r.coffeeCups,0);
@@ -2638,6 +2640,7 @@ function updateSummary(){
   const el_cc = document.getElementById('sum_coffee_cups'); if(el_cc) el_cc.textContent = sumCoffeeCups;
   const el_bq = document.getElementById('sum_bak_qty');     if(el_bq) el_bq.textContent = sumBakQty;
   const el_fc = document.getElementById('sum_free_cups');   if(el_fc) el_fc.textContent = sumFreeCups;
+  const el_fs = document.getElementById('sum_free_sub');    if(el_fs) el_fs.textContent = 'แก้ว (มูลค่าประมาณ '+fmtMoney(coffeeCost)+' บาท)';
 
   document.getElementById('sum_income').textContent  = fmtMoney(filteredIncome);
   document.getElementById('sum_expense').textContent = fmtMoney(totalExp);
@@ -5826,10 +5829,14 @@ function _anMonthly(results){
     const bakCost=exp.filter(x=>x['หมวดหมู่']==='ต้นทุนขนมหน้าร้าน').reduce((s,x)=>s+(+x['รวม(฿)']||0),0);
     const miscCost=exp.filter(x=>x['หมวดหมู่']==='รายจ่ายจิปาถะ').reduce((s,x)=>s+(+x['รวม(฿)']||0),0);
     const opexCost=opex.reduce((s,x)=>s+(+x['ยอด(฿)']||0),0);
+    // ต้นทุนแก้วฟรี = ตัวเลขอ้างอิงโปรโมชั่น ไม่รวมใน totalCost (วัตถุดิบรวมอยู่ใน matCost แล้ว)
     const freeCupCost=sales.reduce((s,row)=>s+(+row['ต้นทุน/แก้วฟรี(฿)']||0),0);
-    const totalCost=matCost+bakCost+miscCost+freeCupCost+opexCost;
+    const totalCost=matCost+bakCost+miscCost+opexCost;
     const dayCount=sales.length;
-    return {month:r.month,income,matCost,bakCost,miscCost,freeCupCost,opexCost,totalCost,profit:income-totalCost,dayCount,dupCount};
+    // เดือนที่มีการบันทึกต้นทุนจริง (ไม่นับต้นทุนแก้วฟรีที่คำนวณอัตโนมัติจากยอดขาย)
+    // ใช้กันการโชว์ % เปลี่ยนแปลงเทียบกับเดือนที่ไม่ได้จดต้นทุน ซึ่งได้ตัวเลขหลอกเช่น ▲7779%
+    const hasCost=(matCost+bakCost+miscCost+opexCost)>0;
+    return {month:r.month,income,matCost,bakCost,miscCost,freeCupCost,opexCost,totalCost,profit:income-totalCost,dayCount,dupCount,hasCost};
   });
 }
 
@@ -5850,7 +5857,7 @@ function renderAnalysis(results){
   let html='<div style="overflow-x:auto"><table class="tbl" style="min-width:900px">'
     +'<thead><tr><th>เดือน</th><th style="text-align:center;color:var(--muted)">วัน</th><th style="text-align:right">รายได้</th>'
     +'<th style="text-align:right">ต้นทุนวัตถุดิบ</th><th style="text-align:right">ต้นทุนขนม</th>'
-    +'<th style="text-align:right">รายจ่ายจิปาถะ</th><th style="text-align:right">แก้วฟรี</th>'
+    +'<th style="text-align:right">รายจ่ายจิปาถะ</th><th style="text-align:right;color:#e07b00">แก้วฟรี (อ้างอิง)*</th>'
     +'<th style="text-align:right">ค่าดำเนินการ</th><th style="text-align:right">ต้นทุนรวม</th>'
     +'<th style="text-align:right">กำไร/ขาดทุน</th></tr></thead><tbody>';
   monthly.forEach((m,i)=>{
@@ -5865,10 +5872,10 @@ function renderAnalysis(results){
       <td style="text-align:right">${fN(m.matCost)}${prev?trend(pct(m.matCost,prev.matCost),true):''}</td>
       <td style="text-align:right">${fN(m.bakCost)}${prev?trend(pct(m.bakCost,prev.bakCost),true):''}</td>
       <td style="text-align:right">${fN(m.miscCost)}${prev?trend(pct(m.miscCost,prev.miscCost),true):''}</td>
-      <td style="text-align:right">${fN(m.freeCupCost)}${prev?trend(pct(m.freeCupCost,prev.freeCupCost),true):''}</td>
+      <td style="text-align:right;color:#e07b00">${fN(m.freeCupCost)}</td>
       <td style="text-align:right">${fN(m.opexCost)}${prev?trend(pct(m.opexCost,prev.opexCost),true):''}</td>
-      <td style="text-align:right">${fN(m.totalCost)}${prev?trend(pct(m.totalCost,prev.totalCost),true):''}</td>
-      <td style="text-align:right" class="${profCls}">${m.profit>=0?'+':''}${fN(m.profit)}${prev?trend(pct(m.profit,prev.profit),false):''}</td>
+      <td style="text-align:right">${fN(m.totalCost)}${prev&&prev.hasCost&&m.hasCost?trend(pct(m.totalCost,prev.totalCost),true):''}</td>
+      <td style="text-align:right" class="${profCls}">${m.profit>=0?'+':''}${fN(m.profit)}${prev&&prev.hasCost&&m.hasCost?trend(pct(m.profit,prev.profit),false):''}</td>
     </tr>`;
   });
   // Summary row
@@ -5882,12 +5889,13 @@ function renderAnalysis(results){
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.matCost,0))}</td>
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.bakCost,0))}</td>
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.miscCost,0))}</td>
-    <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.freeCupCost,0))}</td>
+    <td style="text-align:right;color:#e07b00">${fN(monthly.reduce((s,m)=>s+m.freeCupCost,0))}</td>
     <td style="text-align:right">${fN(monthly.reduce((s,m)=>s+m.opexCost,0))}</td>
     <td style="text-align:right">${fN(totCost)}</td>
     <td style="text-align:right" class="${totProfit>=0?'an-profit-pos':'an-profit-neg'}">${totProfit>=0?'+':''}${fN(totProfit)}</td>
   </tr>`;
   html+='</tbody></table></div>';
+  html+='<div style="font-size:11px;color:var(--muted);margin-top:6px">* แก้วฟรี = มูลค่าประมาณของโปรโมชั่น (จำนวนแก้ว × ~50 บาท) แสดงเพื่ออ้างอิงเท่านั้น ไม่รวมใน "ต้นทุนรวม" เพราะวัตถุดิบที่ใช้ชงรวมอยู่ในต้นทุนวัตถุดิบแล้ว</div>';
 
   // Mini bar chart (income vs totalCost per month)
   const maxVal=Math.max(...monthly.map(m=>m.income),1);
@@ -7041,7 +7049,8 @@ async function doExport(){
       const chkSalaryPre = document.getElementById('exp_chk_salary').checked;
       let tSalary = 0;
       if(chkSalaryPre){ EMP_CONFIG.forEach(emp=>{ const hist=JSON.parse(localStorage.getItem('mm69_emp_pay_history_'+emp.id)||'[]'); const rec=hist.find(r=>r.month===mlabel); if(rec) tSalary+=(rec.compCost||0); }); }
-      const tExp    = tMat+tBak+tMisc+tFree+tOpex+tSalary;
+      // tFree (ต้นทุนแก้วฟรี) = อ้างอิงโปรโมชั่น ไม่รวมในรายจ่าย (วัตถุดิบรวมอยู่ใน tMat แล้ว)
+      const tExp    = tMat+tBak+tMisc+tOpex+tSalary;
       const profit  = tIncome-tExp;
 
       // ── Sheet 1: ภาพรวม ──
@@ -7061,7 +7070,6 @@ async function doExport(){
       addDataRow(ws0, ['  ต้นทุนวัตถุดิบ', tMat, ''], shade); shade=!shade;
       addDataRow(ws0, ['  ต้นทุนขนมหน้าร้าน', tBak, ''], shade); shade=!shade;
       addDataRow(ws0, ['  รายจ่ายจิปาถะ', tMisc, ''], shade); shade=!shade;
-      addDataRow(ws0, ['  ต้นทุนแก้วกาแฟฟรี', tFree, ''], shade); shade=!shade;
       addDataRow(ws0, ['  ค่าดำเนินการ (OPEX)', tOpex, ''], shade); shade=!shade;
       if(chkSalaryPre) addDataRow(ws0, ['  ค่าแรงพนักงาน (ต้นทุนบริษัท)', tSalary, ''], shade);
       ws0.addRow([]);
@@ -7072,8 +7080,13 @@ async function doExport(){
       profRow.height = 24;
       styleRow(profRow, profit>=0?green:red, profit>=0?greenTxt:redTxt, true, 13);
       profRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
+      ws0.addRow([]);
+      const freeRefRow = ws0.addRow(['รายการอ้างอิง: มูลค่าโปรโมชั่นแก้วฟรีโดยประมาณ', tFree, 'ไม่รวมในรายจ่าย — วัตถุดิบรวมอยู่ในต้นทุนวัตถุดิบแล้ว']);
+      freeRefRow.eachCell({includeEmpty:true},cell=>{
+        cell.font = {italic:true,color:mutedTxt,size:11,name:FONT};
+        if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; }
+      });
       if(!chkSalaryPre){
-        ws0.addRow([]);
         const noteRow = ws0.addRow(['หมายเหตุ: ยอดข้างต้นยังไม่รวมค่าแรงพนักงาน']);
         noteRow.getCell(1).font = {italic:true,color:mutedTxt,size:11,name:FONT};
         ws0.mergeCells(`A${noteRow.number}:C${noteRow.number}`);
@@ -7210,8 +7223,9 @@ async function doExport(){
       const tMat   = mat.reduce((s,r)=>s+(r.total_amount||0),0);
       const tBak   = bak.reduce((s,r)=>s+(r.total_amount||0),0);
       const tMisc  = misc.reduce((s,r)=>s+(r.total_amount||0),0);
+      // tFree = อ้างอิงโปรโมชั่น ไม่รวมในรายจ่าย (วัตถุดิบรวมอยู่ใน tMat แล้ว)
       const tFree  = sale?(sale.free_cup_cost||0):0;
-      const tExp   = tMat+tBak+tMisc+tFree;
+      const tExp   = tMat+tBak+tMisc;
       const profit = income-tExp;
 
       const wb2 = new ExcelJS.Workbook();
@@ -7227,7 +7241,6 @@ async function doExport(){
       addDataRow(ws0,['  ต้นทุนวัตถุดิบ',tMat,''],false);
       addDataRow(ws0,['  ต้นทุนขนมหน้าร้าน',tBak,''],true);
       addDataRow(ws0,['  รายจ่ายจิปาถะ',tMisc,''],false);
-      addDataRow(ws0,['  ต้นทุนแก้วกาแฟฟรี',tFree,''],true);
       ws0.addRow([]);
       addTotalRow(ws0,['รวมรายจ่ายทั้งสิ้น',tExp,'']);
       ws0.addRow([]);
@@ -7235,6 +7248,12 @@ async function doExport(){
       pRow.height = 24;
       styleRow(pRow,profit>=0?green:red,profit>=0?greenTxt:redTxt,true,13);
       pRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
+      ws0.addRow([]);
+      const dFreeRef = ws0.addRow(['รายการอ้างอิง: มูลค่าโปรโมชั่นแก้วฟรีโดยประมาณ', tFree, 'ไม่รวมในรายจ่าย — วัตถุดิบรวมอยู่ในต้นทุนวัตถุดิบแล้ว']);
+      dFreeRef.eachCell({includeEmpty:true},cell=>{
+        cell.font = {italic:true,color:mutedTxt,size:11,name:FONT};
+        if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; }
+      });
       addSignBlock(ws0, 3);
 
       if(chkSales && sale){
