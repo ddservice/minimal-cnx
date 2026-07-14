@@ -2983,6 +2983,15 @@ function loadMonthlyData() {
         }
       }
     }
+    // ── เดือนปัจจุบัน: ภาษี/commission คำนวณจากยอดขายซึ่งเพิ่งโหลดเสร็จ ต้องคำนวณใหม่ ──
+    // (แก้บั๊ก: เข้าเว็บครั้งแรก "ภาษีและอื่นๆ" เป็น 0 จนกว่าจะสลับแท็บไปมา)
+    const _nowLd   = new Date();
+    const _curYMld = _nowLd.getFullYear()+'-'+String(_nowLd.getMonth()+1).padStart(2,'0');   // 'YYYY-MM'
+    const _curMYld = String(_nowLd.getMonth()+1).padStart(2,'0')+'/'+_nowLd.getFullYear();   // 'MM/YYYY'
+    if(months.includes(_curMYld) && (document.getElementById('opex_month')?.value||_curYMld) === _curYMld){
+      updateSalesCalcFields();          // calEmpTotal ทุกคน + buildTaxTable + calTaxTotal (→ calAllOpex → updateSummary)
+      calOpexTotal(); calStaffTotal();  // รีเฟรชยอดรวมกลุ่มที่เหลือให้ครบ
+    }
     updateSummary(); // refresh OPEX breakdown หลังโหลดข้อมูลครบ
     if(ico){ ico.className='ti ti-circle-check'; ico.style.color='var(--success)'; }
     if(msg){ msg.textContent=count>0?'โหลดข้อมูลสำเร็จ '+count+' รายการ ('+monthsLabel+')':'ยังไม่มีข้อมูลช่วงนี้'; }
