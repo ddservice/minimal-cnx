@@ -6698,6 +6698,10 @@ function setExportPeriod(type) {
 function _thMonthNameTH(mm){
   return ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][+mm]||mm;
 }
+// ชื่อเดือนเต็มสำหรับเอกสารทางการ (ใช้คู่กับปี พ.ศ.)
+function _thMonthFullTH(mm){
+  return ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][+mm]||mm;
+}
 
 async function doExport(){
   if(typeof ExcelJS === 'undefined'){
@@ -6717,11 +6721,11 @@ async function doExport(){
 
   // ── helpers ──
   const THB = n => (+n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const FONT      = 'TH Sarabun New';   // ฟอนต์มาตรฐานเอกสารทางการ/สำนักงานบัญชี
   const brown     = { argb:'FF3D2B1F' };
-  const brownMid  = { argb:'FF7B4F2E' };
-  const cream     = { argb:'FFF9F0E6' };
+  const cream     = { argb:'FFF3EDE7' };
+  const creamSoft = { argb:'FFFBF8F4' };
   const white     = { argb:'FFFFFFFF' };
-  const yellow    = { argb:'FFFFF8E1' };
   const green     = { argb:'FFE8F5E9' };
   const red       = { argb:'FFFCE4EC' };
   const greenTxt  = { argb:'FF1B5E20' };
@@ -6729,53 +6733,53 @@ async function doExport(){
   const darkTxt   = { argb:'FF1A0A00' };
   const mutedTxt  = { argb:'FF6D4C2A' };
 
-  const thin = { style:'thin', color:{ argb:'FFCBA989' } };
+  const thin = { style:'thin', color:{ argb:'FFB8A38E' } };
   const border = { top:thin, left:thin, bottom:thin, right:thin };
-  const borderB = { top:thin, left:thin, bottom:{ style:'medium', color:{ argb:'FF3D2B1F' } }, right:thin };
+  // ยอดรวม: เส้นคู่ด้านล่างตามธรรมเนียมเอกสารบัญชี
+  const borderB = { top:thin, left:thin, bottom:{ style:'double', color:{ argb:'FF3D2B1F' } }, right:thin };
+  const colLetter = i => String.fromCharCode(64+i); // 1→A (รองรับไม่เกิน 26 คอลัมน์)
 
   function styleRow(row, bg, fontColor, bold, sz){
     row.eachCell({includeEmpty:true}, cell => {
       cell.fill    = { type:'pattern', pattern:'solid', fgColor: bg };
-      cell.font    = { bold: bold||false, color: fontColor||{argb:'FF1A0A00'}, size: sz||10, name:'Cordia New' };
+      cell.font    = { bold: bold||false, color: fontColor||{argb:'FF1A0A00'}, size: sz||12, name:FONT };
       cell.border  = border;
       cell.alignment = { vertical:'middle', wrapText:true };
     });
   }
 
-  function addTitle(ws, shop, title, period, preparer){
-    ws.mergeCells('A1:H1');
+  function addTitle(ws, shop, title, period, preparer, nCols){
+    const n    = nCols||8;
+    const last = colLetter(n);
+    ws.mergeCells('A1:'+last+'1');
     const r1 = ws.getRow(1);
     r1.getCell(1).value = shop;
-    r1.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: brown };
-    r1.getCell(1).font  = { bold:true, color:white, size:14, name:'Cordia New' };
+    r1.getCell(1).font  = { bold:true, color:darkTxt, size:18, name:FONT };
     r1.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
-    r1.height = 24;
+    r1.height = 26;
 
-    ws.mergeCells('A2:H2');
+    ws.mergeCells('A2:'+last+'2');
     const r2 = ws.getRow(2);
     r2.getCell(1).value = title;
-    r2.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: brownMid };
-    r2.getCell(1).font  = { bold:true, color:white, size:12, name:'Cordia New' };
+    r2.getCell(1).font  = { bold:true, color:brown, size:14, name:FONT };
     r2.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
-    r2.height = 20;
+    r2.height = 22;
 
+    const half = Math.max(1, Math.ceil(n/2));
     const r3 = ws.getRow(3);
     r3.getCell(1).value = period;
-    r3.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: cream };
-    r3.getCell(1).font  = { color:mutedTxt, size:10, name:'Cordia New' };
-    ws.mergeCells('A3:D3');
-    r3.getCell(5).value = 'สร้างเมื่อ: '+_nowTh();
-    ws.mergeCells('E3:H3');
-    r3.getCell(5).fill  = { type:'pattern', pattern:'solid', fgColor: cream };
-    r3.getCell(5).font  = { color:mutedTxt, size:10, name:'Cordia New' };
-    r3.getCell(5).alignment = { horizontal:'right' };
+    r3.getCell(1).font  = { color:mutedTxt, size:11, name:FONT };
+    if(half > 1) ws.mergeCells('A3:'+colLetter(half)+'3');
+    r3.getCell(half+1).value = 'วันที่จัดทำ: '+_nowTh();
+    if(n-half > 1) ws.mergeCells(colLetter(half+1)+'3:'+last+'3');
+    r3.getCell(half+1).font  = { color:mutedTxt, size:11, name:FONT };
+    r3.getCell(half+1).alignment = { horizontal:'right' };
     r3.height = 18;
 
     const r4 = ws.getRow(4);
     r4.getCell(1).value = 'ผู้จัดทำ: ' + preparer;
-    r4.getCell(1).fill  = { type:'pattern', pattern:'solid', fgColor: cream };
-    r4.getCell(1).font  = { italic:true, color:mutedTxt, size:10, name:'Cordia New' };
-    ws.mergeCells('A4:H4');
+    r4.getCell(1).font  = { color:mutedTxt, size:11, name:FONT };
+    ws.mergeCells('A4:'+last+'4');
     r4.height = 16;
 
     ws.getRow(5).height = 6; // spacer
@@ -6783,12 +6787,12 @@ async function doExport(){
 
   function addColHeaders(ws, rowNum, headers, widths){
     const r = ws.getRow(rowNum);
-    r.height = 20;
+    r.height = 22;
     headers.forEach((h,i)=>{
       const cell = r.getCell(i+1);
       cell.value = h;
-      cell.fill  = { type:'pattern', pattern:'solid', fgColor: brown };
-      cell.font  = { bold:true, color:white, size:10, name:'Cordia New' };
+      cell.fill  = { type:'pattern', pattern:'solid', fgColor: cream };
+      cell.font  = { bold:true, color:brown, size:12, name:FONT };
       cell.border = border;
       cell.alignment = { horizontal:'center', vertical:'middle', wrapText:true };
     });
@@ -6797,8 +6801,8 @@ async function doExport(){
 
   function addDataRow(ws, vals, shade){
     const r = ws.addRow(vals);
-    r.height = 18;
-    styleRow(r, shade ? cream : white, darkTxt, false, 10);
+    r.height = 20;
+    styleRow(r, shade ? creamSoft : white, darkTxt, false, 12);
     // right-align numeric cells
     r.eachCell({includeEmpty:true}, (cell,ci)=>{
       if(typeof cell.value === 'number'){
@@ -6813,8 +6817,8 @@ async function doExport(){
 
   function addTotalRow(ws, vals){
     const r = ws.addRow(vals);
-    r.height = 20;
-    styleRow(r, yellow, darkTxt, true, 10);
+    r.height = 22;
+    styleRow(r, cream, darkTxt, true, 12);
     r.eachCell({includeEmpty:true}, (cell)=>{
       if(typeof cell.value === 'number'){
         cell.numFmt = '#,##0.00';
@@ -6823,6 +6827,39 @@ async function doExport(){
       cell.border = borderB;
     });
     return r;
+  }
+
+  // บล็อกลายเซ็นท้ายรายงาน (ผู้จัดทำ / ผู้ตรวจสอบ)
+  function addSignBlock(ws, nCols){
+    const n    = nCols||3;
+    const half = Math.max(1, Math.ceil(n/2));
+    ws.addRow([]); ws.addRow([]);
+    const lines = [
+      ['ลงชื่อ ........................................ ผู้จัดทำ', 'ลงชื่อ ........................................ ผู้ตรวจสอบ'],
+      ['( '+(preparer && preparer!=='-' ? preparer : '........................................')+' )', '( ........................................ )'],
+      ['วันที่ ............/............/............', 'วันที่ ............/............/............'],
+    ];
+    lines.forEach(([lTxt,rTxt])=>{
+      const r = ws.addRow([]);
+      r.height = 22;
+      r.getCell(1).value = lTxt;
+      r.getCell(half+1).value = rTxt;
+      [1, half+1].forEach(ci=>{
+        r.getCell(ci).font = { size:12, name:FONT, color:darkTxt };
+        r.getCell(ci).alignment = { horizontal:'center', vertical:'middle' };
+      });
+      if(half > 1) ws.mergeCells(r.number, 1, r.number, half);
+      if(n-half > 1) ws.mergeCells(r.number, half+1, r.number, n);
+    });
+  }
+
+  // ตั้งค่าหน้ากระดาษ A4 สำหรับพิมพ์
+  function pageSetup(ws, landscape){
+    ws.pageSetup = {
+      paperSize: 9, orientation: landscape ? 'landscape' : 'portrait',
+      fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      margins: { left:0.5, right:0.5, top:0.6, bottom:0.6, header:0.3, footer:0.3 },
+    };
   }
 
   try {
@@ -6840,8 +6877,8 @@ async function doExport(){
       const mStart  = yr+'-'+mo+'-01';
       const lastDay = new Date(+yr, +mo, 0).getDate();
       const mEnd    = yr+'-'+mo+'-'+String(lastDay).padStart(2,'0');
-      const mName   = _thMonthNameTH(mo)+' '+yr;
-      const period  = 'ช่วงเวลา: เดือน '+mName;
+      const mName   = _thMonthFullTH(mo)+' '+(+yr+543);   // แสดงผลปี พ.ศ. ให้ตรงกับวันที่ในตาราง
+      const period  = 'ช่วงเวลา: 1 – '+lastDay+' '+mName;
 
       const [sr,er,or_] = await Promise.all([
         chkSales ? _sb.from('sales_daily').select('*').gte('date',mStart).lte('date',mEnd).order('date') : Promise.resolve({data:[]}),
@@ -6868,15 +6905,16 @@ async function doExport(){
 
       // ── Sheet 1: ภาพรวม ──
       const ws0 = wb.addWorksheet('ภาพรวม');
-      ws0.columns = [{width:36},{width:20},{width:16},{width:10},{width:10},{width:10},{width:10},{width:10}];
-      addTitle(ws0, shop, 'รายงานภาพรวมประจำเดือน — '+mName, period, preparer);
+      ws0.columns = [{width:42},{width:20},{width:26}];
+      addTitle(ws0, shop, 'รายงานสรุปรายรับ–รายจ่าย ประจำเดือน'+mName, period, preparer, 3);
+      pageSetup(ws0, false);
       addColHeaders(ws0, 6, ['รายการ','จำนวนเงิน (บาท)','หมายเหตุ']);
       let shade=false;
-      addDataRow(ws0, ['รายรับรวมทั้งเดือน', tIncome, ''], shade); shade=!shade;
+      addDataRow(ws0, ['รวมรายรับทั้งสิ้น', tIncome, 'ยอดขายก่อนหักค่าคอมมิชชั่นแพลตฟอร์ม'], shade); shade=!shade;
       ws0.addRow([]);
-      const grpHdr = ws0.addRow(['  รายละเอียดรายจ่าย','','']);
-      grpHdr.getCell(1).fill = {type:'pattern',pattern:'solid',fgColor:brownMid};
-      grpHdr.getCell(1).font = {bold:true,color:white,size:10,name:'Cordia New'};
+      const grpHdr = ws0.addRow(['รายละเอียดรายจ่าย','','']);
+      grpHdr.getCell(1).fill = {type:'pattern',pattern:'solid',fgColor:cream};
+      grpHdr.getCell(1).font = {bold:true,color:brown,size:12,name:FONT};
       ws0.mergeCells(`A${grpHdr.number}:C${grpHdr.number}`);
       shade=false;
       addDataRow(ws0, ['  ต้นทุนวัตถุดิบ', tMat, ''], shade); shade=!shade;
@@ -6886,23 +6924,28 @@ async function doExport(){
       addDataRow(ws0, ['  ค่าดำเนินการ (OPEX)', tOpex, ''], shade); shade=!shade;
       if(chkSalaryPre) addDataRow(ws0, ['  ค่าแรงพนักงาน (ต้นทุนบริษัท)', tSalary, ''], shade);
       ws0.addRow([]);
-      addTotalRow(ws0, ['รวมรายจ่ายทั้งหมด', tExp, '']);
+      addTotalRow(ws0, ['รวมรายจ่ายทั้งสิ้น', tExp, '']);
       ws0.addRow([]);
-      const profRow = ws0.addRow(['กำไรสุทธิ (ก่อนค่าแรงพนักงาน)', profit, profit>=0?'▲ กำไร':'▼ ขาดทุน']);
-      profRow.height = 22;
-      styleRow(profRow, profit>=0?green:red, profit>=0?greenTxt:redTxt, true, 11);
+      const profitLabel = chkSalaryPre ? 'กำไร (ขาดทุน) สุทธิ' : 'กำไร (ขาดทุน) สุทธิ — ก่อนหักค่าแรงพนักงาน';
+      const profRow = ws0.addRow([profitLabel, profit, profit>=0?'กำไร':'ขาดทุน']);
+      profRow.height = 24;
+      styleRow(profRow, profit>=0?green:red, profit>=0?greenTxt:redTxt, true, 13);
       profRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
-      ws0.addRow([]);
-      const noteRow = ws0.addRow(['หมายเหตุ: ยังไม่รวมค่าแรงพนักงาน กรุณาดูรายละเอียดจากหน้าแดชบอร์ดค่าแรง']);
-      noteRow.getCell(1).font = {italic:true,color:mutedTxt,size:9,name:'Cordia New'};
-      ws0.mergeCells(`A${noteRow.number}:H${noteRow.number}`);
+      if(!chkSalaryPre){
+        ws0.addRow([]);
+        const noteRow = ws0.addRow(['หมายเหตุ: ยอดข้างต้นยังไม่รวมค่าแรงพนักงาน']);
+        noteRow.getCell(1).font = {italic:true,color:mutedTxt,size:11,name:FONT};
+        ws0.mergeCells(`A${noteRow.number}:C${noteRow.number}`);
+      }
+      addSignBlock(ws0, 3);
 
       // ── Sheet 2: รายรับ ──
       if(chkSales && sales.length){
         const ws1 = wb.addWorksheet('รายรับ');
         ws1.columns = [{width:14},{width:10},{width:10},{width:10},{width:14},{width:14},{width:14},{width:14},{width:14},{width:16},{width:16}];
-        addTitle(ws1, shop, 'รายรับประจำเดือน — '+mName, period, preparer);
-        addColHeaders(ws1, 6, ['วันที่','แก้วกาแฟ','ขนม(ชิ้น)','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวมรายรับ(฿)']);
+        addTitle(ws1, shop, 'รายงานรายรับ ประจำเดือน'+mName, period, preparer, 11);
+        pageSetup(ws1, true);
+        addColHeaders(ws1, 6, ['วันที่','แก้วกาแฟ','ขนม (ชิ้น)','แก้วฟรี','K-Shop (บาท)','เงินสด (บาท)','Shopee (บาท)','Grab (บาท)','Lineman (บาท)','ต้นทุนแก้วฟรี (บาท)','รวมรายรับ (บาท)']);
         let shade=false;
         sales.forEach(r=>{
           const tot=(r.kshop_amount||0)+(r.cash_amount||0)+(r.shopee_before_gp||0)+(r.grab_before_gp||0)+(r.lineman_before_gp||0);
@@ -6910,61 +6953,66 @@ async function doExport(){
           shade=!shade;
         });
         ws1.addRow([]);
-        addTotalRow(ws1,['รวม','','','',
+        addTotalRow(ws1,['รวมทั้งสิ้น','','','',
           sales.reduce((s,r)=>s+(r.kshop_amount||0),0),
           sales.reduce((s,r)=>s+(r.cash_amount||0),0),
           sales.reduce((s,r)=>s+(r.shopee_before_gp||0),0),
           sales.reduce((s,r)=>s+(r.grab_before_gp||0),0),
           sales.reduce((s,r)=>s+(r.lineman_before_gp||0),0),
           tFree, tIncome]);
+        addSignBlock(ws1, 11);
       }
 
       // ── Sheet 3: ต้นทุนวัตถุดิบ ──
       if(chkExp && mat.length){
         const ws2 = wb.addWorksheet('ต้นทุนวัตถุดิบ');
         ws2.columns = [{width:14},{width:20},{width:28},{width:8},{width:14},{width:10},{width:14},{width:16}];
-        addTitle(ws2, shop, 'ต้นทุนวัตถุดิบประจำเดือน — '+mName, period, preparer);
-        addColHeaders(ws2, 6, ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        addTitle(ws2, shop, 'รายงานต้นทุนวัตถุดิบ ประจำเดือน'+mName, period, preparer, 8);
+        pageSetup(ws2, true);
+        addColHeaders(ws2, 6, ['วันที่','ผู้จำหน่าย','รายการ','หน่วย','ราคา/หน่วย (บาท)','จำนวน','รวม (บาท)','ชำระด้วย']);
         let shade=false;
         mat.forEach(r=>{ addDataRow(ws2,[thaiDateBE(r.date),r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
         ws2.addRow([]);
-        addTotalRow(ws2,['รวม','','','','','',tMat,'']);
+        addTotalRow(ws2,['รวมทั้งสิ้น','','','','','',tMat,'']);
       }
 
       // ── Sheet 4: ขนมหน้าร้าน ──
       if(chkExp && bak.length){
         const ws3 = wb.addWorksheet('ขนมหน้าร้าน');
         ws3.columns = [{width:14},{width:34},{width:14},{width:10},{width:14},{width:16}];
-        addTitle(ws3, shop, 'ต้นทุนขนมหน้าร้านประจำเดือน — '+mName, period, preparer);
-        addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        addTitle(ws3, shop, 'รายงานต้นทุนขนมหน้าร้าน ประจำเดือน'+mName, period, preparer, 6);
+        pageSetup(ws3, false);
+        addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น (บาท)','จำนวน','รวม (บาท)','ชำระด้วย']);
         let shade=false;
         bak.forEach(r=>{ addDataRow(ws3,[thaiDateBE(r.date),r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
         ws3.addRow([]);
-        addTotalRow(ws3,['รวม','','','',tBak,'']);
+        addTotalRow(ws3,['รวมทั้งสิ้น','','','',tBak,'']);
       }
 
       // ── Sheet 5: รายจ่ายจิปาถะ ──
       if(chkExp && misc.length){
         const ws4 = wb.addWorksheet('รายจ่ายจิปาถะ');
         ws4.columns = [{width:14},{width:38},{width:18},{width:26}];
-        addTitle(ws4, shop, 'รายจ่ายจิปาถะประจำเดือน — '+mName, period, preparer);
-        addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย / หมายเหตุ']);
+        addTitle(ws4, shop, 'รายงานรายจ่ายจิปาถะ ประจำเดือน'+mName, period, preparer, 4);
+        pageSetup(ws4, false);
+        addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน (บาท)','ชำระด้วย / หมายเหตุ']);
         let shade=false;
         misc.forEach(r=>{ addDataRow(ws4,[thaiDateBE(r.date),r.item_name,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
         ws4.addRow([]);
-        addTotalRow(ws4,['รวม','',tMisc,'']);
+        addTotalRow(ws4,['รวมทั้งสิ้น','',tMisc,'']);
       }
 
       // ── Sheet 6: ค่าดำเนินการ OPEX ──
       if(chkOpex && opex.length){
         const ws5 = wb.addWorksheet('ค่าดำเนินการ');
         ws5.columns = [{width:28},{width:36},{width:18}];
-        addTitle(ws5, shop, 'ค่าดำเนินการ (OPEX) ประจำเดือน — '+mName, period, preparer);
-        addColHeaders(ws5, 6, ['หมวดหมู่','รายการ','จำนวนเงิน(฿)']);
+        addTitle(ws5, shop, 'รายงานค่าดำเนินการ (OPEX) ประจำเดือน'+mName, period, preparer, 3);
+        pageSetup(ws5, false);
+        addColHeaders(ws5, 6, ['หมวดหมู่','รายการ','จำนวนเงิน (บาท)']);
         let shade=false;
         opex.forEach(r=>{ addDataRow(ws5,[r.category,r.item_name,r.total_amount||0],shade); shade=!shade; });
         ws5.addRow([]);
-        addTotalRow(ws5,['รวม','',tOpex]);
+        addTotalRow(ws5,['รวมทั้งสิ้น','',tOpex]);
       }
 
       // ── Sheet 7: ค่าแรงพนักงาน (from localStorage) ──
@@ -6979,8 +7027,9 @@ async function doExport(){
         if(salaryRows.length){
           const ws6 = wb.addWorksheet('ค่าแรงพนักงาน');
           ws6.columns = [{width:22},{width:14},{width:12},{width:12},{width:12},{width:12},{width:14},{width:14},{width:14},{width:14},{width:14}];
-          addTitle(ws6, shop, 'ค่าแรงพนักงานประจำเดือน — '+mName, period, preparer);
-          addColHeaders(ws6, 6, ['พนักงาน','เงินเดือน(฿)','ค่าตำแหน่ง(฿)','Commission(฿)','เบี้ยขยัน(฿)','รวมรายได้(฿)','หักปกส.พนักงาน(฿)','สุทธิโอน(฿)','ปกส.บริษัท(฿)','หัก ณ ที่จ่าย(฿)','ต้นทุนบริษัทรวม(฿)']);
+          addTitle(ws6, shop, 'รายงานค่าแรงพนักงาน ประจำเดือน'+mName, period, preparer, 11);
+          pageSetup(ws6, true);
+          addColHeaders(ws6, 6, ['พนักงาน','เงินเดือน (บาท)','ค่าตำแหน่ง (บาท)','Commission (บาท)','เบี้ยขยัน (บาท)','รวมรายได้ (บาท)','หัก ปกส. พนักงาน (บาท)','สุทธิโอน (บาท)','ปกส. บริษัท (บาท)','หัก ณ ที่จ่าย (บาท)','ต้นทุนบริษัทรวม (บาท)']);
           let shade=false, tComp=0;
           salaryRows.forEach(r=>{
             const gross = (r.salary||0)+(r.position||0)+(r.commAmt||0)+(r.diligence||0);
@@ -6988,9 +7037,7 @@ async function doExport(){
             shade=!shade; tComp+=(r.compCost||0);
           });
           ws6.addRow([]);
-          addTotalRow(ws6,['รวมต้นทุนค่าแรง','','','','','','','','','',tComp]);
-          // update overview
-          tOpex_total_exp = tExp + tComp;
+          addTotalRow(ws6,['รวมต้นทุนค่าแรงทั้งสิ้น','','','','','','','','','',tComp]);
         }
       }
 
@@ -7030,57 +7077,65 @@ async function doExport(){
       wb2.creator = preparer; wb2.created = new Date();
 
       const ws0 = wb2.addWorksheet('ภาพรวม');
-      ws0.columns = [{width:36},{width:20},{width:16},{width:10},{width:10},{width:10},{width:10},{width:10}];
-      addTitle(ws0, shop, 'รายงานประจำวัน — '+th, period, preparer);
-      addColHeaders(ws0, 6, ['รายการ','จำนวนเงิน (บาท)','']);
-      addDataRow(ws0,['รายรับ',income,''],false);
+      ws0.columns = [{width:42},{width:20},{width:26}];
+      addTitle(ws0, shop, 'รายงานสรุปรายรับ–รายจ่าย ประจำวันที่ '+th, period, preparer, 3);
+      pageSetup(ws0, false);
+      addColHeaders(ws0, 6, ['รายการ','จำนวนเงิน (บาท)','หมายเหตุ']);
+      addDataRow(ws0,['รวมรายรับทั้งสิ้น',income,'ยอดขายก่อนหักค่าคอมมิชชั่นแพลตฟอร์ม'],false);
       ws0.addRow([]);
       addDataRow(ws0,['  ต้นทุนวัตถุดิบ',tMat,''],false);
       addDataRow(ws0,['  ต้นทุนขนมหน้าร้าน',tBak,''],true);
       addDataRow(ws0,['  รายจ่ายจิปาถะ',tMisc,''],false);
       addDataRow(ws0,['  ต้นทุนแก้วกาแฟฟรี',tFree,''],true);
       ws0.addRow([]);
-      addTotalRow(ws0,['รวมรายจ่าย',tExp,'']);
+      addTotalRow(ws0,['รวมรายจ่ายทั้งสิ้น',tExp,'']);
       ws0.addRow([]);
-      const pRow = ws0.addRow(['กำไร (ก่อนค่าดำเนินการ)',profit,profit>=0?'▲ กำไร':'▼ ขาดทุน']);
-      styleRow(pRow,profit>=0?green:red,profit>=0?greenTxt:redTxt,true,11);
+      const pRow = ws0.addRow(['กำไร (ขาดทุน) สุทธิ — ก่อนหักค่าดำเนินการ',profit,profit>=0?'กำไร':'ขาดทุน']);
+      pRow.height = 24;
+      styleRow(pRow,profit>=0?green:red,profit>=0?greenTxt:redTxt,true,13);
       pRow.eachCell({includeEmpty:true},cell=>{ if(typeof cell.value==='number'){ cell.numFmt='#,##0.00'; cell.alignment={horizontal:'right',vertical:'middle'}; } });
+      addSignBlock(ws0, 3);
 
       if(chkSales && sale){
         const ws1 = wb2.addWorksheet('รายรับ');
         ws1.columns = [{width:14},{width:10},{width:10},{width:10},{width:14},{width:14},{width:14},{width:14},{width:14},{width:16},{width:14}];
-        addTitle(ws1, shop, 'รายรับประจำวัน — '+th, period, preparer);
-        addColHeaders(ws1, 6, ['วันที่','แก้วกาแฟ','ขนม','แก้วฟรี','K-Shop(฿)','เงินสด(฿)','Shopee(฿)','Grab(฿)','Lineman(฿)','ต้นทุนแก้วฟรี(฿)','รวม(฿)']);
+        addTitle(ws1, shop, 'รายงานรายรับ ประจำวันที่ '+th, period, preparer, 11);
+        pageSetup(ws1, true);
+        addColHeaders(ws1, 6, ['วันที่','แก้วกาแฟ','ขนม (ชิ้น)','แก้วฟรี','K-Shop (บาท)','เงินสด (บาท)','Shopee (บาท)','Grab (บาท)','Lineman (บาท)','ต้นทุนแก้วฟรี (บาท)','รวมรายรับ (บาท)']);
         addDataRow(ws1,[th,sale.total_cups||0,sale.pastry_pieces||0,sale.free_cups||0,sale.kshop_amount||0,sale.cash_amount||0,sale.shopee_before_gp||0,sale.grab_before_gp||0,sale.lineman_before_gp||0,sale.free_cup_cost||0,income],false);
         ws1.addRow([]);
-        addTotalRow(ws1,['รวม','','','','','','','','','',income]);
+        addTotalRow(ws1,['รวมทั้งสิ้น','','','','','','','','','',income]);
+        addSignBlock(ws1, 11);
       }
       if(chkExp && mat.length){
         const ws2 = wb2.addWorksheet('ต้นทุนวัตถุดิบ');
         ws2.columns = [{width:14},{width:20},{width:28},{width:8},{width:14},{width:10},{width:14},{width:16}];
-        addTitle(ws2, shop, 'ต้นทุนวัตถุดิบ — '+th, period, preparer);
-        addColHeaders(ws2, 6, ['วันที่','Supplier','รายการ','หน่วย','ราคา/หน่วย(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        addTitle(ws2, shop, 'รายงานต้นทุนวัตถุดิบ ประจำวันที่ '+th, period, preparer, 8);
+        pageSetup(ws2, true);
+        addColHeaders(ws2, 6, ['วันที่','ผู้จำหน่าย','รายการ','หน่วย','ราคา/หน่วย (บาท)','จำนวน','รวม (บาท)','ชำระด้วย']);
         let shade=false;
         mat.forEach(r=>{ addDataRow(ws2,[th,r.subcategory||'',r.item_name,r.unit||'',r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
-        ws2.addRow([]); addTotalRow(ws2,['รวม','','','','','',tMat,'']);
+        ws2.addRow([]); addTotalRow(ws2,['รวมทั้งสิ้น','','','','','',tMat,'']);
       }
       if(chkExp && bak.length){
         const ws3 = wb2.addWorksheet('ขนมหน้าร้าน');
         ws3.columns = [{width:14},{width:34},{width:14},{width:10},{width:14},{width:16}];
-        addTitle(ws3, shop, 'ขนมหน้าร้าน — '+th, period, preparer);
-        addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น(฿)','จำนวน','รวม(฿)','ชำระด้วย']);
+        addTitle(ws3, shop, 'รายงานต้นทุนขนมหน้าร้าน ประจำวันที่ '+th, period, preparer, 6);
+        pageSetup(ws3, false);
+        addColHeaders(ws3, 6, ['วันที่','รายการ','ราคา/ชิ้น (บาท)','จำนวน','รวม (บาท)','ชำระด้วย']);
         let shade=false;
         bak.forEach(r=>{ addDataRow(ws3,[th,r.item_name,r.unit_price||0,r.quantity||0,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
-        ws3.addRow([]); addTotalRow(ws3,['รวม','','','',tBak,'']);
+        ws3.addRow([]); addTotalRow(ws3,['รวมทั้งสิ้น','','','',tBak,'']);
       }
       if(chkExp && misc.length){
         const ws4 = wb2.addWorksheet('รายจ่ายจิปาถะ');
         ws4.columns = [{width:14},{width:38},{width:18},{width:26}];
-        addTitle(ws4, shop, 'รายจ่ายจิปาถะ — '+th, period, preparer);
-        addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน(฿)','ชำระด้วย / หมายเหตุ']);
+        addTitle(ws4, shop, 'รายงานรายจ่ายจิปาถะ ประจำวันที่ '+th, period, preparer, 4);
+        pageSetup(ws4, false);
+        addColHeaders(ws4, 6, ['วันที่','รายการ','จำนวนเงิน (บาท)','ชำระด้วย / หมายเหตุ']);
         let shade=false;
         misc.forEach(r=>{ addDataRow(ws4,[th,r.item_name,r.total_amount||0,r.payment_method||''],shade); shade=!shade; });
-        ws4.addRow([]); addTotalRow(ws4,['รวม','',tMisc,'']);
+        ws4.addRow([]); addTotalRow(ws4,['รวมทั้งสิ้น','',tMisc,'']);
       }
 
       const fn = `รายงานวัน_${shop.replace(/\s+/g,'_')}_${dv}.xlsx`;
