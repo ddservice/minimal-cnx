@@ -5342,6 +5342,10 @@ function saveOpexDefaults(byUser, monthLabel){
   if(hist.length>50) hist.length=50;
   localStorage.setItem('mm69_opex_def_hist', JSON.stringify(hist));
   localStorage.setItem('mm69_opex_defaults', JSON.stringify(entry));
+  // sync ขึ้น Supabase ด้วย — ให้ค่า default + ประวัติใช้ร่วมกันทุกเครื่อง
+  // (เดิมเก็บแค่ localStorage → เปลี่ยนเครื่อง/ล้างเบราว์เซอร์แล้วค่าหาย)
+  saveConfigToGAS('opex_defaults', entry);
+  saveConfigToGAS('opex_def_history', hist);
 }
 
 function applyOpexDefaults(){
@@ -6190,6 +6194,17 @@ async function loadConfigFromGAS(force=false){
       localStorage.setItem('mm69_free_cup_unit_cost', String(+cfg.free_cup_unit_cost.cost));
       const fcInput = document.getElementById('set_free_cup_cost');
       if(fcInput) fcInput.value = +cfg.free_cup_unit_cost.cost;
+    }
+    // ค่า default OPEX (ค่าเช่า/เน็ต/เงินเดือนกรรมการ ฯลฯ) + ประวัติการแก้ไข — sync จากเซิร์ฟเวอร์
+    if(cfg.opex_defaults && cfg.opex_defaults.vals){
+      localStorage.setItem('mm69_opex_defaults', JSON.stringify(cfg.opex_defaults));
+      // ถ้าฟอร์ม OPEX ยังว่าง (เพิ่งเปิดเว็บ/เครื่องใหม่) ให้เติมค่า default ทันที
+      const _formEmpty = OPEX_DEFAULT_KEYS.every(k=>!(+document.getElementById(_opexDefElId(k))?.value > 0));
+      if(_formEmpty && applyOpexDefaults()){ calOpexTotal(); calStaffTotal(); calAllOpex(); }
+    }
+    if(cfg.opex_def_history && Array.isArray(cfg.opex_def_history)){
+      localStorage.setItem('mm69_opex_def_hist', JSON.stringify(cfg.opex_def_history));
+      renderOpexDefHistory();
     }
     if(cfg.biz_history && Array.isArray(cfg.biz_history)){
       localStorage.setItem('mm69_biz_history', JSON.stringify(cfg.biz_history));
