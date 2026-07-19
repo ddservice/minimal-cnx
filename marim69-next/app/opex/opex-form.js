@@ -14,7 +14,7 @@ const sumObj = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0)
 const COMM_RATES = [['0', 'ไม่มี'], ['0.01', '1%'], ['0.015', '1.5%'], ['0.02', '2%'], ['0.025', '2.5%'], ['0.03', '3%']];
 const payslip = computePayslip;
 
-// พิมพ์ใบรับรอง/สลิปเงินเดือน (เปิดหน้าต่างพิมพ์)
+// พิมพ์หนังสือรับรองเงินเดือน (เปิดหน้าต่างพิมพ์)
 function printSlip(e, ps, monthLabel, bizInfo) {
   const biz = bizInfo || {};
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,7 +26,7 @@ function printSlip(e, ps, monthLabel, bizInfo) {
   const hasBank = e.bank_name || e.account_no;
   const row = (label, val, cls = '') => `<tr class="${cls}"><td>${label}</td><td class="num">${val}</td></tr>`;
   const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
-<title>สลิปเงินเดือน ${esc(e.label)} ${mm || ''}/${yy || ''}</title>
+<title>หนังสือรับรองเงินเดือน ${esc(e.label)} ${mm || ''}/${yy || ''}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Sarabun','Segoe UI',sans-serif;font-size:13.5px;color:#1a1a1a;padding:32px 40px;max-width:680px;margin:0 auto;line-height:1.5}
@@ -51,9 +51,9 @@ function printSlip(e, ps, monthLabel, bizInfo) {
 </style></head><body>
   <div class="head">
     <div><div class="bname">${esc(biz.name || 'Minimal Maerim')}</div><div class="bsub">${esc(biz.tax_id ? 'เลขผู้เสียภาษี ' + biz.tax_id : '')}${biz.address ? '<br>' + esc(biz.address) : ''}</div></div>
-    <div class="meta"><b>สลิปเงินเดือน</b>งวด ${esc(mm || '--')}/${esc(yy || '----')}<br>วันที่ ${esc(today)}</div>
+    <div class="meta"><b>หนังสือรับรองเงินเดือน</b>งวด ${esc(mm || '--')}/${esc(yy || '----')}<br>วันที่ ${esc(today)}</div>
   </div>
-  <div class="title">หนังสือรับรอง / สลิปเงินเดือน</div>
+  <div class="title">หนังสือรับรองเงินเดือน</div>
   <table>
     <tr><th colspan="2">ข้อมูลพนักงาน</th></tr>
     <tr><td>ชื่อ-นามสกุล</td><td>${esc(fullName)}</td></tr>
@@ -89,7 +89,7 @@ function printSlip(e, ps, monthLabel, bizInfo) {
   <div class="sign"><div><div class="line"></div>ผู้จ่ายเงิน</div><div><div class="line"></div>ผู้รับเงิน</div></div>
 </body></html>`;
   const w = window.open('', '_blank', 'width=760,height=920');
-  if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป — โปรดอนุญาตป๊อปอัปเพื่อพิมพ์สลิป'); return; }
+  if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป — โปรดอนุญาตป๊อปอัปเพื่อพิมพ์หนังสือรับรองเงินเดือน'); return; }
   w.document.write(html);
   w.document.close();
   w.focus();
@@ -153,7 +153,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
         position: slip.position ?? def.position ?? '',
         commRate: slip.commRate ?? '0',
         diligence: slip.diligence ?? '',
-        // รายละเอียดสำหรับสลิป/หนังสือรับรอง — เก็บที่ฐานข้อมูลเป็นหลัก (business_config.emp_details)
+        // รายละเอียดสำหรับหนังสือรับรองเงินเดือน — เก็บที่ฐานข้อมูลเป็นหลัก (business_config.emp_details)
         ...detail,
         showSlip: false,
         showHistory: false,
@@ -283,7 +283,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                   <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', ev.target.value)} placeholder="0" style={{ ...inp, flex: '0 1 120px' }} />
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
                   <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
-                    <i className="ti ti-calculator" /> สลิป
+                    <i className="ti ti-calculator" /> คำนวณเงินเดือน
                   </button>
                   <button type="button" onClick={() => setEmp(i, 'showHistory', !e.showHistory)} style={btnSlip}>
                     <i className="ti ti-history" /> ประวัติ{empPayHistory[`emp${i + 1}`]?.length ? ` (${empPayHistory[`emp${i + 1}`].length})` : ''}
@@ -307,7 +307,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <SlipField label="เบี้ยขยัน" value={e.diligence} onChange={(v) => setEmp(i, 'diligence', v)} />
                     </div>
 
-                    {/* รายละเอียดพนักงานสำหรับสลิป/หนังสือรับรอง — เก็บลงฐานข้อมูลกลาง (ใช้ได้ทุกเครื่อง) */}
+                    {/* รายละเอียดพนักงานสำหรับหนังสือรับรองเงินเดือน — เก็บลงฐานข้อมูลกลาง (ใช้ได้ทุกเครื่อง) */}
                     <div style={detailWrap}>
                       <div style={detailHead}><i className="ti ti-id-badge-2" /> ข้อมูลส่วนตัว</div>
                       <div style={detailGrid}>
@@ -356,7 +356,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                         }
                         printSlip(e, ps, monthLabel, bizInfo);
                       }} style={btnSlip}>
-                        <i className="ti ti-printer" /> พิมพ์สลิป
+                        <i className="ti ti-printer" /> พิมพ์หนังสือรับรองเงินเดือน
                       </button>
                     </div>
                     {income <= 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>* คอมมิชชั่นคำนวณจากยอดขายเดือนนี้ (ยังไม่มีข้อมูลขาย)</div>}
