@@ -161,15 +161,15 @@ function UserCard({ user, editing, onEdit, onCancel, onSave, onResetPw, onDelete
 
 const cardStyle = {
   border: '1px solid var(--border)',
-  borderRadius: 14,
+  borderRadius: 2,
   padding: 16,
   background: 'var(--surface)',
   marginBottom: 12,
 };
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 };
-const inp = { padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 14 };
-const chip = { color: '#fff', padding: '2px 10px', borderRadius: 12, fontSize: 11 };
-const btnBase = { border: 0, borderRadius: 10, padding: '9px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
+const inp = { padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 2, fontSize: 14 };
+const chip = { color: '#fff', padding: '2px 10px', borderRadius: 2, fontSize: 11 };
+const btnBase = { border: 0, borderRadius: 2, padding: '9px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
 const btnPrimary = { ...btnBase, background: 'var(--coffee)', color: '#fff' };
 const btnGhost = { ...btnBase, background: '#f5ede3', color: 'var(--coffee)' };
 const btnDanger = { ...btnBase, background: '#fff0f0', color: 'var(--danger)' };

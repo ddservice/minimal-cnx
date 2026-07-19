@@ -21,11 +21,11 @@ export default function ExpenseChart({ mat, bak, misc, opex }) {
   }).filter((p) => p.v > 0);
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 16, background: 'var(--surface)', marginBottom: 12 }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 2, padding: 16, background: 'var(--surface)', marginBottom: 12 }}>
       <h2 style={{ marginTop: 0, fontSize: 15, marginBottom: 12 }}>สัดส่วนรายจ่าย</h2>
 
       {/* stacked bar — gap 2px ระหว่าง segment, ปลายโค้งจาก container */}
-      <div style={{ display: 'flex', gap: 2, height: 26, borderRadius: 6, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 2, height: 26, borderRadius: 2, overflow: 'hidden' }}>
         {parts.map((p) => (
           <div key={p.key} style={{ width: `${p.pct}%`, background: p.color }} title={`${p.label} — ${fmtMoney(p.v)} ฿ (${p.pct.toFixed(1)}%)`} />
         ))}

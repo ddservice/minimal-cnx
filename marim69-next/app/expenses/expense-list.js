@@ -13,7 +13,7 @@ export default function ExpenseList({ rows, date }) {
   const sum = rows.reduce((a, r) => a + Number(r.total_amount || 0), 0);
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 16, background: 'var(--surface)', marginTop: 8 }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 2, padding: 16, background: 'var(--surface)', marginTop: 8 }}>
       <h2 style={{ marginTop: 0, fontSize: 15 }}>รายการที่บันทึกแล้ว ({date})</h2>
 
       {msg && (
@@ -124,10 +124,10 @@ function EditRow({ row, onDone, onMsg }) {
   );
 }
 
-const rowBox = { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' };
+const rowBox = { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid var(--border)', borderRadius: 2, padding: '10px 12px' };
 const editGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 };
-const inp = { width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 };
-const btnBase = { border: 0, borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
+const inp = { width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 2, fontSize: 13 };
+const btnBase = { border: 0, borderRadius: 2, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
 const btnGhost = { ...btnBase, background: '#f5ede3', color: 'var(--coffee)' };
 const btnDanger = { ...btnBase, background: '#fff0f0', color: 'var(--danger)' };
 const btnPrimary = { ...btnBase, background: 'var(--coffee)', color: '#fff' };

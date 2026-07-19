@@ -148,10 +148,10 @@ export default function ExpenseForm({ date, category }) {
   );
 }
 
-const card = { border: '1px solid var(--border)', borderRadius: 14, padding: 16, background: 'var(--surface)', marginBottom: 12 };
+const card = { border: '1px solid var(--border)', borderRadius: 2, padding: 16, background: 'var(--surface)', marginBottom: 12 };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 };
 const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
-const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 14 };
-const btnRemove = { border: 0, background: '#fff0f0', color: 'var(--danger)', borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' };
-const btnAdd = { border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--coffee)', borderRadius: 10, padding: '10px', width: '100%', fontSize: 14, cursor: 'pointer', marginBottom: 12, fontWeight: 600 };
-const btnSave = { border: 0, borderRadius: 10, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer' };
+const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 2, fontSize: 14 };
+const btnRemove = { border: 0, background: '#fff0f0', color: 'var(--danger)', borderRadius: 2, padding: '5px 12px', fontSize: 12, cursor: 'pointer' };
+const btnAdd = { border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--coffee)', borderRadius: 2, padding: '10px', width: '100%', fontSize: 14, cursor: 'pointer', marginBottom: 12, fontWeight: 600 };
+const btnSave = { border: 0, borderRadius: 2, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer' };

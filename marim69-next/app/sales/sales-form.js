@@ -178,7 +178,7 @@ function FieldNet({ label, value, onChange, net }) {
 
 const card = {
   border: '1px solid var(--border)',
-  borderRadius: 14,
+  borderRadius: 2,
   padding: 16,
   background: 'var(--surface)',
   marginBottom: 12,
@@ -186,6 +186,6 @@ const card = {
 const h2 = { marginTop: 0, marginBottom: 12, fontSize: 15 };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 };
 const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
-const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 14 };
-const btn = { border: 0, borderRadius: 10, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer', alignSelf: 'center' };
-const btnDelete = { border: 0, borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 600, background: '#fff0f0', color: 'var(--danger)', cursor: 'pointer' };
+const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 2, fontSize: 14 };
+const btn = { border: 0, borderRadius: 2, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer', alignSelf: 'center' };
+const btnDelete = { border: 0, borderRadius: 2, padding: '12px 16px', fontSize: 14, fontWeight: 600, background: '#fff0f0', color: 'var(--danger)', cursor: 'pointer' };
