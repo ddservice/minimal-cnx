@@ -58,6 +58,9 @@ export default async function DashboardPage() {
           <Link className="link-btn" href="/expenses">
             บันทึกรายจ่าย
           </Link>
+          <Link className="link-btn" href="/opex">
+            ค่าดำเนินการ
+          </Link>
           {isAdmin && (
             <Link className="link-btn" href="/admin">
               จัดการผู้ใช้

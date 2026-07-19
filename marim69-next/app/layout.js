@@ -1,8 +1,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Minimal Maerim 69',
-  description: 'ระบบจัดการร้าน — Next.js + Supabase',
+  title: 'Minimal Maerim',
+  description: 'ระบบจัดการร้าน',
 };
 
 export default function RootLayout({ children }) {

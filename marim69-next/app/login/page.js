@@ -9,7 +9,7 @@ export default function LoginPage() {
   return (
     <div className="center">
       <form className="card" action={formAction}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 20 }}>Minimal Maerim 69</h1>
+        <h1 style={{ margin: '0 0 4px', fontSize: 20 }}>Minimal Maerim</h1>
         <p style={{ margin: '0 0 12px', color: 'var(--muted)', fontSize: 13 }}>
           เข้าสู่ระบบ
         </p>
