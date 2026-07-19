@@ -47,8 +47,9 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 **Ported ✅:** sales entry (+delete), expense entry (+edit/delete, supplier-first for materials, DB last-price catalog), OPEX 3 categories, rent WHT, VAT-auto, payslip calculator + print slip, monthly report + 2 charts, Excel export, user management, business info settings (`/settings` → `business_config.biz_info`, feeds the print slip), **Excel import** (`/settings`, admin-only, sales/expense via `exceljs`; matches the exported Thai-header format, dd/mm/yyyy incl. พ.ศ.).
 
-**Not yet ported ⏳ (legacy `ตั้งค่า`/`วิเคราะห์` tabs):**
-- **Analytics** tab: multi-month trend table + MoM comparison
+Also ported ✅: **Analytics** (`/analytics`) — 12-month income/expense/profit table + MoM % + signed profit trend chart (calls `get_monthly_summary` per month).
+
+**Not yet ported ⏳ (minor/niche):**
 - Role-based visibility matrix (per-role permissions)
 - Admin data tools: delete-whole-month, deduplicate-month
 - Bakery preset prices (`BAKERY_DEFAULTS`), free-cup promo evidence upload (Supabase Storage)

@@ -9,6 +9,7 @@ const TABS = [
   { href: '/expenses', label: 'รายจ่าย', icon: 'ti-receipt' },
   { href: '/opex', label: 'ค่าดำเนินการ', icon: 'ti-building-store' },
   { href: '/reports', label: 'สรุป', icon: 'ti-chart-bar' },
+  { href: '/analytics', label: 'วิเคราะห์', icon: 'ti-chart-line' },
   { href: '/settings', label: 'ตั้งค่า', icon: 'ti-settings' },
 ];
 
