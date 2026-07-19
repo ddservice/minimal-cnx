@@ -182,6 +182,15 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
   const empTotal = employees.reduce((a, e) => a + (Number(e.amount) || 0), 0);
   const grand = sumObj(operating) + sumObj(staff) + sumObj(tax) + empTotal;
 
+  // ── ยอดนำส่งหน่วยงาน (สำหรับสำนักงานบัญชี) ──
+  const empPs = employees.map((e) => payslip(e, income));
+  const remitSSO = empPs.reduce((a, p) => a + p.ssoEmp + p.ssoCo, 0);      // สปส. (พนักงาน+บริษัท)
+  const rentWht = Math.round((Number(operating.rent) || 0) * 0.05);         // ค่าเช่า 5%
+  const staffSubWht = Math.round((Number(staff.staff_sub) || 0) * 0.03);    // พนักงานแทน 3%
+  const commWht = empPs.reduce((a, p) => a + p.commTax, 0);                 // คอมมิชชั่น 3%
+  const remitWHT = rentWht + staffSubWht + commWht;                        // ภ.ง.ด. รวม
+  const vatAmt = Number(tax.vat) || 0;                                     // ภ.พ.30
+
   function onMonthChange(e) {
     if (/^\d{4}-\d{2}$/.test(e.target.value)) router.push(`/opex?month=${e.target.value}`);
   }
@@ -236,9 +245,25 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
 
       {/* หมวด 2: ค่าแรงพนักงาน */}
       <Section title="ค่าแรงพนักงาน" total={sumObj(staff) + empTotal}>
-        {OPEX_STAFF.fixed.map((it) => (
-          <Row key={it.key} label={it.label} value={staff[it.key]} onChange={(v) => setStaff({ ...staff, [it.key]: v })} />
-        ))}
+        {OPEX_STAFF.fixed.map((it) => {
+          const onCh = (v) => setStaff({ ...staff, [it.key]: v });
+          if (it.key === 'staff_sub') {
+            const sv = Number(staff.staff_sub) || 0;
+            const w = Math.round(sv * 0.03);
+            return (
+              <div key={it.key}>
+                <Row label={it.label} value={staff[it.key]} onChange={onCh} />
+                {sv > 0 && (
+                  <div style={whtBox}>
+                    <div style={{ ...whtRow, background: '#f0fdf4' }}><span><i className="ti ti-wallet" /> จ่ายพนักงานแทน (97%)</span><strong style={{ color: '#16a34a' }}>{fmt(sv - w)} ฿</strong></div>
+                    <div style={{ ...whtRow, background: '#fff7ed' }}><span><i className="ti ti-receipt-tax" /> หัก ณ ที่จ่าย 3% (นำส่งสรรพากร)</span><strong style={{ color: '#ea580c' }}>{fmt(w)} ฿</strong></div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+          return <Row key={it.key} label={it.label} value={staff[it.key]} onChange={onCh} />;
+        })}
         <div style={{ borderTop: '1px dashed var(--border)', margin: '8px 0', paddingTop: 8 }}>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>พนักงาน</div>
           {employees.map((e, i) => {
@@ -333,6 +358,27 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
           </div>
         ))}
       </Section>
+
+      {/* สรุปยอดนำส่งหน่วยงาน (สำหรับสำนักงานบัญชี) */}
+      {(remitSSO > 0 || remitWHT > 0 || vatAmt > 0) && (
+        <div style={{ ...card, borderColor: 'var(--taupe)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <i className="ti ti-file-invoice" style={{ color: 'var(--taupe-dark)' }} />
+            <h2 style={{ margin: 0, fontSize: 15 }}>สรุปยอดนำส่งหน่วยงาน (สำหรับสำนักงานบัญชี)</h2>
+          </div>
+          <div style={slipCalc}>
+            <SlipRow label="ประกันสังคม (สปส.1-10) — พนักงาน + บริษัท" value={fmt(remitSSO)} strong />
+            <SlipRow label={`ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.) รวม`} value={fmt(remitWHT)} strong />
+            <SlipRow label="• ค่าเช่า 5%" value={fmt(rentWht)} color="var(--muted)" />
+            <SlipRow label="• พนักงานแทน 3%" value={fmt(staffSubWht)} color="var(--muted)" />
+            <SlipRow label="• คอมมิชชั่น 3%" value={fmt(commWht)} color="var(--muted)" />
+            <SlipRow label="ภาษีมูลค่าเพิ่ม (ภ.พ.30)" value={fmt(vatAmt)} strong />
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+            * นำส่งประกันสังคมภายในวันที่ 15 · ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.) ภายในวันที่ 7 ของเดือนถัดไป
+          </p>
+        </div>
+      )}
 
       {/* รวม + บันทึก */}
       <div style={{ ...card, background: '#f5ede3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
