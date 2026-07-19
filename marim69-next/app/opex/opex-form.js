@@ -8,7 +8,7 @@ import { saveOpexAction } from './actions';
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const sumObj = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0);
 
-export default function OpexForm({ monthInput, monthLabel, existing }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -57,9 +57,30 @@ export default function OpexForm({ monthInput, monthLabel, existing }) {
 
       {/* หมวด 1: ค่าใช้จ่ายดำเนินการ */}
       <Section title="ค่าใช้จ่ายดำเนินการ" total={sumObj(operating)}>
-        {OPEX_OPERATING.items.map((it) => (
-          <Row key={it.key} label={it.label} value={operating[it.key]} onChange={(v) => setOperating({ ...operating, [it.key]: v })} />
-        ))}
+        {OPEX_OPERATING.items.map((it) => {
+          const onChange = (v) => setOperating({ ...operating, [it.key]: v });
+          if (it.key === 'rent') {
+            const rv = Number(operating.rent) || 0;
+            return (
+              <div key={it.key}>
+                <Row label={it.label} value={operating[it.key]} onChange={onChange} />
+                {rv > 0 && (
+                  <div style={whtBox}>
+                    <div style={{ ...whtRow, background: '#f0fdf4' }}>
+                      <span><i className="ti ti-wallet" /> จ่ายเจ้าของ (95%)</span>
+                      <strong style={{ color: '#16a34a' }}>{fmt(Math.round(rv * 0.95))} ฿</strong>
+                    </div>
+                    <div style={{ ...whtRow, background: '#fff7ed' }}>
+                      <span><i className="ti ti-receipt-tax" /> หัก ณ ที่จ่าย 5% (นำส่งสรรพากร)</span>
+                      <strong style={{ color: '#ea580c' }}>{fmt(Math.round(rv * 0.05))} ฿</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+          return <Row key={it.key} label={it.label} value={operating[it.key]} onChange={onChange} />;
+        })}
       </Section>
 
       {/* หมวด 2: ค่าแรงพนักงาน */}
@@ -86,7 +107,17 @@ export default function OpexForm({ monthInput, monthLabel, existing }) {
       {/* หมวด 3: ภาษีและอื่นๆ */}
       <Section title="ภาษีและอื่นๆ" total={sumObj(tax)}>
         {OPEX_TAX.items.map((it) => (
-          <Row key={it.key} label={it.label} value={tax[it.key]} onChange={(v) => setTax({ ...tax, [it.key]: v })} />
+          <div key={it.key}>
+            <Row label={it.label} value={tax[it.key]} onChange={(v) => setTax({ ...tax, [it.key]: v })} />
+            {it.key === 'vat' && income > 0 && (
+              <div style={hintBox}>
+                <span>VAT จากยอดขาย ({fmt(income)} × 7%) = <strong>{fmt(Math.round(income * 0.07))} ฿</strong></span>
+                <button type="button" style={btnMini} onClick={() => setTax({ ...tax, vat: String(Math.round(income * 0.07)) })}>
+                  ใช้ค่านี้
+                </button>
+              </div>
+            )}
+          </div>
         ))}
       </Section>
 
@@ -140,3 +171,7 @@ const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--bord
 const btnRemove = { border: 0, background: '#fff0f0', color: 'var(--danger)', borderRadius: 2, padding: '6px 12px', fontSize: 12, cursor: 'pointer' };
 const btnAdd = { border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--coffee)', borderRadius: 2, padding: '8px', width: '100%', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
 const btnSave = { border: 0, borderRadius: 2, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer' };
+const whtBox = { border: '1px solid var(--border)', borderRadius: 2, overflow: 'hidden', margin: '-2px 0 12px', fontSize: 12 };
+const whtRow = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 11px', fontWeight: 600 };
+const hintBox = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', background: 'var(--beige)', border: '1px solid var(--border)', borderRadius: 2, padding: '8px 11px', margin: '-2px 0 12px', fontSize: 12, color: 'var(--muted)' };
+const btnMini = { border: '1px solid var(--taupe)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 2, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };

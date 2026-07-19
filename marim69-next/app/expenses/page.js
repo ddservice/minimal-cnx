@@ -26,10 +26,31 @@ export default async function ExpensesPage({ searchParams }) {
     .eq('category', category)
     .order('logged_at', { ascending: true });
 
+  // catalog: รายการที่เคยบันทึกในหมวดนี้ + หน่วย/ราคาล่าสุด (จาก DB — ใช้ร่วมทุกเครื่อง)
+  const { data: recent } = await supabase
+    .from('expenses')
+    .select('item_name, subcategory, unit, unit_price, logged_at')
+    .eq('category', category)
+    .order('logged_at', { ascending: false })
+    .limit(300);
+  const seen = {};
+  (recent || []).forEach((r) => {
+    const key = (r.item_name || '').trim();
+    if (key && !seen[key]) {
+      seen[key] = {
+        name: key,
+        supplier: r.subcategory || '',
+        unit: r.unit || '',
+        unit_price: r.unit_price != null ? Number(r.unit_price) : null,
+      };
+    }
+  });
+  const catalog = Object.values(seen);
+
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin}>
       <PageHeader icon="ti-receipt" title="บันทึกรายจ่าย" />
-      <ExpenseForm date={date} category={category} />
+      <ExpenseForm date={date} category={category} catalog={catalog} />
       <ExpenseList rows={existing || []} date={date} />
     </AppShell>
   );

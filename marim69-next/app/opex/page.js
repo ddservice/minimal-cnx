@@ -25,6 +25,17 @@ export default async function OpexPage({ searchParams }) {
     .eq('month_label', monthLabel)
     .not('item_key', 'is', null);
 
+  // ยอดขายสุทธิของเดือน (สำหรับคำนวณ VAT อัตโนมัติ)
+  const [yy, mm] = monthInput.split('-');
+  const mStart = `${yy}-${mm}-01`;
+  const mEnd = new Date(Number(yy), Number(mm), 0).toISOString().slice(0, 10);
+  const { data: salesRows } = await supabase
+    .from('sales_daily')
+    .select('net_revenue')
+    .gte('date', mStart)
+    .lte('date', mEnd);
+  const income = (salesRows || []).reduce((a, r) => a + Number(r.net_revenue || 0), 0);
+
   const operating = {};
   const staff = {};
   const tax = {};
@@ -50,6 +61,7 @@ export default async function OpexPage({ searchParams }) {
       <OpexForm
         monthInput={monthInput}
         monthLabel={monthLabel}
+        income={income}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
     </AppShell>

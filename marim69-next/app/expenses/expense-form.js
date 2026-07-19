@@ -23,7 +23,7 @@ function rowTotal(r) {
   return Math.round((r.vat ? price * 1.07 : price) * qty * 100) / 100;
 }
 
-export default function ExpenseForm({ date, category }) {
+export default function ExpenseForm({ date, category, catalog = [] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -31,10 +31,29 @@ export default function ExpenseForm({ date, category }) {
 
   const grand = rows.reduce((a, r) => a + rowTotal(r), 0);
 
+  const catMap = {};
+  catalog.forEach((c) => { catMap[c.name] = c; });
+
   const setRow = (i, k, v) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
   const addRow = () => setRows([...rows, emptyRow()]);
   const removeRow = (i) => setRows(rows.length > 1 ? rows.filter((_, idx) => idx !== i) : rows);
+
+  // เลือก/พิมพ์ชื่อที่เคยบันทึก → เติมผู้ขาย/หน่วย/ราคาล่าสุดให้ (เฉพาะช่องที่ยังว่าง)
+  function onItemName(i, value) {
+    const hit = catMap[value.trim()];
+    setRows(rows.map((r, idx) => {
+      if (idx !== i) return r;
+      const next = { ...r, item_name: value };
+      if (hit) {
+        if (!r.supplier && hit.supplier) next.supplier = hit.supplier;
+        if (!r.unit && hit.unit) next.unit = hit.unit;
+        if ((r.unit_price === '' || r.unit_price == null) && hit.unit_price != null)
+          next.unit_price = String(hit.unit_price);
+      }
+      return next;
+    }));
+  }
 
   function nav(nextDate, nextCat) {
     router.push(`/expenses?date=${nextDate}&category=${encodeURIComponent(nextCat)}`);
@@ -53,6 +72,10 @@ export default function ExpenseForm({ date, category }) {
 
   return (
     <form onSubmit={onSubmit}>
+      <datalist id="exp-catalog">
+        {catalog.map((c) => <option key={c.name} value={c.name} />)}
+      </datalist>
+
       {/* วันที่ + หมวด */}
       <div style={card}>
         <div style={grid}>
@@ -88,7 +111,12 @@ export default function ExpenseForm({ date, category }) {
           <div style={grid}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={lbl}>ชื่อรายการ *</label>
-              <input value={r.item_name} onChange={(e) => setRow(i, 'item_name', e.target.value)} placeholder="เช่น เมล็ดกาแฟ" style={inp} />
+              <input list="exp-catalog" value={r.item_name} onChange={(e) => onItemName(i, e.target.value)} placeholder="เช่น เมล็ดกาแฟ" style={inp} />
+              {catMap[r.item_name?.trim()]?.unit_price != null && (
+                <div style={{ fontSize: 11, color: 'var(--taupe-dark)', marginTop: 3 }}>
+                  ราคาล่าสุด: {fmt(catMap[r.item_name.trim()].unit_price)} ฿{catMap[r.item_name.trim()].unit ? ` / ${catMap[r.item_name.trim()].unit}` : ''}
+                </div>
+              )}
             </div>
             <div>
               <label style={lbl}>ผู้ขาย/ซัพพลายเออร์</label>
