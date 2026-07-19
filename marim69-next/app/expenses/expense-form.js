@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../lib/expense-categories';
 import { SUPPLIERS_ITEMS } from '../../lib/suppliers';
+import { BASIC_UNITS } from '../../lib/units';
 import { saveExpensesAction } from './actions';
 
 const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
@@ -27,7 +28,7 @@ function rowTotal(r) {
   return Math.round((r.vat ? price * 1.07 : price) * qty * 100) / 100;
 }
 
-export default function ExpenseForm({ date, category, catalog = [] }) {
+export default function ExpenseForm({ date, category, catalog = [], onCategory }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -67,8 +68,9 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
     }));
   }
 
-  function nav(nextDate, nextCat) {
-    router.push(`/expenses?date=${nextDate}&category=${encodeURIComponent(nextCat)}`);
+  // เปลี่ยนวันที่ = โหลดข้อมูลวันใหม่ (คงหมวดเดิม); เปลี่ยนหมวด = ฝั่ง client ทันที
+  function navDate(nextDate) {
+    router.push(`/expenses?date=${nextDate}&category=${encodeURIComponent(category)}`);
   }
 
   async function onSubmit(e) {
@@ -87,6 +89,9 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
       <datalist id="exp-catalog">
         {catalog.map((c) => <option key={c.name} value={c.name} />)}
       </datalist>
+      <datalist id="exp-units">
+        {BASIC_UNITS.map((u) => <option key={u} value={u} />)}
+      </datalist>
 
       {/* วันที่ + หมวด */}
       <div style={card}>
@@ -96,13 +101,13 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
             <input
               type="date"
               value={date}
-              onChange={(e) => /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && nav(e.target.value, category)}
+              onChange={(e) => /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && navDate(e.target.value)}
               style={inp}
             />
           </div>
           <div>
             <label style={lbl}>หมวดหมู่</label>
-            <select value={category} onChange={(e) => nav(date, e.target.value)} style={inp}>
+            <select value={category} onChange={(e) => onCategory(e.target.value)} style={inp}>
               {EXPENSE_CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
@@ -159,7 +164,7 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
             </div>
             <div>
               <label style={lbl}>หน่วย</label>
-              <input value={r.unit} onChange={(e) => setRow(i, 'unit', e.target.value)} placeholder="กก. / ถุง" style={inp} />
+              <input list="exp-units" value={r.unit} onChange={(e) => setRow(i, 'unit', e.target.value)} placeholder="เลือก/พิมพ์" style={inp} />
             </div>
             <div>
               <label style={lbl}>ราคา/หน่วย (฿) *</label>

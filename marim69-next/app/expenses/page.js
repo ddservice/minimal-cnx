@@ -2,8 +2,7 @@ import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { EXPENSE_CATEGORY_VALUES } from '../../lib/expense-categories';
-import ExpenseForm from './expense-form';
-import ExpenseList from './expense-list';
+import ExpensesClient from './expenses-client';
 
 function todayISO() {
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -15,43 +14,44 @@ export default async function ExpensesPage({ searchParams }) {
 
   const sp = await searchParams;
   const date = sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
-  const category = EXPENSE_CATEGORY_VALUES.includes(sp?.category)
+  const initialCategory = EXPENSE_CATEGORY_VALUES.includes(sp?.category)
     ? sp.category
     : EXPENSE_CATEGORY_VALUES[0];
 
+  // รายการที่บันทึกแล้วของวันนี้ (ทุกหมวด) — กรองตามหมวดฝั่ง client
   const { data: existing } = await supabase
     .from('expenses')
-    .select('id, item_name, subcategory, unit, unit_price, quantity, total_amount, payment_method')
+    .select('id, category, item_name, subcategory, unit, unit_price, quantity, total_amount, payment_method')
     .eq('date', date)
-    .eq('category', category)
     .order('logged_at', { ascending: true });
 
-  // catalog: รายการที่เคยบันทึกในหมวดนี้ + หน่วย/ราคาล่าสุด (จาก DB — ใช้ร่วมทุกเครื่อง)
+  // catalog: รายการล่าสุดต่อ (หมวด+ชื่อ) พร้อมหน่วย/ราคา — จำหน่วยของสินค้าเดิม
   const { data: recent } = await supabase
     .from('expenses')
-    .select('item_name, subcategory, unit, unit_price, logged_at')
-    .eq('category', category)
+    .select('category, item_name, subcategory, unit, unit_price, logged_at')
     .order('logged_at', { ascending: false })
-    .limit(300);
+    .limit(800);
   const seen = {};
+  const catalog = [];
   (recent || []).forEach((r) => {
-    const key = (r.item_name || '').trim();
-    if (key && !seen[key]) {
-      seen[key] = {
-        name: key,
-        supplier: r.subcategory || '',
-        unit: r.unit || '',
-        unit_price: r.unit_price != null ? Number(r.unit_price) : null,
-      };
-    }
+    const nm = (r.item_name || '').trim();
+    if (!nm) return;
+    const k = `${r.category}|${nm}`;
+    if (seen[k]) return;
+    seen[k] = 1;
+    catalog.push({
+      category: r.category,
+      name: nm,
+      supplier: r.subcategory || '',
+      unit: r.unit || '',
+      unit_price: r.unit_price != null ? Number(r.unit_price) : null,
+    });
   });
-  const catalog = Object.values(seen);
 
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin}>
       <PageHeader icon="ti-receipt" title="บันทึกรายจ่าย" />
-      <ExpenseForm date={date} category={category} catalog={catalog} />
-      <ExpenseList rows={existing || []} date={date} />
+      <ExpensesClient date={date} initialCategory={initialCategory} allExisting={existing || []} catalog={catalog} />
     </AppShell>
   );
 }
