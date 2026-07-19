@@ -71,6 +71,7 @@ export default async function OpexPage({ searchParams }) {
         monthLabel={monthLabel}
         income={income}
         bizInfo={bizInfo}
+        isAdmin={isAdmin}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
     </AppShell>

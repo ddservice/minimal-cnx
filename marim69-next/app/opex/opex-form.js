@@ -34,6 +34,8 @@ function printSlip(e, ps, monthLabel, bizInfo) {
   const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
   const [mm, yy] = String(monthLabel || '').split('/');
   const salary = Number(e.salary) || 0, position = Number(e.position) || 0, diligence = Number(e.diligence) || 0;
+  const fullName = [e.fullname, e.lastname].filter(Boolean).join(' ') || e.label;
+  const hasBank = e.bank_name || e.account_no;
   const row = (label, val, cls = '') => `<tr class="${cls}"><td>${label}</td><td class="num">${val}</td></tr>`;
   const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>สลิปเงินเดือน ${esc(e.label)} ${mm || ''}/${yy || ''}</title>
@@ -63,8 +65,14 @@ function printSlip(e, ps, monthLabel, bizInfo) {
     <div><div class="bname">${esc(biz.name || 'Minimal Maerim')}</div><div class="bsub">${esc(biz.tax_id ? 'เลขผู้เสียภาษี ' + biz.tax_id : '')}${biz.address ? '<br>' + esc(biz.address) : ''}</div></div>
     <div class="meta"><b>สลิปเงินเดือน</b>งวด ${esc(mm || '--')}/${esc(yy || '----')}<br>วันที่ ${esc(today)}</div>
   </div>
-  <div class="title">ใบรับรอง / สลิปเงินเดือน</div>
-  <div class="emp"><span><b>พนักงาน:</b> ${esc(e.label)}</span><span><b>งวดเดือน:</b> ${esc(mm || '--')}/${esc(yy || '----')}</span></div>
+  <div class="title">หนังสือรับรอง / สลิปเงินเดือน</div>
+  <table>
+    <tr><th colspan="2">ข้อมูลพนักงาน</th></tr>
+    <tr><td>ชื่อ-นามสกุล</td><td>${esc(fullName)}</td></tr>
+    ${e.title ? `<tr><td>ตำแหน่ง</td><td>${esc(e.title)}</td></tr>` : ''}
+    ${e.id_card ? `<tr><td>เลขบัตรประชาชน</td><td>${esc(e.id_card)}</td></tr>` : ''}
+    <tr><td>งวดเดือน</td><td>${esc(mm || '--')}/${esc(yy || '----')}</td></tr>
+  </table>
   <table>
     <tr><th>รายรับ</th><th class="num">บาท</th></tr>
     ${row('เงินเดือน', f(salary))}
@@ -84,6 +92,12 @@ function printSlip(e, ps, monthLabel, bizInfo) {
     ${row('ประกันสังคม (บริษัทสมทบ 5%)', f(ps.ssoCo))}
     ${row('รวมค่าใช้จ่ายบริษัท', f(ps.companyCost), 'sub')}
   </table>
+  ${hasBank ? `<table>
+    <tr><th colspan="2">ข้อมูลการโอนเงิน</th></tr>
+    <tr><td>ธนาคาร</td><td>${esc(e.bank_name || '—')}</td></tr>
+    <tr><td>เลขที่บัญชี</td><td>${esc(e.account_no || '—')}</td></tr>
+    <tr><td>ชื่อบัญชี</td><td>${esc(e.account_holder || fullName)}</td></tr>
+  </table>` : ''}
   <div class="sign"><div><div class="line"></div>ผู้จ่ายเงิน</div><div><div class="line"></div>ผู้รับเงิน</div></div>
 </body></html>`;
   const w = window.open('', '_blank', 'width=760,height=920');
@@ -94,7 +108,15 @@ function printSlip(e, ps, monthLabel, bizInfo) {
   setTimeout(() => w.print(), 400);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {} }) {
+// จำนวนเดือนที่ผ่านมาจากเดือนที่เลือก (สำหรับ gate ย้อนหลัง)
+function monthsAgo(monthLabel) {
+  const [mm, yy] = String(monthLabel || '').split('/').map(Number);
+  if (!mm || !yy) return 0;
+  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  return (now.getFullYear() - yy) * 12 + (now.getMonth() + 1 - mm);
+}
+
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -109,7 +131,12 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
 
   const [operating, setOperating] = useState(() => initFixed(OPEX_OPERATING.items, existing.operating, false));
   const [staff, setStaff] = useState(() => initFixed(OPEX_STAFF.fixed, existing.staff, true)); // เติมค่าตั้งต้น (36000/0)
-  const [tax, setTax] = useState(() => initFixed(OPEX_TAX.items, existing.tax, false));
+  const [tax, setTax] = useState(() => {
+    const t = initFixed(OPEX_TAX.items, existing.tax, false);
+    // เติม VAT อัตโนมัติจากยอดขาย ถ้ายังไม่มีค่าที่บันทึกไว้ (เหมือน dashboard เดิม)
+    if ((t.vat === '' || t.vat == null) && income > 0) t.vat = String(Math.round(income * 0.07));
+    return t;
+  });
   const [employees, setEmployees] = useState(() => {
     let slips = [];
     if (typeof window !== 'undefined') {
@@ -127,6 +154,14 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
         position: slip.position ?? def.position ?? '',
         commRate: slip.commRate ?? '0',
         diligence: slip.diligence ?? '',
+        // รายละเอียดสำหรับสลิป (จำใน localStorage)
+        fullname: slip.fullname ?? '',
+        lastname: slip.lastname ?? '',
+        title: slip.title ?? '',
+        id_card: slip.id_card ?? '',
+        bank_name: slip.bank_name ?? '',
+        account_no: slip.account_no ?? '',
+        account_holder: slip.account_holder ?? '',
         showSlip: false,
         label: e.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
         amount: e.amount, // ยอดที่บันทึกจริง (จาก DB) — คงไว้ ไม่ทับด้วย slip อัตโนมัติ
@@ -138,6 +173,8 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
   useEffect(() => {
     const slim = employees.map((e) => ({
       label: e.label, salary: e.salary, position: e.position, commRate: e.commRate, diligence: e.diligence,
+      fullname: e.fullname, lastname: e.lastname, title: e.title, id_card: e.id_card,
+      bank_name: e.bank_name, account_no: e.account_no, account_holder: e.account_holder,
     }));
     try { localStorage.setItem('mm69_emp_slip', JSON.stringify(slim)); } catch {}
   }, [employees]);
@@ -234,6 +271,20 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <SlipField label="เบี้ยขยัน" value={e.diligence} onChange={(v) => setEmp(i, 'diligence', v)} />
                     </div>
 
+                    {/* รายละเอียดพนักงานสำหรับสลิป/หนังสือรับรอง */}
+                    <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 10, marginBottom: 10 }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>รายละเอียดสำหรับหนังสือรับรองเงินเดือน</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+                        <SlipField text label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
+                        <SlipField text label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
+                        <SlipField text label="ตำแหน่ง" value={e.title} onChange={(v) => setEmp(i, 'title', v)} />
+                        <SlipField text label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
+                        <SlipField text label="ธนาคาร" value={e.bank_name} onChange={(v) => setEmp(i, 'bank_name', v)} />
+                        <SlipField text label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
+                        <SlipField text label="ชื่อบัญชี (ถ้าต่างจากชื่อ)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
+                      </div>
+                    </div>
+
                     <div style={slipCalc}>
                       <SlipRow label={`รวม Gross (คอมฯ ${fmt(ps.commAmt)})`} value={fmt(ps.gross)} />
                       <SlipRow label="หัก ประกันสังคม (พนักงาน 5%)" value={`− ${fmt(ps.ssoEmp)}`} color="#c00000" />
@@ -246,7 +297,13 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <button type="button" onClick={() => setEmp(i, 'amount', String(ps.companyCost))} style={btnMini}>
                         ใช้ยอดนี้ ({fmt(ps.companyCost)} ฿)
                       </button>
-                      <button type="button" onClick={() => printSlip(e, ps, monthLabel, bizInfo)} style={btnSlip}>
+                      <button type="button" onClick={() => {
+                        if (monthsAgo(monthLabel) > 6 && !isAdmin) {
+                          setMsg({ text: 'พิมพ์หนังสือรับรองย้อนหลังเกิน 6 เดือน ต้องเป็น admin เท่านั้น', type: 'err' });
+                          return;
+                        }
+                        printSlip(e, ps, monthLabel, bizInfo);
+                      }} style={btnSlip}>
                         <i className="ti ti-printer" /> พิมพ์สลิป
                       </button>
                     </div>
@@ -321,11 +378,18 @@ function Row({ label, value, onChange, placeholder }) {
   );
 }
 
-function SlipField({ label, value, onChange }) {
+function SlipField({ label, value, onChange, text }) {
   return (
     <div>
       <label style={lbl}>{label}</label>
-      <input type="number" min="0" step="any" value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" style={inp} />
+      <input
+        type={text ? 'text' : 'number'}
+        {...(text ? {} : { min: '0', step: 'any' })}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={text ? '' : '0'}
+        style={inp}
+      />
     </div>
   );
 }
