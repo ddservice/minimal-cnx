@@ -84,6 +84,7 @@ create policy "config: update authenticated"
 -- ได้ ทั้งที่ยังไม่มีหน้าจอไหนในแอปใช้งานจริง — จำกัดไว้ก่อนเผื่ออนาคต
 
 drop policy if exists "audit: read authenticated" on public.audit_log;
+drop policy if exists "audit: read admin only" on public.audit_log;
 create policy "audit: read admin only"
   on public.audit_log for select
   using (public.fn_my_role() = 'admin');
@@ -98,11 +99,13 @@ create policy "audit: read admin only"
 -- (ถ้า staff พิมพ์ผิด ให้แจ้ง manager ขึ้นไปแก้ หรือ admin ปรับสิทธิ์ทีหลังได้)
 
 drop policy if exists "sales: update authenticated" on public.sales_daily;
+drop policy if exists "sales: update manager+" on public.sales_daily;
 create policy "sales: update manager+"
   on public.sales_daily for update
   using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
 
 drop policy if exists "expenses: update authenticated" on public.expenses;
+drop policy if exists "expenses: update manager+" on public.expenses;
 create policy "expenses: update manager+"
   on public.expenses for update
   using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
