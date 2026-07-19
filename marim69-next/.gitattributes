@@ -1,0 +1,2 @@
+# สคริปต์ shell ต้องเป็น LF เสมอ (ไม่งั้นรันบน Linux ไม่ได้: bad interpreter ^M)
+*.sh text eol=lf
