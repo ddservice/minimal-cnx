@@ -3,7 +3,11 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { gpNet, computeNetRevenue } from '../../lib/gp';
+import { createClient } from '../../lib/supabase/client';
 import { saveSalesAction, deleteSalesAction } from './actions';
+
+const EVIDENCE_BUCKET = 'evidence';
+const MAX_EVIDENCE_MB = 5;
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
@@ -31,8 +35,39 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
     free_cups: existing?.free_cups ?? '',
     coffee_price: initPrice,
   });
+  const [evidenceUrl, setEvidenceUrl] = useState(existing?.free_cup_evidence_url || '');
+  const [evidenceStatus, setEvidenceStatus] = useState(null); // { text, type }
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  // แนบหลักฐานแก้วฟรี (แคปจาก LINE OA / POS) → Supabase Storage bucket 'evidence'
+  async function onEvidenceFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_EVIDENCE_MB * 1024 * 1024) {
+      setEvidenceStatus({ text: `ไฟล์ใหญ่เกิน ${MAX_EVIDENCE_MB}MB`, type: 'err' });
+      return;
+    }
+    setEvidenceStatus({ text: 'กำลังอัปโหลด...', type: '' });
+    try {
+      const supabase = createClient();
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `free_cups/${date}_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from(EVIDENCE_BUCKET).upload(path, file, {
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from(EVIDENCE_BUCKET).getPublicUrl(path);
+      setEvidenceUrl(data?.publicUrl || '');
+      setEvidenceStatus({ text: 'แนบหลักฐานแล้ว ✓ — จะบันทึกลงระบบเมื่อกดบันทึกยอดขาย', type: 'ok' });
+    } catch (err) {
+      const m = err?.message || String(err);
+      const hint = /bucket/i.test(m) ? ' (ยังไม่ได้รัน add_free_cup_actual_cost.sql ใน Supabase)' : '';
+      setEvidenceStatus({ text: `อัปโหลดไม่สำเร็จ: ${m}${hint}`, type: 'err' });
+    }
+  }
 
   // ── live preview ──
   const shopeeNet = gpNet('shopee', f.shopee_before_gp);
@@ -63,6 +98,7 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
       pastry_revenue: f.pastry_revenue,
       free_cups: f.free_cups,
       free_cup_cost: freeCupCost,
+      free_cup_evidence_url: evidenceUrl,
     });
     setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
     if (res.status === 'ok') startTransition(() => router.refresh());
@@ -120,6 +156,23 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
           ต้นทุนแก้วฟรีรวม: <strong>{fmt(freeCupCost)} ฿</strong>
         </div>
+
+        {Number(f.free_cups) > 0 && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
+            <label style={lbl}>แนบหลักฐานแก้วฟรี (แคปจาก LINE OA / POS)</label>
+            <input type="file" accept="image/*,.pdf" onChange={onEvidenceFile} style={inp} />
+            {evidenceStatus && (
+              <div style={{ fontSize: 12, marginTop: 4, color: evidenceStatus.type === 'ok' ? 'var(--success)' : evidenceStatus.type === 'err' ? 'var(--danger)' : 'var(--muted)' }}>
+                {evidenceStatus.text}
+              </div>
+            )}
+            {evidenceUrl && (
+              <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 6, fontSize: 12, color: 'var(--taupe-dark)' }}>
+                <i className="ti ti-paperclip" /> ดูหลักฐานที่แนบไว้
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       {/* สรุป */}

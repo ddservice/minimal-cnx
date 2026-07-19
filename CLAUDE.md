@@ -57,8 +57,12 @@ Also ported ✅: **Form 50 ทวิ** (`app/opex/form50.js`) — withholding-ta
 
 Also ported ✅: **free-cup unit-cost config** (`/settings` → `business_config.biz_info.free_cup_cost`, default 55, feeds the sales form's default coffee price), **material/bakery price history** (expense form catalog now carries up to 8 recent price points per item+category; "ประวัติราคา" toggle shows date+price), **editable OPEX defaults** (`/settings` → `business_config.opex_defaults`, admin; overrides the static placeholders/pre-filled values in `lib/opex.js`'s `OPEX_OPERATING`/`OPEX_STAFF` items via `defFor()` in `opex-form.js`).
 
-**Not yet ported ⏳ (niche, low priority — Supabase Storage integration):**
-- Employee pay-history log + reprint (slip printing exists; no persisted log)
-- Free-cup promo evidence upload (photo/receipt attachment to Supabase Storage)
+Also ported ✅: **employee pay-history + reprint** (`lib/payslip.js` exports `computePayslip()` shared by client and server so recorded numbers are authoritative; `saveOpexAction` recomputes each paid employee's payslip server-side using its own month-income query and upserts an entry — keyed `emp{n}`, deduped by month, max 60/employee — into `business_config.emp_pay_history`; `/opex` shows a "ประวัติ" panel per employee with totals + a "พิมพ์ซ้ำ" button that reconstructs the certificate using that month's historical salary/position/diligence/payslip numbers plus the employee's *current* personal/bank details; same >6-months-requires-admin gate as regular slip printing).
+
+Also ported ✅: **free-cup promo evidence upload** (`app/sales/sales-form.js`) — when `free_cups > 0`, an image/PDF file input uploads to Supabase Storage bucket `evidence` (path `free_cups/{date}_{ts}.{ext}`) via the browser client, stores the public URL in `sales_daily.free_cup_evidence_url` through `upsert_sales_daily`. **Requires `add_free_cup_actual_cost.sql` (repo root) to have been run in the Supabase SQL editor** — it adds the column, updates the RPC to accept/coalesce the URL, and creates the `evidence` bucket + RLS policies (authenticated insert, public read). Until run, uploads fail with a friendly "ยังไม่ได้รัน add_free_cup_actual_cost.sql" hint (same pattern as legacy) and the URL is silently dropped from the save payload (harmless no-op against the currently-deployed RPC).
+
+**Migration to run once (if not already applied):** `add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in this app works against the schema already in `supabase_migration.sql`.
+
+Feature parity with the legacy dashboard is now complete for practical purposes — no remaining tracked gaps.
 
 See memory `[[marim69-migration]]` for ongoing plan.

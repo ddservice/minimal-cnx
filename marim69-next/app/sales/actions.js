@@ -39,6 +39,11 @@ export async function saveSalesAction(input) {
   // net_revenue คำนวณจากค่าดิบเสมอ (authoritative ฝั่ง server)
   payload.net_revenue = computeNetRevenue(payload);
 
+  // ลิงก์หลักฐานแก้วฟรี (ถ้ามี) — RPC จะ coalesce เก็บของเดิมไว้ถ้าไม่ได้แนบใหม่
+  // (ต้องรัน add_free_cup_actual_cost.sql ก่อน คอลัมน์/RPC เวอร์ชันนี้ถึงจะรับค่านี้จริง)
+  const evidenceUrl = String(input.free_cup_evidence_url || '').trim();
+  if (evidenceUrl) payload.free_cup_evidence_url = evidenceUrl;
+
   // upsert ตาม date (RPC เดิม, SECURITY DEFINER, ตั้ง recorded_by = auth.uid())
   const { error } = await supabase.rpc('upsert_sales_daily', { p_data: payload });
   if (error) return { status: 'error', message: error.message };

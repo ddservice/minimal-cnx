@@ -3,6 +3,17 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX } from '../../lib/opex';
+import { computePayslip } from '../../lib/payslip';
+
+// ยอดขายสุทธิของเดือน — คำนวณฝั่งเซิร์ฟเวอร์เอง (ไม่เชื่อค่า income จาก client)
+async function monthIncome(supabase, monthLabel) {
+  const [mm, yy] = String(monthLabel).split('/');
+  if (!mm || !yy) return 0;
+  const start = `${yy}-${mm}-01`;
+  const end = new Date(Number(yy), Number(mm), 0).toISOString().slice(0, 10);
+  const { data } = await supabase.from('sales_daily').select('net_revenue').gte('date', start).lte('date', end);
+  return (data || []).reduce((a, r) => a + Number(r.net_revenue || 0), 0);
+}
 
 // บันทึกข้อมูลผู้รับเงิน (ฟอร์ม 50 ทวิ) ลง business_config — ใช้ร่วมทุกเครื่อง
 export async function saveForm50Payees(payees) {
@@ -78,6 +89,39 @@ export async function saveOpexAction(input) {
     if (error) return { status: 'error', message: error.message };
     saved++;
     sum += j.amount;
+  }
+
+  // ── บันทึกประวัติการจ่ายเงินพนักงาน (upsert ตามเดือน, เก็บย้อนหลังสูงสุด 60 รายการ/คน) ──
+  const paidEmployees = employees
+    .map((e, idx) => ({ e, key: `${OPEX_STAFF.empPrefix}${idx + 1}`, amt: toAmt(e?.amount) }))
+    .filter((x) => x.amt != null);
+  if (paidEmployees.length) {
+    const income = await monthIncome(supabase, month);
+    const { data: histCfg } = await supabase
+      .from('business_config')
+      .select('value')
+      .eq('key', 'emp_pay_history')
+      .maybeSingle();
+    const hist = histCfg?.value || {};
+    const by = user.email || user.id;
+    const savedAt = new Date().toISOString();
+    paidEmployees.forEach(({ e, key }) => {
+      const ps = computePayslip(e, income);
+      const entry = {
+        month,
+        label: String(e?.label || '').trim() || key,
+        salary: Number(e.salary) || 0,
+        position: Number(e.position) || 0,
+        diligence: Number(e.diligence) || 0,
+        commRate: Number(e.commRate) || 0,
+        ...ps,
+        savedBy: by,
+        savedAt,
+      };
+      const arr = Array.isArray(hist[key]) ? hist[key] : [];
+      hist[key] = [entry, ...arr.filter((r) => r.month !== month)].slice(0, 60);
+    });
+    await supabase.from('business_config').upsert({ key: 'emp_pay_history', value: hist });
   }
 
   revalidatePath('/opex');

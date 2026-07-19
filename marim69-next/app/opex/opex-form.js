@@ -3,28 +3,14 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX, DEFAULT_EMPLOYEES } from '../../lib/opex';
+import { computePayslip } from '../../lib/payslip';
 import { saveOpexAction } from './actions';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const sumObj = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0);
 
 const COMM_RATES = [['0', 'ไม่มี'], ['0.01', '1%'], ['0.015', '1.5%'], ['0.02', '2%'], ['0.025', '2.5%'], ['0.03', '3%']];
-
-// คำนวณสลิปเงินเดือน (ตรงกับ dashboard เดิม)
-function payslip(e, income) {
-  const salary = Number(e.salary) || 0;
-  const position = Number(e.position) || 0;
-  const diligence = Number(e.diligence) || 0;
-  const commAmt = Math.round(income * (Number(e.commRate) || 0));
-  const ssoBase = Math.min(salary, 15000); // ฐานประกันสังคมสูงสุด 15,000
-  const ssoEmp = Math.round(ssoBase * 0.05);
-  const ssoCo = Math.round(ssoBase * 0.05);
-  const gross = salary + position + commAmt + diligence;
-  const commTax = Math.round(commAmt * 0.03);
-  const netTransfer = salary - ssoEmp + position + diligence + (commAmt - commTax);
-  const companyCost = gross + ssoCo; // ค่าใช้จ่ายบริษัท = gross + ประกันสังคมบริษัท
-  return { commAmt, ssoEmp, ssoCo, gross, commTax, netTransfer, companyCost };
-}
+const payslip = computePayslip;
 
 // พิมพ์ใบรับรอง/สลิปเงินเดือน (เปิดหน้าต่างพิมพ์)
 function printSlip(e, ps, monthLabel, bizInfo) {
@@ -116,7 +102,7 @@ function monthsAgo(monthLabel) {
   return (now.getFullYear() - yy) * 12 + (now.getMonth() + 1 - mm);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {} }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {} }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -167,6 +153,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
         account_no: slip.account_no ?? '',
         account_holder: slip.account_holder ?? '',
         showSlip: false,
+        showHistory: false,
         label: e.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
         amount: e.amount, // ยอดที่บันทึกจริง (จาก DB) — คงไว้ ไม่ทับด้วย slip อัตโนมัติ
       };
@@ -281,6 +268,9 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                   <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
                     <i className="ti ti-calculator" /> สลิป
                   </button>
+                  <button type="button" onClick={() => setEmp(i, 'showHistory', !e.showHistory)} style={btnSlip}>
+                    <i className="ti ti-history" /> ประวัติ{empPayHistory[`emp${i + 1}`]?.length ? ` (${empPayHistory[`emp${i + 1}`].length})` : ''}
+                  </button>
                   {employees.length > 1 && (
                     <button type="button" onClick={() => removeEmp(i)} style={btnRemove}>ลบ</button>
                   )}
@@ -338,6 +328,16 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                     </div>
                     {income <= 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>* คอมมิชชั่นคำนวณจากยอดขายเดือนนี้ (ยังไม่มีข้อมูลขาย)</div>}
                   </div>
+                )}
+
+                {e.showHistory && (
+                  <PayHistory
+                    hist={empPayHistory[`emp${i + 1}`] || []}
+                    employee={e}
+                    bizInfo={bizInfo}
+                    isAdmin={isAdmin}
+                    onMsg={setMsg}
+                  />
                 )}
               </div>
             );
@@ -449,6 +449,56 @@ function SlipRow({ label, value, color, strong }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: strong ? '7px 0' : '2px 0', borderTop: strong ? '1px solid var(--border)' : 'none', fontWeight: strong ? 700 : 400 }}>
       <span style={{ color: color || (strong ? 'var(--coffee)' : 'var(--muted)') }}>{label}</span>
       <strong style={{ color: color || (strong ? 'var(--coffee)' : 'var(--text)'), fontWeight: strong ? 700 : 600 }}>{value} ฿</strong>
+    </div>
+  );
+}
+
+// ประวัติการจ่ายเงินพนักงาน — บันทึกอัตโนมัติทุกครั้งที่กดบันทึกค่าดำเนินการ (upsert ตามเดือน)
+function PayHistory({ hist, employee, bizInfo, isAdmin, onMsg }) {
+  if (!hist.length) {
+    return (
+      <div style={{ ...slipBox, textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
+        ยังไม่มีประวัติการจ่ายเงิน — บันทึกค่าดำเนินการอย่างน้อย 1 เดือนก่อน
+      </div>
+    );
+  }
+  const totalNet = hist.reduce((s, r) => s + (r.netTransfer || 0), 0);
+  const totalCost = hist.reduce((s, r) => s + (r.companyCost || 0), 0);
+  const avgNet = totalNet / hist.length;
+
+  function onReprint(r) {
+    if (monthsAgo(r.month) > 6 && !isAdmin) {
+      onMsg({ text: 'พิมพ์หนังสือรับรองย้อนหลังเกิน 6 เดือน ต้องเป็น admin เท่านั้น', type: 'err' });
+      return;
+    }
+    // ใช้รายละเอียดตัวบุคคลปัจจุบัน (ชื่อ/ธนาคาร) + ตัวเลขเงินเดือน/สรุปจากประวัติเดือนนั้น
+    printSlip(
+      { ...employee, label: r.label, salary: r.salary, position: r.position, diligence: r.diligence },
+      r,
+      r.month,
+      bizInfo
+    );
+  }
+
+  return (
+    <div style={slipBox}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 10, fontSize: 12 }}>
+        <div><div className="muted" style={{ color: 'var(--muted)' }}>จำนวนเดือน</div><strong>{hist.length} เดือน</strong></div>
+        <div><div className="muted" style={{ color: 'var(--muted)' }}>รวมโอนพนักงาน</div><strong>{fmt(totalNet)} ฿</strong></div>
+        <div><div className="muted" style={{ color: 'var(--muted)' }}>เฉลี่ย/เดือน</div><strong>{fmt(avgNet)} ฿</strong></div>
+        <div><div className="muted" style={{ color: 'var(--muted)' }}>รวมต้นทุนบริษัท</div><strong>{fmt(totalCost)} ฿</strong></div>
+      </div>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {hist.map((r) => (
+          <div key={r.month} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 6, fontSize: 12 }}>
+            <strong style={{ minWidth: 60 }}>{r.month}</strong>
+            <span style={{ color: 'var(--muted)' }}>โอน {fmt(r.netTransfer)} ฿ · ต้นทุน {fmt(r.companyCost)} ฿</span>
+            <button type="button" onClick={() => onReprint(r)} style={{ ...btnMini, marginLeft: 'auto' }}>
+              <i className="ti ti-printer" /> พิมพ์ซ้ำ
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
