@@ -45,10 +45,9 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 ## Feature status vs legacy
 
-**Ported ✅:** sales entry (+delete), expense entry (+edit/delete, supplier-first for materials, DB last-price catalog), OPEX 3 categories, rent WHT, VAT-auto, payslip calculator + print slip, monthly report + 2 charts, Excel export, user management.
+**Ported ✅:** sales entry (+delete), expense entry (+edit/delete, supplier-first for materials, DB last-price catalog), OPEX 3 categories, rent WHT, VAT-auto, payslip calculator + print slip, monthly report + 2 charts, Excel export, user management, **business info settings** (`/settings` → `business_config.biz_info`, feeds the print slip).
 
 **Not yet ported ⏳ (legacy `ตั้งค่า`/`วิเคราะห์` tabs):**
-- Business info settings (name/tax id/address/logo) — used by the print slip (currently read from `localStorage` `mm69_biz_info`, no UI yet)
 - Bulk **import** from Excel (sales/expense/opex)
 - **Analytics** tab: multi-month trend table + MoM comparison
 - Role-based visibility matrix (per-role permissions)

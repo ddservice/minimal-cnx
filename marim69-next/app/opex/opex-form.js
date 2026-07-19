@@ -27,9 +27,8 @@ function payslip(e, income) {
 }
 
 // พิมพ์ใบรับรอง/สลิปเงินเดือน (เปิดหน้าต่างพิมพ์)
-function printSlip(e, ps, monthLabel) {
-  let biz = {};
-  try { biz = JSON.parse(localStorage.getItem('mm69_biz_info') || '{}'); } catch {}
+function printSlip(e, ps, monthLabel, bizInfo) {
+  const biz = bizInfo || {};
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const f = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -95,7 +94,7 @@ function printSlip(e, ps, monthLabel) {
   setTimeout(() => w.print(), 400);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0 }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {} }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -247,7 +246,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0 
                       <button type="button" onClick={() => setEmp(i, 'amount', String(ps.companyCost))} style={btnMini}>
                         ใช้ยอดนี้ ({fmt(ps.companyCost)} ฿)
                       </button>
-                      <button type="button" onClick={() => printSlip(e, ps, monthLabel)} style={btnSlip}>
+                      <button type="button" onClick={() => printSlip(e, ps, monthLabel, bizInfo)} style={btnSlip}>
                         <i className="ti ti-printer" /> พิมพ์สลิป
                       </button>
                     </div>

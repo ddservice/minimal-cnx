@@ -36,6 +36,14 @@ export default async function OpexPage({ searchParams }) {
     .lte('date', mEnd);
   const income = (salesRows || []).reduce((a, r) => a + Number(r.net_revenue || 0), 0);
 
+  // ข้อมูลบริษัท (สำหรับหัวสลิปเงินเดือน)
+  const { data: bizCfg } = await supabase
+    .from('business_config')
+    .select('value')
+    .eq('key', 'biz_info')
+    .maybeSingle();
+  const bizInfo = bizCfg?.value || {};
+
   const operating = {};
   const staff = {};
   const tax = {};
@@ -62,6 +70,7 @@ export default async function OpexPage({ searchParams }) {
         monthInput={monthInput}
         monthLabel={monthLabel}
         income={income}
+        bizInfo={bizInfo}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
     </AppShell>
