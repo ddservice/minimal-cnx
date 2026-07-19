@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { createClient } from '../../lib/supabase/server';
+import { requireSession } from '../../lib/session';
+import AppShell from '../../components/app-shell';
+import PageHeader from '../../components/page-header';
 import {
   OPEX_OPERATING,
   OPEX_STAFF,
@@ -12,17 +12,12 @@ import {
 import OpexForm from './opex-form';
 
 export default async function OpexPage({ searchParams }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  const { supabase, role, name, isAdmin } = await requireSession();
 
   const sp = await searchParams;
   const monthInput = /^\d{4}-\d{2}$/.test(sp?.month || '') ? sp.month : currentMonthInput();
   const monthLabel = monthInputToLabel(monthInput);
 
-  // โหลดค่าที่บันทึกไว้ทั้ง 3 หมวดของเดือนนี้
   const { data: rows } = await supabase
     .from('expenses')
     .select('item_key, item_name, total_amount, category')
@@ -50,17 +45,13 @@ export default async function OpexPage({ searchParams }) {
   });
 
   return (
-    <div className="wrap">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 22 }}>ค่าดำเนินการ (รายเดือน)</h1>
-        <Link className="link-btn" href="/dashboard">← กลับ Dashboard</Link>
-      </div>
-
+    <AppShell role={role} name={name} isAdmin={isAdmin}>
+      <PageHeader icon="ti-building-store" title="ค่าดำเนินการ (รายเดือน)" />
       <OpexForm
         monthInput={monthInput}
         monthLabel={monthLabel}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
-    </div>
+    </AppShell>
   );
 }

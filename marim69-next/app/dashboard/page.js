@@ -1,134 +1,77 @@
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '../../lib/supabase/server';
-import SignOutButton from './signout-button';
-
-// Server Component — รันฝั่งเซิร์ฟเวอร์ ดึงข้อมูลก่อนส่ง HTML ไปให้ผู้ใช้
-export default async function DashboardPage() {
-  const supabase = await createClient();
-
-  // getUser() ตรวจ session กับเซิร์ฟเวอร์ Supabase จริง (เชื่อถือได้)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // ดึง profile — RLS policy บน public.profiles เป็นตัวกำหนดว่าเห็นแถวไหนได้
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('username, full_name, nickname, role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const role = profile?.role || 'manager';
-  const isAdmin = role === 'admin';
-
-  // ตัวอย่างดึงข้อมูลสรุป — RLS กรองให้อัตโนมัติตามสิทธิ์ผู้ใช้
-  const { data: summary } = await supabase.rpc('get_monthly_summary', {
-    p_month_label: monthLabel(),
-  });
-
-  const salesCount = summary?.sales?.length ?? 0;
-  const expenseCount = summary?.expenses?.length ?? 0;
-
-  return (
-    <div className="wrap">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          {/* ค่าทุกตัวใน {} ถูก escape อัตโนมัติ — ไม่มี XSS แบบ innerHTML */}
-          <h1 style={{ margin: 0, fontSize: 22 }}>
-            สวัสดี {profile?.full_name || profile?.username || 'ผู้ใช้'}
-          </h1>
-          <p style={{ margin: '6px 0 0', color: 'var(--muted)', fontSize: 13 }}>
-            สิทธิ์: <span className="chip">{role}</span>
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link className="link-btn" href="/sales">
-            บันทึกยอดขาย
-          </Link>
-          <Link className="link-btn" href="/expenses">
-            บันทึกรายจ่าย
-          </Link>
-          <Link className="link-btn" href="/opex">
-            ค่าดำเนินการ
-          </Link>
-          <Link className="link-btn" href="/reports">
-            สรุปรายเดือน
-          </Link>
-          {isAdmin && (
-            <Link className="link-btn" href="/admin">
-              จัดการผู้ใช้
-            </Link>
-          )}
-          <SignOutButton />
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: 24,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: 14,
-        }}
-      >
-        <Stat label={`ยอดขายเดือนนี้ (${monthLabel()})`} value={salesCount} unit="รายการ" />
-        <Stat label="รายจ่ายเดือนนี้" value={expenseCount} unit="รายการ" />
-      </div>
-
-      {isAdmin && (
-        <section
-          style={{
-            marginTop: 28,
-            padding: 18,
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            background: 'var(--surface)',
-          }}
-        >
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>เมนูผู้ดูแลระบบ</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 0 }}>
-            ส่วนนี้แสดงเฉพาะ admin — แต่จำไว้ว่าการซ่อน UI ไม่ใช่ความปลอดภัย
-            ฟังก์ชันจริง (admin_create_user ฯลฯ) ต้องเช็ค role ซ้ำในฝั่ง Postgres
-            ด้วย SECURITY DEFINER เสมอ
-          </p>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function Stat({ label, value, unit }) {
-  return (
-    <div
-      style={{
-        padding: 16,
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        background: 'var(--surface)',
-      }}
-    >
-      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, marginTop: 4 }}>
-        {value}{' '}
-        <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
+import { requireSession } from '../../lib/session';
+import AppShell from '../../components/app-shell';
+import { fmtMoney } from '../../lib/format';
+import { OPEX_ALL_CATEGORIES } from '../../lib/opex';
 
 function monthLabel() {
-  const d = new Date();
+  const d = new Date(Date.now() + 7 * 60 * 60 * 1000);
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+const ACTIONS = [
+  { href: '/sales', label: 'บันทึกยอดขาย', icon: 'ti-cash', desc: 'ยอดขายรายวัน + delivery' },
+  { href: '/expenses', label: 'บันทึกรายจ่าย', icon: 'ti-receipt', desc: 'วัตถุดิบ / ขนม / จิปาถะ' },
+  { href: '/opex', label: 'ค่าดำเนินการ', icon: 'ti-building-store', desc: 'ค่าเช่า / พนักงาน / ภาษี' },
+  { href: '/reports', label: 'สรุปรายเดือน', icon: 'ti-chart-bar', desc: 'รายรับ-รายจ่าย + กราฟ' },
+];
+
+export default async function DashboardPage() {
+  const { supabase, role, name, isAdmin } = await requireSession();
+  const ml = monthLabel();
+
+  const { data: summary } = await supabase.rpc('get_monthly_summary', { p_month_label: ml });
+  const sales = summary?.sales || [];
+  const expenses = summary?.expenses || [];
+
+  const income = sales.reduce((a, s) => a + Number(s.net_revenue || 0), 0);
+  const regExp = expenses
+    .filter((e) => !e.item_key)
+    .reduce((a, e) => a + Number(e.total_amount || 0), 0);
+  const opexExp = expenses
+    .filter((e) => e.item_key && OPEX_ALL_CATEGORIES.includes(e.category))
+    .reduce((a, e) => a + Number(e.total_amount || 0), 0);
+  const totalExp = regExp + opexExp;
+  const profit = income - totalExp;
+
+  return (
+    <AppShell role={role} name={name} isAdmin={isAdmin}>
+      <div className="kpis">
+        <div className="kpi">
+          <div className="kpi-label"><i className="ti ti-trending-up" /> รายรับเดือนนี้</div>
+          <div className="kpi-val green">{fmtMoney(income)}</div>
+          <div className="kpi-sub">บาท (หัก GP) · {ml}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label"><i className="ti ti-trending-down" /> รายจ่ายเดือนนี้</div>
+          <div className="kpi-val red">{fmtMoney(totalExp)}</div>
+          <div className="kpi-sub">บาท</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label"><i className="ti ti-scale" /> {profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</div>
+          <div className={`kpi-val ${profit >= 0 ? 'blue' : 'red'}`}>{fmtMoney(profit)}</div>
+          <div className="kpi-sub">บาท / เดือน</div>
+        </div>
+      </div>
+
+      <div className="card-head" style={{ background: 'transparent', border: 0, padding: '4px 2px 10px' }}>
+        <i className="ti ti-bolt" /> <span>เมนูลัด</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+        {ACTIONS.map((a) => (
+          <Link key={a.href} href={a.href} className="card" style={{ textDecoration: 'none', color: 'inherit', marginBottom: 0 }}>
+            <div className="card-body" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div className="brand-icon" style={{ width: 42, height: 42, fontSize: 21, boxShadow: 'none' }}>
+                <i className={`ti ${a.icon}`} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{a.label}</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{a.desc}</div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </AppShell>
+  );
 }

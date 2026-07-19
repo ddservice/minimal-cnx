@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../lib/supabase/client';
+import { createClient } from '../lib/supabase/client';
 
 export default function SignOutButton() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function SignOutButton() {
 
   return (
     <button className="link-btn" onClick={signOut}>
-      ออกจากระบบ
+      <i className="ti ti-logout" /> ออกจากระบบ
     </button>
   );
 }

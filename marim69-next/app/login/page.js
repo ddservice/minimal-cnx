@@ -8,32 +8,28 @@ export default function LoginPage() {
 
   return (
     <div className="center">
-      <form className="card" action={formAction}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 20 }}>Minimal Maerim</h1>
-        <p style={{ margin: '0 0 12px', color: 'var(--muted)', fontSize: 13 }}>
-          เข้าสู่ระบบ
-        </p>
+      <form className="login-card" action={formAction}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <div className="brand-icon"><i className="ti ti-coffee" /></div>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 700 }}>Minimal Maerim</h1>
+            <p className="muted" style={{ fontSize: 12, marginTop: 1 }}>เข้าสู่ระบบเพื่อจัดการร้าน</p>
+          </div>
+        </div>
 
-        <input
-          className="field"
-          name="username"
-          placeholder="ชื่อผู้ใช้"
-          autoComplete="username"
-          autoFocus
-        />
-        <input
-          className="field"
-          name="password"
-          type="password"
-          placeholder="รหัสผ่าน"
-          autoComplete="current-password"
-        />
+        <div className="field" style={{ marginBottom: 12 }}>
+          <label>ชื่อผู้ใช้</label>
+          <input className="input" name="username" placeholder="username" autoComplete="username" autoFocus />
+        </div>
+        <div className="field">
+          <label>รหัสผ่าน</label>
+          <input className="input" name="password" type="password" placeholder="••••••••" autoComplete="current-password" />
+        </div>
 
-        {/* {state.error} ถูก escape อัตโนมัติโดย React — ปลอดภัยจาก XSS by default */}
-        <div className="err">{state?.error}</div>
+        <div style={{ color: 'var(--danger)', fontSize: 13, minHeight: 18, marginTop: 10 }}>{state?.error}</div>
 
-        <button className="btn" type="submit" disabled={pending}>
-          {pending ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+        <button className="btn btn-coffee btn-full" type="submit" disabled={pending} style={{ marginTop: 6 }}>
+          <i className="ti ti-login-2" /> {pending ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>
       </form>
     </div>

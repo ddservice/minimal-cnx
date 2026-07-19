@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { createClient } from '../../lib/supabase/server';
+import { requireSession } from '../../lib/session';
+import AppShell from '../../components/app-shell';
+import PageHeader from '../../components/page-header';
 import { EXPENSE_CATEGORY_VALUES } from '../../lib/expense-categories';
 import ExpenseForm from './expense-form';
 import ExpenseList from './expense-list';
@@ -11,11 +11,7 @@ function todayISO() {
 }
 
 export default async function ExpensesPage({ searchParams }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  const { supabase, role, name, isAdmin } = await requireSession();
 
   const sp = await searchParams;
   const date = sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
@@ -31,14 +27,10 @@ export default async function ExpensesPage({ searchParams }) {
     .order('logged_at', { ascending: true });
 
   return (
-    <div className="wrap">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 22 }}>บันทึกรายจ่าย</h1>
-        <Link className="link-btn" href="/dashboard">← กลับ Dashboard</Link>
-      </div>
-
+    <AppShell role={role} name={name} isAdmin={isAdmin}>
+      <PageHeader icon="ti-receipt" title="บันทึกรายจ่าย" />
       <ExpenseForm date={date} category={category} />
       <ExpenseList rows={existing || []} date={date} />
-    </div>
+    </AppShell>
   );
 }
