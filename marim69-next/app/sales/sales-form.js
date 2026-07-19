@@ -1,0 +1,176 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { gpNet, computeNetRevenue } from '../../lib/gp';
+import { saveSalesAction } from './actions';
+
+const fmt = (n) =>
+  Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+
+export default function SalesForm({ date, existing }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [msg, setMsg] = useState(null); // { text, type }
+
+  // coffee_price ไม่ได้เก็บใน DB — back-compute จาก free_cup_cost/free_cups ถ้ามี
+  const initPrice =
+    existing && existing.free_cups > 0
+      ? Math.round((existing.free_cup_cost / existing.free_cups) * 100) / 100
+      : 55;
+
+  const [f, setF] = useState({
+    total_cups: existing?.total_cups ?? '',
+    kshop_amount: existing?.kshop_amount ?? '',
+    cash_amount: existing?.cash_amount ?? '',
+    shopee_before_gp: existing?.shopee_before_gp ?? '',
+    grab_before_gp: existing?.grab_before_gp ?? '',
+    lineman_before_gp: existing?.lineman_before_gp ?? '',
+    pastry_pieces: existing?.pastry_pieces ?? '',
+    pastry_revenue: existing?.pastry_revenue ?? '',
+    free_cups: existing?.free_cups ?? '',
+    coffee_price: initPrice,
+  });
+
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  // ── live preview ──
+  const shopeeNet = gpNet('shopee', f.shopee_before_gp);
+  const grabNet = gpNet('grab', f.grab_before_gp);
+  const linemanNet = gpNet('lineman', f.lineman_before_gp);
+  const netRevenue = computeNetRevenue(f);
+  const freeCupCost =
+    Math.round((Number(f.free_cups) || 0) * (Number(f.coffee_price) || 0) * 100) /
+    100;
+
+  function onDateChange(e) {
+    const d = e.target.value;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) router.push(`/sales?date=${d}`);
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setMsg(null);
+    const res = await saveSalesAction({
+      date,
+      total_cups: f.total_cups,
+      kshop_amount: f.kshop_amount,
+      cash_amount: f.cash_amount,
+      shopee_before_gp: f.shopee_before_gp,
+      grab_before_gp: f.grab_before_gp,
+      lineman_before_gp: f.lineman_before_gp,
+      pastry_pieces: f.pastry_pieces,
+      pastry_revenue: f.pastry_revenue,
+      free_cups: f.free_cups,
+      free_cup_cost: freeCupCost,
+    });
+    setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
+    if (res.status === 'ok') startTransition(() => router.refresh());
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      {/* วันที่ */}
+      <div style={card}>
+        <label style={lbl}>วันที่</label>
+        <input type="date" value={date} onChange={onDateChange} style={inp} />
+        {existing && (
+          <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
+            (มีข้อมูลแล้ว — บันทึกจะทับของเดิม)
+          </span>
+        )}
+      </div>
+
+      {/* ยอดขายหน้าร้าน */}
+      <div style={card}>
+        <h2 style={h2}>ยอดขายหน้าร้าน</h2>
+        <div style={grid}>
+          <Field label="ยอดขายรวม (แก้ว)" value={f.total_cups} onChange={set('total_cups')} />
+          <Field label="K-Shop (฿)" value={f.kshop_amount} onChange={set('kshop_amount')} />
+          <Field label="เงินสด (฿)" value={f.cash_amount} onChange={set('cash_amount')} />
+        </div>
+      </div>
+
+      {/* Delivery — หัก GP อัตโนมัติ */}
+      <div style={card}>
+        <h2 style={h2}>Delivery Platforms <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)' }}>(กรอกยอดก่อนหัก GP)</span></h2>
+        <div style={grid}>
+          <FieldNet label="Shopee Food" value={f.shopee_before_gp} onChange={set('shopee_before_gp')} net={shopeeNet} />
+          <FieldNet label="Grab" value={f.grab_before_gp} onChange={set('grab_before_gp')} net={grabNet} />
+          <FieldNet label="Lineman" value={f.lineman_before_gp} onChange={set('lineman_before_gp')} net={linemanNet} />
+        </div>
+      </div>
+
+      {/* ขนม + แก้วฟรี */}
+      <div style={card}>
+        <h2 style={h2}>ขนม & แก้วฟรี</h2>
+        <div style={grid}>
+          <Field label="ขนม (ชิ้น)" value={f.pastry_pieces} onChange={set('pastry_pieces')} />
+          <Field label="รายได้ขนม (฿)" value={f.pastry_revenue} onChange={set('pastry_revenue')} />
+          <Field label="แก้วฟรี (แก้ว)" value={f.free_cups} onChange={set('free_cups')} />
+          <Field label="ต้นทุน/แก้วฟรี (฿)" value={f.coffee_price} onChange={set('coffee_price')} />
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+          ต้นทุนแก้วฟรีรวม: <strong>{fmt(freeCupCost)} ฿</strong>
+        </div>
+      </div>
+
+      {/* สรุป */}
+      <div style={{ ...card, background: '#f5ede3' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>รายรับสุทธิ (หัก GP แล้ว)</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--coffee)' }}>{fmt(netRevenue)} ฿</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>= K-Shop + เงินสด + Delivery(หลัง GP)</div>
+          </div>
+          <button type="submit" style={btn} disabled={isPending}>
+            {isPending ? 'กำลังบันทึก...' : existing ? 'อัปเดตยอดขาย' : 'บันทึกยอดขาย'}
+          </button>
+        </div>
+      </div>
+
+      {msg && (
+        <div style={{ marginTop: 14, color: msg.type === 'ok' ? '#1e7e34' : '#c0392b', fontSize: 14 }}>
+          {msg.text}
+        </div>
+      )}
+    </form>
+  );
+}
+
+function Field({ label, value, onChange }) {
+  return (
+    <div>
+      <label style={lbl}>{label}</label>
+      <input type="number" min="0" step="any" value={value} onChange={onChange} placeholder="0" style={inp} />
+    </div>
+  );
+}
+
+function FieldNet({ label, value, onChange, net }) {
+  const raw = Number(value) || 0;
+  return (
+    <div>
+      <label style={lbl}>{label}</label>
+      <input type="number" min="0" step="any" value={value} onChange={onChange} placeholder="0" style={inp} />
+      {raw > 0 && (
+        <div style={{ fontSize: 11, color: 'var(--success, #1e7e34)', marginTop: 3 }}>
+          หลังหัก GP: {Number(net).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+        </div>
+      )}
+    </div>
+  );
+}
+
+const card = {
+  border: '1px solid var(--border)',
+  borderRadius: 14,
+  padding: 16,
+  background: 'var(--surface)',
+  marginBottom: 12,
+};
+const h2 = { marginTop: 0, marginBottom: 12, fontSize: 15 };
+const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 };
+const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
+const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 14 };
+const btn = { border: 0, borderRadius: 10, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer', alignSelf: 'center' };

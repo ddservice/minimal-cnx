@@ -51,7 +51,10 @@ export default async function DashboardPage() {
             สิทธิ์: <span className="chip">{role}</span>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link className="link-btn" href="/sales">
+            บันทึกยอดขาย
+          </Link>
           {isAdmin && (
             <Link className="link-btn" href="/admin">
               จัดการผู้ใช้
