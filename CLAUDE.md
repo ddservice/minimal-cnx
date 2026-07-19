@@ -55,9 +55,10 @@ Also ported ✅: **bakery presets** (`lib/bakery.js`, auto-fill default price), 
 
 Also ported ✅: **Form 50 ทวิ** (`app/opex/form50.js`) — withholding-tax certificate for rent 40(5)ก 5% and staff-sub 40(2) 3%; enter payee (name/tax id/address/date/condition, saved to `business_config.form50_payees`), print an HTML certificate with correct Thai baht-text.
 
-**Not yet ported ⏳ (niche, low priority):**
-- Employee pay-history log + reprint; material/bakery price-history modals (last price is shown, full history isn't)
-- Free-cup promo actual-unit-cost config + evidence upload (Supabase Storage)
-- Editable/persisted OPEX defaults (currently static in `lib/opex.js`)
+Also ported ✅: **free-cup unit-cost config** (`/settings` → `business_config.biz_info.free_cup_cost`, default 55, feeds the sales form's default coffee price), **material/bakery price history** (expense form catalog now carries up to 8 recent price points per item+category; "ประวัติราคา" toggle shows date+price), **editable OPEX defaults** (`/settings` → `business_config.opex_defaults`, admin; overrides the static placeholders/pre-filled values in `lib/opex.js`'s `OPEX_OPERATING`/`OPEX_STAFF` items via `defFor()` in `opex-form.js`).
+
+**Not yet ported ⏳ (niche, low priority — Supabase Storage integration):**
+- Employee pay-history log + reprint (slip printing exists; no persisted log)
+- Free-cup promo evidence upload (photo/receipt attachment to Supabase Storage)
 
 See memory `[[marim69-migration]]` for ongoing plan.

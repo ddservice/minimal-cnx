@@ -28,9 +28,17 @@ export default async function ExpensesPage({ searchParams }) {
   // catalog: รายการล่าสุดต่อ (หมวด+ชื่อ) พร้อมหน่วย/ราคา — จำหน่วยของสินค้าเดิม
   const { data: recent } = await supabase
     .from('expenses')
-    .select('category, item_name, subcategory, unit, unit_price, logged_at')
+    .select('category, item_name, subcategory, unit, unit_price, date, logged_at')
     .order('logged_at', { ascending: false })
     .limit(800);
+  const histMap = {};
+  (recent || []).forEach((r) => {
+    const nm = (r.item_name || '').trim();
+    if (!nm || r.unit_price == null) return;
+    const k = `${r.category}|${nm}`;
+    histMap[k] = histMap[k] || [];
+    if (histMap[k].length < 8) histMap[k].push({ price: Number(r.unit_price), date: r.date || '' });
+  });
   const seen = {};
   const catalog = [];
   (recent || []).forEach((r) => {
@@ -45,6 +53,7 @@ export default async function ExpensesPage({ searchParams }) {
       supplier: r.subcategory || '',
       unit: r.unit || '',
       unit_price: r.unit_price != null ? Number(r.unit_price) : null,
+      history: histMap[k] || [],
     });
   });
 

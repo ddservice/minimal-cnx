@@ -14,6 +14,7 @@ export default function SettingsForm({ biz }) {
     tax_id: biz.tax_id || '',
     address: biz.address || '',
     logo_url: biz.logo_url || '',
+    free_cup_cost: biz.free_cup_cost ?? '55',
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -40,6 +41,7 @@ export default function SettingsForm({ biz }) {
           </div>
           <div className="field"><label>ที่อยู่</label><input className="input" value={f.address} onChange={set('address')} placeholder="ที่อยู่เต็ม" /></div>
           <div className="field"><label>URL โลโก้ (ลิงก์รูปภาพ)</label><input className="input" value={f.logo_url} onChange={set('logo_url')} placeholder="https://..." /></div>
+          <div className="field"><label>ต้นทุนแก้วฟรี/แก้ว (บาท) — ค่าตั้งต้นหน้ายอดขาย</label><input className="input" type="number" min="0" step="any" value={f.free_cup_cost} onChange={set('free_cup_cost')} placeholder="55" /></div>
         </div>
 
         <button className="btn btn-coffee" type="submit" disabled={isPending} style={{ marginTop: 16 }}>

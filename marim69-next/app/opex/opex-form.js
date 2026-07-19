@@ -116,21 +116,25 @@ function monthsAgo(monthLabel) {
   return (now.getFullYear() - yy) * 12 + (now.getMonth() + 1 - mm);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {} }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
 
+  // ค่าตั้งต้นจริง = ที่ admin ตั้งไว้ (settings) ทับค่าคงที่ในโค้ด ถ้ามี
+  const defFor = (it) => (opexDefaults[it.key] != null ? opexDefaults[it.key] : it.def);
+
   const initFixed = (items, saved, useDefault) => {
     const o = {};
     items.forEach((it) => {
-      o[it.key] = saved[it.key] != null ? String(saved[it.key]) : (useDefault && it.def != null ? String(it.def) : '');
+      const d = defFor(it);
+      o[it.key] = saved[it.key] != null ? String(saved[it.key]) : (useDefault && d != null ? String(d) : '');
     });
     return o;
   };
 
   const [operating, setOperating] = useState(() => initFixed(OPEX_OPERATING.items, existing.operating, false));
-  const [staff, setStaff] = useState(() => initFixed(OPEX_STAFF.fixed, existing.staff, true)); // เติมค่าตั้งต้น (36000/0)
+  const [staff, setStaff] = useState(() => initFixed(OPEX_STAFF.fixed, existing.staff, true)); // เติมค่าตั้งต้น (36000/0 หรือค่าที่ admin ตั้ง)
   const [tax, setTax] = useState(() => {
     const t = initFixed(OPEX_TAX.items, existing.tax, false);
     // เติม VAT อัตโนมัติจากยอดขาย ถ้ายังไม่มีค่าที่บันทึกไว้ (เหมือน dashboard เดิม)
@@ -223,7 +227,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
             const rv = Number(operating.rent) || 0;
             return (
               <div key={it.key}>
-                <Row label={it.label} value={operating[it.key]} onChange={onChange} placeholder={it.def} />
+                <Row label={it.label} value={operating[it.key]} onChange={onChange} placeholder={defFor(it)} />
                 {rv > 0 && (
                   <div style={whtBox}>
                     <div style={{ ...whtRow, background: '#f0fdf4' }}>
@@ -239,7 +243,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
               </div>
             );
           }
-          return <Row key={it.key} label={it.label} value={operating[it.key]} onChange={onChange} placeholder={it.def} />;
+          return <Row key={it.key} label={it.label} value={operating[it.key]} onChange={onChange} placeholder={defFor(it)} />;
         })}
       </Section>
 

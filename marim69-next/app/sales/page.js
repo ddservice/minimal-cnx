@@ -14,16 +14,16 @@ export default async function SalesPage({ searchParams }) {
   const sp = await searchParams;
   const date = sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
 
-  const { data: existing } = await supabase
-    .from('sales_daily')
-    .select('*')
-    .eq('date', date)
-    .maybeSingle();
+  const [{ data: existing }, { data: bizCfg }] = await Promise.all([
+    supabase.from('sales_daily').select('*').eq('date', date).maybeSingle(),
+    supabase.from('business_config').select('value').eq('key', 'biz_info').maybeSingle(),
+  ]);
+  const defaultCoffeePrice = Number(bizCfg?.value?.free_cup_cost) || 55;
 
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-cash" title="บันทึกยอดขายรายวัน" />
-      <SalesForm date={date} existing={existing || null} />
+      <SalesForm date={date} existing={existing || null} defaultCoffeePrice={defaultCoffeePrice} />
     </AppShell>
   );
 }

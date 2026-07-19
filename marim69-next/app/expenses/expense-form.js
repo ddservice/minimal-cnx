@@ -226,11 +226,24 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
 }
 
 function LastPrice({ catMap, name }) {
+  const [open, setOpen] = useState(false);
   const hit = catMap[(name || '').trim()];
   if (!hit || hit.unit_price == null) return null;
+  const hist = hit.history || [];
   return (
     <div style={{ fontSize: 11, color: 'var(--taupe-dark)', marginTop: 3 }}>
       ราคาล่าสุด: {fmt(hit.unit_price)} ฿{hit.unit ? ` / ${hit.unit}` : ''}
+      {hist.length > 1 && (
+        <button type="button" onClick={() => setOpen(!open)}
+          style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--taupe-dark)', textDecoration: 'underline', cursor: 'pointer', fontSize: 11, padding: 0 }}>
+          {open ? 'ซ่อน' : `ประวัติราคา (${hist.length})`}
+        </button>
+      )}
+      {open && (
+        <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: '2px solid var(--border)' }}>
+          {hist.map((h, i) => <div key={i}>{h.date || '—'} : {fmt(h.price)} ฿</div>)}
+        </div>
+      )}
     </div>
   );
 }

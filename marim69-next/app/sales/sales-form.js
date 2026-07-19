@@ -8,16 +8,16 @@ import { saveSalesAction, deleteSalesAction } from './actions';
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
-export default function SalesForm({ date, existing }) {
+export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null); // { text, type }
 
-  // coffee_price ไม่ได้เก็บใน DB — back-compute จาก free_cup_cost/free_cups ถ้ามี
+  // coffee_price ไม่ได้เก็บใน DB — back-compute จาก free_cup_cost/free_cups ถ้ามี, ไม่งั้นใช้ค่าตั้งต้นจากตั้งค่า
   const initPrice =
     existing && existing.free_cups > 0
       ? Math.round((existing.free_cup_cost / existing.free_cups) * 100) / 100
-      : 55;
+      : defaultCoffeePrice;
 
   const [f, setF] = useState({
     total_cups: existing?.total_cups ?? '',

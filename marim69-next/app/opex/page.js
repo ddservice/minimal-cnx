@@ -41,9 +41,10 @@ export default async function OpexPage({ searchParams }) {
   const { data: cfgs } = await supabase
     .from('business_config')
     .select('key, value')
-    .in('key', ['biz_info', 'form50_payees']);
+    .in('key', ['biz_info', 'form50_payees', 'opex_defaults']);
   const bizInfo = cfgs?.find((c) => c.key === 'biz_info')?.value || {};
   const form50Payees = cfgs?.find((c) => c.key === 'form50_payees')?.value || {};
+  const opexDefaults = cfgs?.find((c) => c.key === 'opex_defaults')?.value || {};
 
   const operating = {};
   const staff = {};
@@ -73,6 +74,7 @@ export default async function OpexPage({ searchParams }) {
         income={income}
         bizInfo={bizInfo}
         isAdmin={isAdmin}
+        opexDefaults={opexDefaults}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
       <Form50

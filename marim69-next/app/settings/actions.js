@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { computeNetRevenue } from '../../lib/gp';
 
-const FIELDS = ['name', 'phone', 'tax_id', 'address', 'logo_url'];
+const FIELDS = ['name', 'phone', 'tax_id', 'address', 'logo_url', 'free_cup_cost'];
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
@@ -176,6 +176,20 @@ export async function dedupMonthAction(input) {
   const { data } = await supabase.from('expenses').delete().in('id', dupIds).select('id');
   revalidatePath('/reports'); revalidatePath('/analytics'); revalidatePath('/dashboard');
   return { status: 'ok', message: `ลบรายการซ้ำ ${data?.length || 0} รายการ` };
+}
+
+// บันทึกค่าตั้งต้น OPEX (business_config key = opex_defaults) — admin
+export async function saveOpexDefaults(defaults) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
+  const clean = {};
+  Object.entries(defaults || {}).forEach(([k, v]) => {
+    if (v !== '' && v != null && Number.isFinite(Number(v))) clean[k] = Number(v);
+  });
+  const { error } = await supabase.from('business_config').upsert({ key: 'opex_defaults', value: clean });
+  if (error) return { status: 'error', message: error.message };
+  revalidatePath('/opex');
+  return { status: 'ok', message: 'บันทึกค่าตั้งต้น OPEX เรียบร้อย' };
 }
 
 // บันทึกสิทธิ์การมองเห็นแท็บตามตำแหน่ง (business_config key = role_perms)
