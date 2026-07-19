@@ -4,6 +4,7 @@ import { createClient } from '../../lib/supabase/server';
 import { monthInputToLabel, currentMonthInput } from '../../lib/opex';
 import MonthPicker from './month-picker';
 import RevenueChart from './revenue-chart';
+import ExpenseChart from './expense-chart';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const OPEX_CATS = ['ค่าใช้จ่ายดำเนินการ', 'ค่าแรงพนักงาน', 'ภาษีและอื่นๆ'];
@@ -73,6 +74,9 @@ export default async function ReportsPage({ searchParams }) {
 
       {/* กราฟยอดขายรายวัน */}
       <RevenueChart sales={sales} />
+
+      {/* สัดส่วนรายจ่าย */}
+      <ExpenseChart mat={matTotal} bak={bakTotal} misc={miscTotal} opex={opexTotal} />
 
       {/* รายจ่ายแยกหมวด */}
       <div style={cardStyle}>
