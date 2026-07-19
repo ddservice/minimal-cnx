@@ -124,6 +124,60 @@ export async function importData(prevState, formData) {
   return { status: 'ok', message: `นำเข้าสำเร็จ ${ok} แถว${skipped ? ` (ข้าม ${skipped} แถวที่ข้อมูลไม่ครบ)` : ''}` };
 }
 
+async function requireAdmin() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { supabase, ok: false };
+  const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  return { supabase, user, ok: p?.role === 'admin' };
+}
+
+const monthRange = (ym) => {
+  const [y, m] = String(ym).split('-');
+  return { start: `${y}-${m}-01`, end: new Date(Number(y), Number(m), 0).toISOString().slice(0, 10), y, m };
+};
+
+// ลบข้อมูลทั้งเดือน (admin) — scope: all | sales | expense
+export async function deleteMonthAction(input) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
+  if (!/^\d{4}-\d{2}$/.test(input.month || '')) return { status: 'error', message: 'เดือนไม่ถูกต้อง' };
+  const { start, end, y, m } = monthRange(input.month);
+  const scope = input.scope || 'all';
+  let deleted = 0;
+  if (scope === 'all' || scope === 'sales') {
+    const { data } = await supabase.from('sales_daily').delete().gte('date', start).lte('date', end).select('id');
+    deleted += data?.length || 0;
+  }
+  if (scope === 'all' || scope === 'expense') {
+    const { data } = await supabase.from('expenses').delete().gte('date', start).lte('date', end).select('id');
+    deleted += data?.length || 0;
+  }
+  revalidatePath('/reports'); revalidatePath('/analytics'); revalidatePath('/dashboard');
+  return { status: 'ok', message: `ลบ ${deleted} รายการของเดือน ${m}/${y} เรียบร้อย` };
+}
+
+// ลบรายจ่ายที่ซ้ำกันในเดือน (admin) — ซ้ำ = date+category+item_name+total เท่ากัน
+export async function dedupMonthAction(input) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
+  if (!/^\d{4}-\d{2}$/.test(input.month || '')) return { status: 'error', message: 'เดือนไม่ถูกต้อง' };
+  const { start, end } = monthRange(input.month);
+  const { data: rows } = await supabase.from('expenses')
+    .select('id, date, category, item_name, total_amount, logged_at')
+    .gte('date', start).lte('date', end).order('logged_at', { ascending: true });
+  const seen = new Set();
+  const dupIds = [];
+  (rows || []).forEach((r) => {
+    const key = `${r.date}|${r.category}|${r.item_name}|${r.total_amount}`;
+    if (seen.has(key)) dupIds.push(r.id); else seen.add(key);
+  });
+  if (!dupIds.length) return { status: 'ok', message: 'ไม่พบรายการซ้ำ' };
+  const { data } = await supabase.from('expenses').delete().in('id', dupIds).select('id');
+  revalidatePath('/reports'); revalidatePath('/analytics'); revalidatePath('/dashboard');
+  return { status: 'ok', message: `ลบรายการซ้ำ ${data?.length || 0} รายการ` };
+}
+
 // บันทึกข้อมูลบริษัทลง business_config (key = biz_info) — ใช้ร่วมทุกเครื่อง
 export async function saveBizInfo(input) {
   const supabase = await createClient();

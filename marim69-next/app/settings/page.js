@@ -3,6 +3,7 @@ import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import SettingsForm from './settings-form';
 import ImportForm from './import-form';
+import DataTools from './data-tools';
 
 export default async function SettingsPage() {
   const { supabase, role, name, isAdmin } = await requireSession();
@@ -18,6 +19,7 @@ export default async function SettingsPage() {
       <PageHeader icon="ti-settings" title="ตั้งค่า" />
       <SettingsForm biz={cfg?.value || {}} />
       {isAdmin && <ImportForm />}
+      {isAdmin && <DataTools />}
     </AppShell>
   );
 }

@@ -4,11 +4,14 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../lib/expense-categories';
 import { SUPPLIERS_ITEMS } from '../../lib/suppliers';
+import { BAKERY_DEFAULTS } from '../../lib/bakery';
 import { BASIC_UNITS } from '../../lib/units';
 import { saveExpensesAction } from './actions';
 
 const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
+const BAKERY_CATEGORY = 'ต้นทุนขนมหน้าร้าน';
 const SUPPLIER_KEYS = Object.keys(SUPPLIERS_ITEMS);
+const BAKERY_KEYS = Object.keys(BAKERY_DEFAULTS);
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
@@ -33,6 +36,7 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
   const isMaterial = category === MATERIAL_CATEGORY;
+  const isBakery = category === BAKERY_CATEGORY;
   const [lastSupplier, setLastSupplier] = useState(''); // ค้างซัพพลายเออร์ล่าสุดให้แถวถัดไป
   const [rows, setRows] = useState([emptyRow()]);
 
@@ -64,6 +68,10 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
         if ((r.unit_price === '' || r.unit_price == null) && hit.unit_price != null)
           next.unit_price = String(hit.unit_price);
       }
+      // ราคาตั้งต้นของขนม (ถ้ายังไม่มีราคาจาก catalog)
+      const bakDef = isBakery ? BAKERY_DEFAULTS[value.trim()] : null;
+      if (bakDef != null && (next.unit_price === '' || next.unit_price == null))
+        next.unit_price = String(bakDef);
       return next;
     }));
   }
@@ -92,6 +100,11 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
       <datalist id="exp-units">
         {BASIC_UNITS.map((u) => <option key={u} value={u} />)}
       </datalist>
+      {isBakery && (
+        <datalist id="exp-bakery">
+          {BAKERY_KEYS.map((b) => <option key={b} value={b} />)}
+        </datalist>
+      )}
 
       {/* วันที่ + หมวด */}
       <div style={card}>
@@ -149,7 +162,7 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
               <>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={lbl}>ชื่อรายการ *</label>
-                  <input list="exp-catalog" value={r.item_name} onChange={(e) => onItemName(i, e.target.value)} placeholder="เช่น เมล็ดกาแฟ" style={inp} />
+                  <input list={isBakery ? 'exp-bakery' : 'exp-catalog'} value={r.item_name} onChange={(e) => onItemName(i, e.target.value)} placeholder={isBakery ? 'เลือก/พิมพ์ชื่อขนม' : 'เช่น น้ำยาล้างจาน'} style={inp} />
                   <LastPrice catMap={catMap} name={r.item_name} />
                 </div>
                 <div>
