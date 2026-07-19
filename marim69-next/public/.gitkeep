@@ -1,0 +1,2 @@
+# โฟลเดอร์นี้ไว้ใส่ static asset (รูป, favicon ฯลฯ)
+# ต้องมีอยู่เพื่อให้ Dockerfile ขั้น COPY /app/public ทำงานได้
