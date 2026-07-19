@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '../../lib/supabase/server';
 import { monthInputToLabel, currentMonthInput } from '../../lib/opex';
 import MonthPicker from './month-picker';
+import RevenueChart from './revenue-chart';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const OPEX_CATS = ['ค่าใช้จ่ายดำเนินการ', 'ค่าแรงพนักงาน', 'ภาษีและอื่นๆ'];
@@ -69,6 +70,9 @@ export default async function ReportsPage({ searchParams }) {
         <Kpi label="รายจ่ายรวม" value={totalExp} color="#c0392b" />
         <Kpi label={profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'} value={profit} color={profit >= 0 ? '#1a5fa5' : '#c0392b'} />
       </div>
+
+      {/* กราฟยอดขายรายวัน */}
+      <RevenueChart sales={sales} />
 
       {/* รายจ่ายแยกหมวด */}
       <div style={cardStyle}>
