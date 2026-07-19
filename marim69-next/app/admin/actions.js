@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
+import { MIN_PASSWORD_LENGTH } from '../../lib/auth-policy';
 
 // ตรวจว่าผู้เรียกเป็น admin จริง (ฝั่งเซิร์ฟเวอร์)
 // เป็น defense-in-depth — RPC admin_* ก็เช็ค role ซ้ำใน Postgres อีกชั้น
@@ -28,8 +29,8 @@ export async function createUserAction(input) {
   const username = String(input.username || '').trim().toLowerCase();
   const password = String(input.password || '');
   if (!username) return { status: 'error', message: 'กรุณาระบุชื่อผู้ใช้' };
-  if (password.length < 6)
-    return { status: 'error', message: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' };
+  if (password.length < MIN_PASSWORD_LENGTH)
+    return { status: 'error', message: `รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร` };
 
   const { data, error } = await supabase.rpc('admin_create_user', {
     p_username: username,
@@ -73,8 +74,8 @@ export async function resetPasswordAction(input) {
 
   const username = String(input.username || '').trim();
   const newPassword = String(input.new_password || '');
-  if (newPassword.length < 6)
-    return { status: 'error', message: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' };
+  if (newPassword.length < MIN_PASSWORD_LENGTH)
+    return { status: 'error', message: `รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร` };
 
   const { data, error } = await supabase.rpc('admin_reset_password', {
     p_username: username,

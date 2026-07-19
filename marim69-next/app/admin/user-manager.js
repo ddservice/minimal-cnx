@@ -9,6 +9,7 @@ import {
   toggleActiveAction,
   deleteUserAction,
 } from './actions';
+import { MIN_PASSWORD_LENGTH } from '../../lib/auth-policy';
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -58,7 +59,7 @@ export default function UserManager({ initialUsers, myUsername }) {
   }
 
   async function onResetPw(u) {
-    const np = window.prompt(`ตั้งรหัสผ่านใหม่ให้ "${u.username}" (อย่างน้อย 6 ตัว)`);
+    const np = window.prompt(`ตั้งรหัสผ่านใหม่ให้ "${u.username}" (อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัว)`);
     if (np == null) return;
     flash(await resetPasswordAction({ username: u.username, new_password: np }));
   }
@@ -87,7 +88,7 @@ export default function UserManager({ initialUsers, myUsername }) {
             onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
           <input style={inp} placeholder="ชื่อเล่น" value={form.nickname}
             onChange={(e) => setForm({ ...form, nickname: e.target.value })} />
-          <input style={inp} type="password" placeholder="รหัสผ่าน (≥6 ตัว)" value={form.password}
+          <input style={inp} type="password" placeholder={`รหัสผ่าน (≥${MIN_PASSWORD_LENGTH} ตัว)`} value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <select style={inp} value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value })}>

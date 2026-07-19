@@ -5,7 +5,7 @@
 -- แต่ publishable/anon key + JWT ของผู้ใช้ที่ล็อกอินแล้ว สามารถเรียก
 -- Supabase โดยตรงจาก browser console ได้ — ไม่ผ่านแอป Next.js เลย
 -- ดังนั้นโค้ดฝั่งแอป (Server Action เช็ค role) ไม่ใช่ด่านสุดท้าย
--- RLS ต่างหากที่เป็นด่านจริง — ไฟล์นี้แก้ 2 จุดที่หลวมเกินไป
+-- RLS ต่างหากที่เป็นด่านจริง — ไฟล์นี้แก้จุดที่หลวมเกินไป
 --
 -- รันทั้งไฟล์ใน Supabase → SQL Editor → Run (ปลอดภัย รันซ้ำได้)
 -- ================================================================
@@ -39,29 +39,43 @@ create trigger tr_profiles_guard_self_update
   before update on public.profiles
   for each row execute function public.fn_guard_profile_self_update();
 
--- ── FIX 2: กัน user ทั่วไปแก้ไข business_config คีย์ที่อ่อนไหว ────────
+-- ── FIX 2: จำกัดการเขียน business_config ตามความอ่อนไหวของคีย์ ────────
 -- ปัญหา: policy "config: write/update authenticated" เปิดให้ทุก role
--- เขียนได้ทุกคีย์ใน business_config — รวมถึงคีย์ที่แอปตั้งใจให้ admin
--- แก้เท่านั้น (role_perms, form50_payees, emp_pay_history, opex_defaults)
--- user ทั่วไปเปิด browser console เรียกตรงได้เหมือน FIX 1
+-- เขียนได้ทุกคีย์ใน business_config โดยตรง (ข้าม Server Action ที่เช็ค role)
 --
--- คีย์ทั่วไป (biz_info, free_cup_unit_cost ฯลฯ) ยังให้ทุก role เขียนได้
--- เหมือนเดิม (ตั้งใจไว้แต่แรก เพื่อไม่ให้ manager ถูกบล็อกเหมือนระบบเก่า)
+-- แบ่งเป็น 2 ระดับ:
+--  - admin เท่านั้น: role_perms (สิทธิ์เมนู), form50_payees (ข้อมูลผู้รับเงิน
+--    50 ทวิ — เสี่ยงถูกสวมสิทธิ์เปลี่ยนบัญชีธนาคารผู้รับ), opex_defaults,
+--    emp_pay_history (ประวัติจ่ายเงินเดือน — ควรแก้ไม่ได้เลยนอกจาก trigger)
+--  - admin + co-admin: emp_details (ชื่อ/บัตร ปชช./บัญชีธนาคารพนักงาน —
+--    ให้ co-admin จัดการได้ตามที่ใช้งานจริง)
+--  - คีย์อื่นๆ (biz_info ฯลฯ) ยังให้ทุก role เขียนได้เหมือนเดิม
+--    (ตั้งใจไว้แต่แรก เพื่อไม่ให้ manager ถูกบล็อกเหมือนระบบเก่า)
 
 drop policy if exists "config: write authenticated" on public.business_config;
 create policy "config: write authenticated"
   on public.business_config for insert
   with check (
-    key not in ('role_perms', 'form50_payees', 'emp_pay_history', 'opex_defaults')
-    or public.fn_my_role() = 'admin'
+    case
+      when key in ('role_perms', 'form50_payees', 'opex_defaults', 'emp_pay_history')
+        then public.fn_my_role() = 'admin'
+      when key = 'emp_details'
+        then public.fn_my_role() in ('admin', 'co-admin')
+      else true
+    end
   );
 
 drop policy if exists "config: update authenticated" on public.business_config;
 create policy "config: update authenticated"
   on public.business_config for update
   using (
-    key not in ('role_perms', 'form50_payees', 'emp_pay_history', 'opex_defaults')
-    or public.fn_my_role() = 'admin'
+    case
+      when key in ('role_perms', 'form50_payees', 'opex_defaults', 'emp_pay_history')
+        then public.fn_my_role() = 'admin'
+      when key = 'emp_details'
+        then public.fn_my_role() in ('admin', 'co-admin')
+      else true
+    end
   );
 
 -- ── FIX 3: จำกัดคนอ่าน audit_log ให้เฉพาะ admin ──────────────────
@@ -74,29 +88,24 @@ create policy "audit: read admin only"
   on public.audit_log for select
   using (public.fn_my_role() = 'admin');
 
--- ── ตรวจผลลัพธ์ ─────────────────────────────────────────────────
-select 'harden_security applied ✓ — profiles self-escalation blocked, sensitive config keys + audit_log admin-only' as result;
+-- ── FIX 4: จำกัดคนแก้ไขยอดขาย/รายจ่ายให้เฉพาะ admin/co-admin/manager ──
+-- ปัญหา: policy "sales/expenses: update authenticated" เปิดให้ทุก role
+-- ที่ล็อกอินแล้ว แก้ไขยอดขาย/รายจ่าย "ของวันไหนก็ได้" โดยตรงผ่าน
+-- Supabase client — รวมถึง staff ที่ไม่ได้เป็นคนบันทึกรายการนั้นเอง
+--
+-- เปลี่ยนเป็น: เฉพาะ admin/co-admin/manager แก้ไขได้ (ไม่รวม staff)
+-- staff ยัง insert รายการใหม่ได้ตามปกติ แค่แก้ไขรายการที่มีอยู่แล้วไม่ได้
+-- (ถ้า staff พิมพ์ผิด ให้แจ้ง manager ขึ้นไปแก้ หรือ admin ปรับสิทธิ์ทีหลังได้)
 
--- ================================================================
--- ทางเลือกเพิ่มเติม (ไม่บังคับ) — พิจารณาเอง แล้วรันแยกถ้าต้องการ:
---
--- ปัจจุบัน "sales: update authenticated" และ "expenses: update authenticated"
--- อนุญาตให้ทุก role ที่ล็อกอินแล้ว แก้ไขยอดขาย/รายจ่าย "ของวันไหนก็ได้"
--- โดยตรงผ่าน Supabase client (ไม่ต้องผ่านหน้าแอป) — ออกแบบมาให้ staff
--- แก้ไขรายการที่พิมพ์ผิดได้เอง แต่ก็แปลว่า staff แก้ยอดเงินของวันอื่น
--- ที่ตัวเองไม่ได้บันทึกได้ด้วย (มี audit_log เก็บ old/new ไว้ตรวจสอบทุกครั้ง
--- แต่เป็นการ "ตรวจพบทีหลัง" ไม่ใช่ "กันไว้ก่อน")
---
--- ถ้าต้องการจำกัดให้แก้ไขได้เฉพาะ admin/co-admin/manager (ไม่รวม staff)
--- ให้เปิดคอมเมนต์แล้วรันส่วนนี้:
---
--- drop policy if exists "sales: update authenticated" on public.sales_daily;
--- create policy "sales: update manager+"
---   on public.sales_daily for update
---   using (public.fn_my_role() in ('admin','co-admin','manager'));
---
--- drop policy if exists "expenses: update authenticated" on public.expenses;
--- create policy "expenses: update manager+"
---   on public.expenses for update
---   using (public.fn_my_role() in ('admin','co-admin','manager'));
--- ================================================================
+drop policy if exists "sales: update authenticated" on public.sales_daily;
+create policy "sales: update manager+"
+  on public.sales_daily for update
+  using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
+
+drop policy if exists "expenses: update authenticated" on public.expenses;
+create policy "expenses: update manager+"
+  on public.expenses for update
+  using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
+
+-- ── ตรวจผลลัพธ์ ─────────────────────────────────────────────────
+select 'harden_security applied ✓ — profiles self-escalation blocked; business_config tiered by key; audit_log admin-only; sales/expenses update = manager+' as result;

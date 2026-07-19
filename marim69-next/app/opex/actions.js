@@ -15,6 +15,18 @@ async function monthIncome(supabase, monthLabel) {
   return (data || []).reduce((a, r) => a + Number(r.net_revenue || 0), 0);
 }
 
+// บันทึกรายละเอียดพนักงาน (ชื่อ/บัตร ปชช./ธนาคาร) ลง business_config — ใช้ร่วมทุกเครื่อง/ทุกอุปกรณ์
+// (เดิมเก็บใน localStorage ของเบราว์เซอร์เท่านั้น → ข้อมูลหายถ้าเปลี่ยนเครื่อง/เบราว์เซอร์ล้าง cache)
+export async function saveEmpDetails(details) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const { error } = await supabase.from('business_config').upsert({ key: 'emp_details', value: details || {} });
+  if (error) return { status: 'error', message: error.message };
+  revalidatePath('/opex');
+  return { status: 'ok', message: 'บันทึกข้อมูลพนักงานเรียบร้อย' };
+}
+
 // บันทึกข้อมูลผู้รับเงิน (ฟอร์ม 50 ทวิ) ลง business_config — ใช้ร่วมทุกเครื่อง
 export async function saveForm50Payees(payees) {
   const supabase = await createClient();

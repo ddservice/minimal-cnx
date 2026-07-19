@@ -4,7 +4,9 @@ import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX, DEFAULT_EMPLOYEES } from '../../lib/opex';
 import { computePayslip } from '../../lib/payslip';
-import { saveOpexAction } from './actions';
+import { saveOpexAction, saveEmpDetails } from './actions';
+
+const EMP_DETAIL_FIELDS = ['fullname', 'lastname', 'title', 'id_card', 'bank_name', 'account_no', 'account_holder'];
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const sumObj = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0);
@@ -102,7 +104,7 @@ function monthsAgo(monthLabel) {
   return (now.getFullYear() - yy) * 12 + (now.getMonth() + 1 - mm);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {} }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {}, empDetails = {} }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -138,37 +140,52 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
     return base.map((e, i) => {
       const def = DEFAULT_EMPLOYEES[i] || {};
       const slip = slips[i] || {};
+      const key = `${OPEX_STAFF.empPrefix}${i + 1}`;
+      const dbDetail = empDetails[key] || {}; // จาก database — ค่าหลัก ใช้ร่วมทุกเครื่อง
+      const detail = {};
+      EMP_DETAIL_FIELDS.forEach((f) => {
+        // DB มาก่อนเสมอ; localStorage เป็นแค่ fallback ช่วงเปลี่ยนผ่าน (เผื่อมีของเก่าค้างอยู่ในเครื่องนี้)
+        detail[f] = dbDetail[f] ?? slip[f] ?? '';
+      });
       return {
-        // เติมเงินเดือน/ตำแหน่งตั้งต้นจากข้อมูลเดิม (localStorage ทับได้)
+        // เติมเงินเดือน/ตำแหน่งตั้งต้นจากข้อมูลเดิม (localStorage ทับได้ — ไม่ใช่ข้อมูลอ่อนไหว)
         salary: slip.salary ?? def.salary ?? '',
         position: slip.position ?? def.position ?? '',
         commRate: slip.commRate ?? '0',
         diligence: slip.diligence ?? '',
-        // รายละเอียดสำหรับสลิป (จำใน localStorage)
-        fullname: slip.fullname ?? '',
-        lastname: slip.lastname ?? '',
-        title: slip.title ?? '',
-        id_card: slip.id_card ?? '',
-        bank_name: slip.bank_name ?? '',
-        account_no: slip.account_no ?? '',
-        account_holder: slip.account_holder ?? '',
+        // รายละเอียดสำหรับสลิป/หนังสือรับรอง — เก็บที่ฐานข้อมูลเป็นหลัก (business_config.emp_details)
+        ...detail,
         showSlip: false,
         showHistory: false,
-        label: e.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
+        detailSaved: false,
+        label: e.label || dbDetail.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
         amount: e.amount, // ยอดที่บันทึกจริง (จาก DB) — คงไว้ ไม่ทับด้วย slip อัตโนมัติ
       };
     });
   });
+  const [detailMsg, setDetailMsg] = useState(null);
 
-  // จำค่าสลิป (เงินเดือน/ตำแหน่ง/คอมฯ) ในเครื่อง — ไม่แตะ DB
+  // จำค่าเงินเดือน/ตำแหน่ง/คอมฯ ไว้ในเครื่อง (ไม่ใช่ข้อมูลอ่อนไหว, ไม่ต้องรอกดบันทึก)
+  // ข้อมูลส่วนตัว/ธนาคาร ไม่เก็บที่นี่แล้ว — ต้องกด "บันทึกข้อมูลพนักงาน" เพื่อเก็บลง DB โดยเฉพาะ
   useEffect(() => {
-    const slim = employees.map((e) => ({
-      label: e.label, salary: e.salary, position: e.position, commRate: e.commRate, diligence: e.diligence,
-      fullname: e.fullname, lastname: e.lastname, title: e.title, id_card: e.id_card,
-      bank_name: e.bank_name, account_no: e.account_no, account_holder: e.account_holder,
-    }));
+    const slim = employees.map((e) => ({ label: e.label, salary: e.salary, position: e.position, commRate: e.commRate, diligence: e.diligence }));
     try { localStorage.setItem('mm69_emp_slip', JSON.stringify(slim)); } catch {}
   }, [employees]);
+
+  // บันทึกข้อมูลส่วนตัว/ธนาคารของพนักงานทุกคนลง DB (ส่งทั้งชุดเพื่อไม่ทับข้อมูลคนอื่น)
+  async function onSaveEmpDetails() {
+    setDetailMsg(null);
+    const payload = {};
+    employees.forEach((e, i) => {
+      const key = `${OPEX_STAFF.empPrefix}${i + 1}`;
+      const d = { label: e.label };
+      EMP_DETAIL_FIELDS.forEach((f) => { d[f] = e[f] || ''; });
+      payload[key] = d;
+    });
+    const res = await saveEmpDetails(payload);
+    setDetailMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
+    if (res.status === 'ok') startTransition(() => router.refresh());
+  }
 
   const empTotal = employees.reduce((a, e) => a + (Number(e.amount) || 0), 0);
   const grand = sumObj(operating) + sumObj(staff) + sumObj(tax) + empTotal;
@@ -290,18 +307,34 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <SlipField label="เบี้ยขยัน" value={e.diligence} onChange={(v) => setEmp(i, 'diligence', v)} />
                     </div>
 
-                    {/* รายละเอียดพนักงานสำหรับสลิป/หนังสือรับรอง */}
-                    <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 10, marginBottom: 10 }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>รายละเอียดสำหรับหนังสือรับรองเงินเดือน</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+                    {/* รายละเอียดพนักงานสำหรับสลิป/หนังสือรับรอง — เก็บลงฐานข้อมูลกลาง (ใช้ได้ทุกเครื่อง) */}
+                    <div style={detailWrap}>
+                      <div style={detailHead}><i className="ti ti-id-badge-2" /> ข้อมูลส่วนตัว</div>
+                      <div style={detailGrid}>
                         <SlipField text label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
                         <SlipField text label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
                         <SlipField text label="ตำแหน่ง" value={e.title} onChange={(v) => setEmp(i, 'title', v)} />
                         <SlipField text label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
+                      </div>
+
+                      <div style={{ ...detailHead, marginTop: 12 }}><i className="ti ti-building-bank" /> บัญชีธนาคาร (สำหรับโอนเงินเดือน)</div>
+                      <div style={detailGrid}>
                         <SlipField text label="ธนาคาร" value={e.bank_name} onChange={(v) => setEmp(i, 'bank_name', v)} />
                         <SlipField text label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
-                        <SlipField text label="ชื่อบัญชี (ถ้าต่างจากชื่อ)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
+                        <SlipField text label="ชื่อบัญชี (ถ้าต่างจากชื่อ-สกุล)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
                       </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+                        <button type="button" onClick={onSaveEmpDetails} style={btnSaveDetail}>
+                          <i className="ti ti-device-floppy" /> บันทึกข้อมูลพนักงาน
+                        </button>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          <i className="ti ti-cloud-check" /> เก็บลงระบบกลาง ใช้ร่วมกันได้ทุกเครื่อง
+                        </span>
+                      </div>
+                      {detailMsg && (
+                        <div style={{ fontSize: 12, marginTop: 6, color: detailMsg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{detailMsg.text}</div>
+                      )}
                     </div>
 
                     <div style={slipCalc}>
@@ -516,3 +549,7 @@ const btnMini = { border: '1px solid var(--taupe)', background: 'var(--surface)'
 const btnSlip = { border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 2, padding: '6px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 };
 const slipBox = { border: '1px solid var(--border)', borderRadius: 2, background: 'var(--beige)', padding: 12, marginTop: 8 };
 const slipCalc = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '10px 12px', fontSize: 13 };
+const detailWrap = { border: '1px solid var(--border)', borderRadius: 2, background: 'var(--surface)', padding: 12, marginBottom: 10 };
+const detailHead = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--taupe-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 8 };
+const detailGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 };
+const btnSaveDetail = { border: 0, background: 'var(--coffee)', color: '#fff', borderRadius: 2, padding: '9px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 };
