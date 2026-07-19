@@ -79,6 +79,7 @@ export default async function OpexPage({ searchParams }) {
         opexDefaults={opexDefaults}
         empPayHistory={empPayHistory}
         empDetails={empDetails}
+        canEditEmpDetails={role === 'admin' || role === 'co-admin'}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
       <Form50
@@ -86,6 +87,7 @@ export default async function OpexPage({ searchParams }) {
         payees={form50Payees}
         bizInfo={bizInfo}
         monthLabel={monthLabel}
+        isAdmin={isAdmin}
       />
     </AppShell>
   );

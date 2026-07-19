@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { computeNetRevenue } from '../../lib/gp';
+import { upsertBusinessConfig } from '../../lib/config-store';
 
 const FIELDS = ['name', 'phone', 'tax_id', 'address', 'logo_url', 'free_cup_cost'];
 
@@ -186,8 +187,8 @@ export async function saveOpexDefaults(defaults) {
   Object.entries(defaults || {}).forEach(([k, v]) => {
     if (v !== '' && v != null && Number.isFinite(Number(v))) clean[k] = Number(v);
   });
-  const { error } = await supabase.from('business_config').upsert({ key: 'opex_defaults', value: clean });
-  if (error) return { status: 'error', message: error.message };
+  const res = await upsertBusinessConfig(supabase, 'opex_defaults', clean);
+  if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/opex');
   return { status: 'ok', message: 'บันทึกค่าตั้งต้น OPEX เรียบร้อย' };
 }
@@ -196,8 +197,8 @@ export async function saveOpexDefaults(defaults) {
 export async function saveRolePerms(perms) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
-  const { error } = await supabase.from('business_config').upsert({ key: 'role_perms', value: perms || {} });
-  if (error) return { status: 'error', message: error.message };
+  const res = await upsertBusinessConfig(supabase, 'role_perms', perms || {});
+  if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/', 'layout');
   return { status: 'ok', message: 'บันทึกสิทธิ์การเข้าถึงเรียบร้อย' };
 }

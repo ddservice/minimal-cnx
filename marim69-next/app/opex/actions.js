@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX } from '../../lib/opex';
 import { computePayslip } from '../../lib/payslip';
+import { upsertBusinessConfig } from '../../lib/config-store';
 
 // ยอดขายสุทธิของเดือน — คำนวณฝั่งเซิร์ฟเวอร์เอง (ไม่เชื่อค่า income จาก client)
 async function monthIncome(supabase, monthLabel) {
@@ -21,8 +22,8 @@ export async function saveEmpDetails(details) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
-  const { error } = await supabase.from('business_config').upsert({ key: 'emp_details', value: details || {} });
-  if (error) return { status: 'error', message: error.message };
+  const res = await upsertBusinessConfig(supabase, 'emp_details', details || {});
+  if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/opex');
   return { status: 'ok', message: 'บันทึกข้อมูลพนักงานเรียบร้อย' };
 }
@@ -32,8 +33,8 @@ export async function saveForm50Payees(payees) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
-  const { error } = await supabase.from('business_config').upsert({ key: 'form50_payees', value: payees || {} });
-  if (error) return { status: 'error', message: error.message };
+  const res = await upsertBusinessConfig(supabase, 'form50_payees', payees || {});
+  if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/opex');
   return { status: 'ok', message: 'บันทึกข้อมูลผู้รับเงินเรียบร้อย' };
 }
@@ -107,6 +108,7 @@ export async function saveOpexAction(input) {
   const paidEmployees = employees
     .map((e, idx) => ({ e, key: `${OPEX_STAFF.empPrefix}${idx + 1}`, amt: toAmt(e?.amount) }))
     .filter((x) => x.amt != null);
+  let historyWarning = '';
   if (paidEmployees.length) {
     const income = await monthIncome(supabase, month);
     const { data: histCfg } = await supabase
@@ -133,7 +135,9 @@ export async function saveOpexAction(input) {
       const arr = Array.isArray(hist[key]) ? hist[key] : [];
       hist[key] = [entry, ...arr.filter((r) => r.month !== month)].slice(0, 60);
     });
-    await supabase.from('business_config').upsert({ key: 'emp_pay_history', value: hist });
+    const histRes = await upsertBusinessConfig(supabase, 'emp_pay_history', hist);
+    // ไม่ทำให้การบันทึก OPEX (ที่สำเร็จแล้ว) ล้มเหลวไปด้วย — แค่แจ้งเตือนแยก
+    if (!histRes.ok) historyWarning = ` (ประวัติจ่ายเงินเดือนบันทึกไม่สำเร็จ: ${histRes.message})`;
   }
 
   revalidatePath('/opex');
@@ -141,7 +145,7 @@ export async function saveOpexAction(input) {
   revalidatePath('/dashboard');
   return {
     status: 'ok',
-    message: `บันทึก ${saved} รายการ รวม ${sum.toLocaleString('th-TH')} ฿`,
+    message: `บันทึก ${saved} รายการ รวม ${sum.toLocaleString('th-TH')} ฿${historyWarning}`,
   };
 }
 

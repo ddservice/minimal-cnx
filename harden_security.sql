@@ -45,19 +45,24 @@ create trigger tr_profiles_guard_self_update
 --
 -- แบ่งเป็น 2 ระดับ:
 --  - admin เท่านั้น: role_perms (สิทธิ์เมนู), form50_payees (ข้อมูลผู้รับเงิน
---    50 ทวิ — เสี่ยงถูกสวมสิทธิ์เปลี่ยนบัญชีธนาคารผู้รับ), opex_defaults,
---    emp_pay_history (ประวัติจ่ายเงินเดือน — ควรแก้ไม่ได้เลยนอกจาก trigger)
+--    50 ทวิ — เสี่ยงถูกสวมสิทธิ์เปลี่ยนบัญชีธนาคารผู้รับ), opex_defaults
 --  - admin + co-admin: emp_details (ชื่อ/บัตร ปชช./บัญชีธนาคารพนักงาน —
 --    ให้ co-admin จัดการได้ตามที่ใช้งานจริง)
---  - คีย์อื่นๆ (biz_info ฯลฯ) ยังให้ทุก role เขียนได้เหมือนเดิม
+--  - คีย์อื่นๆ (biz_info, emp_pay_history ฯลฯ) ยังให้ทุก role เขียนได้เหมือนเดิม
 --    (ตั้งใจไว้แต่แรก เพื่อไม่ให้ manager ถูกบล็อกเหมือนระบบเก่า)
+--
+-- หมายเหตุ (แก้ไข 2026-07-19): emp_pay_history เดิมตั้งเป็น admin เท่านั้น
+-- แต่จริงๆ แล้วมันถูกเขียนอัตโนมัติทุกครั้งที่ "ใครก็ได้" (ไม่ใช่แค่ admin)
+-- กดปุ่ม "บันทึกค่าดำเนินการ" — RLS ที่เข้มไปทำให้การบันทึกของ manager/
+-- co-admin/staff เงียบๆ ไม่เกิดผล (0 แถวถูกอัปเดต แต่ไม่ error) จึงย้าย
+-- ออกจากกลุ่ม admin-only ให้ตรงกับสิทธิ์การบันทึก OPEX จริง
 
 drop policy if exists "config: write authenticated" on public.business_config;
 create policy "config: write authenticated"
   on public.business_config for insert
   with check (
     case
-      when key in ('role_perms', 'form50_payees', 'opex_defaults', 'emp_pay_history')
+      when key in ('role_perms', 'form50_payees', 'opex_defaults')
         then public.fn_my_role() = 'admin'
       when key = 'emp_details'
         then public.fn_my_role() in ('admin', 'co-admin')
@@ -70,7 +75,7 @@ create policy "config: update authenticated"
   on public.business_config for update
   using (
     case
-      when key in ('role_perms', 'form50_payees', 'opex_defaults', 'emp_pay_history')
+      when key in ('role_perms', 'form50_payees', 'opex_defaults')
         then public.fn_my_role() = 'admin'
       when key = 'emp_details'
         then public.fn_my_role() in ('admin', 'co-admin')

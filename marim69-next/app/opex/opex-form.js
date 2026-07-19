@@ -104,7 +104,7 @@ function monthsAgo(monthLabel) {
   return (now.getFullYear() - yy) * 12 + (now.getMonth() + 1 - mm);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {}, empDetails = {} }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {}, empDetails = {}, canEditEmpDetails = false }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -311,27 +311,33 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                     <div style={detailWrap}>
                       <div style={detailHead}><i className="ti ti-id-badge-2" /> ข้อมูลส่วนตัว</div>
                       <div style={detailGrid}>
-                        <SlipField text label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
-                        <SlipField text label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
-                        <SlipField text label="ตำแหน่ง" value={e.title} onChange={(v) => setEmp(i, 'title', v)} />
-                        <SlipField text label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="ตำแหน่ง" value={e.title} onChange={(v) => setEmp(i, 'title', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
                       </div>
 
                       <div style={{ ...detailHead, marginTop: 12 }}><i className="ti ti-building-bank" /> บัญชีธนาคาร (สำหรับโอนเงินเดือน)</div>
                       <div style={detailGrid}>
-                        <SlipField text label="ธนาคาร" value={e.bank_name} onChange={(v) => setEmp(i, 'bank_name', v)} />
-                        <SlipField text label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
-                        <SlipField text label="ชื่อบัญชี (ถ้าต่างจากชื่อ-สกุล)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="ธนาคาร" value={e.bank_name} onChange={(v) => setEmp(i, 'bank_name', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
+                        <SlipField text disabled={!canEditEmpDetails} label="ชื่อบัญชี (ถ้าต่างจากชื่อ-สกุล)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
-                        <button type="button" onClick={onSaveEmpDetails} style={btnSaveDetail}>
-                          <i className="ti ti-device-floppy" /> บันทึกข้อมูลพนักงาน
-                        </button>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                          <i className="ti ti-cloud-check" /> เก็บลงระบบกลาง ใช้ร่วมกันได้ทุกเครื่อง
-                        </span>
-                      </div>
+                      {canEditEmpDetails ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+                          <button type="button" onClick={onSaveEmpDetails} style={btnSaveDetail}>
+                            <i className="ti ti-device-floppy" /> บันทึกข้อมูลพนักงาน
+                          </button>
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            <i className="ti ti-cloud-check" /> เก็บลงระบบกลาง ใช้ร่วมกันได้ทุกเครื่อง
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 12 }}>
+                          <i className="ti ti-lock" /> เฉพาะ Admin หรือ Co-Admin แก้ไขข้อมูลพนักงานได้
+                        </div>
+                      )}
                       {detailMsg && (
                         <div style={{ fontSize: 12, marginTop: 6, color: detailMsg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{detailMsg.text}</div>
                       )}
@@ -461,7 +467,7 @@ function Row({ label, value, onChange, placeholder }) {
   );
 }
 
-function SlipField({ label, value, onChange, text }) {
+function SlipField({ label, value, onChange, text, disabled }) {
   return (
     <div>
       <label style={lbl}>{label}</label>
@@ -471,7 +477,8 @@ function SlipField({ label, value, onChange, text }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={text ? '' : '0'}
-        style={inp}
+        disabled={disabled}
+        style={disabled ? { ...inp, background: 'var(--beige)', color: 'var(--muted)', cursor: 'not-allowed' } : inp}
       />
     </div>
   );
