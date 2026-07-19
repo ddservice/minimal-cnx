@@ -19,10 +19,21 @@ export async function login(prevState, formData) {
     ? usernameRaw
     : `${usernameRaw}@marim69.internal`;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' };
+  }
+
+  // เช็กว่าบัญชียังใช้งานได้อยู่ก่อนปล่อยผ่าน — ถ้าถูกปิดใช้งาน (is_active=false) ให้เซ็นเอาต์ทันที
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_active')
+    .eq('id', data.user.id)
+    .maybeSingle();
+  if (profile?.is_active === false) {
+    await supabase.auth.signOut();
+    return { error: 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ' };
   }
 
   redirect('/dashboard');

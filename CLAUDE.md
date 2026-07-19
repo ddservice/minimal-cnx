@@ -14,10 +14,13 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 ## Security model (do not weaken)
 
-- Real boundary = Supabase **RLS + `SECURITY DEFINER` RPCs**. Client code is not a security layer.
+- Real boundary = Supabase **RLS + `SECURITY DEFINER` RPCs**. Client code is not a security layer — the browser holds the publishable anon key + the user's own JWT, so it can call Supabase directly (bypassing the Next.js server and every Server Action guard) via browser devtools. **`requireAdmin()` checks in Server Actions are defense-in-depth, not the boundary — RLS is.**
 - Only `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable) reach the browser. **Never** put the service_role key client-side.
-- Money (net revenue, VAT, expense totals) is **recomputed in Server Actions** — never trust client values.
-- Auth: login is a Server Action; `middleware.js` guards every route; pages use `requireSession()` (`lib/session.js`).
+- Money (net revenue, VAT, expense totals, payslip figures) is **recomputed server-side** (Server Actions / `lib/payslip.js` `computePayslip()`) — never trust client-sent totals.
+- Auth: login is a Server Action (also checks `profiles.is_active`); `middleware.js` guards every route; pages use `requireSession()` (`lib/session.js`, also re-checks `is_active` and signs out disabled accounts).
+- **`lib/perms.js` role-visibility matrix (`role_perms`) is UI-only** — it hides nav tabs, it does not restrict data access. Do not treat it as an access-control mechanism; RLS is what actually gates reads/writes.
+- **Run `harden_security.sql` (repo root) in Supabase SQL Editor if not already applied** — fixes a profiles self-role-escalation gap (`profiles: update own` had no column restriction, so any logged-in user could set their own `role` to `'admin'` via a direct Supabase call) and restricts a few sensitive `business_config` keys (`role_perms`, `form50_payees`, `emp_pay_history`, `opex_defaults`) + `audit_log` reads to admin only. See the file's comments for a documented, commented-out optional tightening of `sales_daily`/`expenses` UPDATE to exclude `staff` (a business-trust-model tradeoff, not applied by default since the app intentionally lets any role fix its own entries).
+- `audit_log` (with `old_data`/`new_data`, trigger-populated, `SECURITY DEFINER` so it can't be forged by clients) already tracks every INSERT/UPDATE/DELETE on `sales_daily` and `expenses` — useful for detecting/investigating tampering after the fact. No UI reads it yet (candidate follow-up feature).
 
 ## Run / build / deploy
 
@@ -61,7 +64,11 @@ Also ported ✅: **employee pay-history + reprint** (`lib/payslip.js` exports `c
 
 Also ported ✅: **free-cup promo evidence upload** (`app/sales/sales-form.js`) — when `free_cups > 0`, an image/PDF file input uploads to Supabase Storage bucket `evidence` (path `free_cups/{date}_{ts}.{ext}`) via the browser client, stores the public URL in `sales_daily.free_cup_evidence_url` through `upsert_sales_daily`. **Requires `add_free_cup_actual_cost.sql` (repo root) to have been run in the Supabase SQL editor** — it adds the column, updates the RPC to accept/coalesce the URL, and creates the `evidence` bucket + RLS policies (authenticated insert, public read). Until run, uploads fail with a friendly "ยังไม่ได้รัน add_free_cup_actual_cost.sql" hint (same pattern as legacy) and the URL is silently dropped from the save payload (harmless no-op against the currently-deployed RPC).
 
-**Migration to run once (if not already applied):** `add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in this app works against the schema already in `supabase_migration.sql`.
+Also ported ✅: **user activate/deactivate** (`/admin`, admin-only `toggleActiveAction`) — a lighter-weight alternative to deleting a user; `requireSession()`/login now enforce `profiles.is_active`, signing out and blocking access immediately when a user is deactivated (previously the column existed but was never checked, so a "deactivated" user could still use the app).
+
+**Migrations to run once (if not already applied):**
+- `add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in this app works against the schema already in `supabase_migration.sql`.
+- **`harden_security.sql` — security fix, recommend running regardless of which features you use.** See "Security model" above.
 
 Feature parity with the legacy dashboard is now complete for practical purposes — no remaining tracked gaps.
 

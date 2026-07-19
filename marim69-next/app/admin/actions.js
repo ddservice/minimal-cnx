@@ -86,6 +86,25 @@ export async function resetPasswordAction(input) {
   return { status: 'ok', message: `รีเซ็ตรหัสผ่าน "${username}" เรียบร้อย` };
 }
 
+// เปิด/ปิดใช้งานบัญชี — ทางเลือกที่เบากว่าการลบถาวร (บัญชีที่ถูกปิดจะเซ็นเอาต์ทันทีที่พยายามเข้าใช้)
+export async function toggleActiveAction(input) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return DENY;
+
+  const username = String(input.username || '').trim();
+  const isActive = !!input.is_active;
+  if (!username) return { status: 'error', message: 'ไม่พบชื่อผู้ใช้' };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_active: isActive })
+    .eq('username', username);
+  if (error) return { status: 'error', message: error.message };
+
+  revalidatePath('/admin');
+  return { status: 'ok', message: isActive ? `เปิดใช้งาน "${username}" แล้ว` : `ปิดใช้งาน "${username}" แล้ว` };
+}
+
 export async function deleteUserAction(input) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return DENY;

@@ -5,7 +5,7 @@ import PageHeader from '../../components/page-header';
 import UserManager from './user-manager';
 
 export default async function AdminPage() {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed, profile } = await requireSession();
   if (!isAdmin) redirect('/dashboard');
 
   const { data: users } = await supabase
@@ -16,7 +16,7 @@ export default async function AdminPage() {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-users" title="จัดการผู้ใช้งาน" />
-      <UserManager initialUsers={users || []} />
+      <UserManager initialUsers={users || []} myUsername={profile?.username} />
     </AppShell>
   );
 }

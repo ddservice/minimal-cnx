@@ -6,6 +6,7 @@ import {
   createUserAction,
   updateUserAction,
   resetPasswordAction,
+  toggleActiveAction,
   deleteUserAction,
 } from './actions';
 
@@ -23,7 +24,7 @@ const ROLE_COLORS = {
   staff: '#7a7a7a',
 };
 
-export default function UserManager({ initialUsers }) {
+export default function UserManager({ initialUsers, myUsername }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null); // { text, type }
@@ -67,6 +68,13 @@ export default function UserManager({ initialUsers }) {
     flash(await deleteUserAction({ username: u.username }));
   }
 
+  async function onToggleActive(u) {
+    const next = !(u.is_active !== false); // is_active undefined/true -> จะปิด, false -> จะเปิด
+    const label = next ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+    if (!window.confirm(`${label}บัญชี "${u.username}" ?${!next ? '\n(ผู้ใช้จะถูกเซ็นเอาต์และเข้าระบบไม่ได้ทันที)' : ''}`)) return;
+    flash(await toggleActiveAction({ username: u.username, is_active: next }));
+  }
+
   return (
     <div>
       {/* ── ฟอร์มสร้างผู้ใช้ ── */}
@@ -102,11 +110,13 @@ export default function UserManager({ initialUsers }) {
           <UserCard
             key={u.username}
             user={u}
+            isSelf={u.username === myUsername}
             editing={editing === u.username}
             onEdit={() => setEditing(u.username)}
             onCancel={() => setEditing(null)}
             onSave={(values) => onSaveEdit(u, values)}
             onResetPw={() => onResetPw(u)}
+            onToggleActive={() => onToggleActive(u)}
             onDelete={() => onDelete(u)}
           />
         ))}
@@ -115,17 +125,19 @@ export default function UserManager({ initialUsers }) {
   );
 }
 
-function UserCard({ user, editing, onEdit, onCancel, onSave, onResetPw, onDelete }) {
+function UserCard({ user, isSelf, editing, onEdit, onCancel, onSave, onResetPw, onToggleActive, onDelete }) {
   const [full, setFull] = useState(user.full_name || '');
   const [nick, setNick] = useState(user.nickname || '');
   const [role, setRole] = useState(user.role || 'staff');
+  const isActive = user.is_active !== false;
 
   return (
-    <div style={cardStyle}>
+    <div style={{ ...cardStyle, opacity: isActive ? 1 : 0.6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <strong style={{ fontSize: 15 }}>{user.username}</strong>{' '}
-          <span style={{ ...chip, background: ROLE_COLORS[user.role] || '#999' }}>{user.role}</span>
+          <span style={{ ...chip, background: ROLE_COLORS[user.role] || '#999' }}>{user.role}</span>{' '}
+          {!isActive && <span style={{ ...chip, background: 'var(--danger)' }}>ปิดใช้งาน</span>}
           {user.full_name && (
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{user.full_name}</div>
           )}
@@ -137,7 +149,12 @@ function UserCard({ user, editing, onEdit, onCancel, onSave, onResetPw, onDelete
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <button style={btnGhost} onClick={onEdit}>แก้ไข</button>
             <button style={btnGhost} onClick={onResetPw}>รีเซ็ต PW</button>
-            <button style={btnDanger} onClick={onDelete}>ลบ</button>
+            {!isSelf && (
+              <button style={isActive ? btnDanger : btnGhost} onClick={onToggleActive}>
+                {isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+              </button>
+            )}
+            {!isSelf && <button style={btnDanger} onClick={onDelete}>ลบ</button>}
           </div>
         )}
       </div>
