@@ -54,8 +54,11 @@ export default async function ReportsPage({ searchParams }) {
     <div className="wrap">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: 22 }}>สรุปรายเดือน</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <MonthPicker value={monthInput} />
+          <a className="link-btn" href={`/export?month=${monthInput}`} style={{ textDecoration: 'none' }}>
+            ⬇ Excel
+          </a>
           <Link className="link-btn" href="/dashboard">← Dashboard</Link>
         </div>
       </div>
