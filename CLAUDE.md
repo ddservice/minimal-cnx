@@ -45,10 +45,9 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 ## Feature status vs legacy
 
-**Ported ✅:** sales entry (+delete), expense entry (+edit/delete, supplier-first for materials, DB last-price catalog), OPEX 3 categories, rent WHT, VAT-auto, payslip calculator + print slip, monthly report + 2 charts, Excel export, user management, **business info settings** (`/settings` → `business_config.biz_info`, feeds the print slip).
+**Ported ✅:** sales entry (+delete), expense entry (+edit/delete, supplier-first for materials, DB last-price catalog), OPEX 3 categories, rent WHT, VAT-auto, payslip calculator + print slip, monthly report + 2 charts, Excel export, user management, business info settings (`/settings` → `business_config.biz_info`, feeds the print slip), **Excel import** (`/settings`, admin-only, sales/expense via `exceljs`; matches the exported Thai-header format, dd/mm/yyyy incl. พ.ศ.).
 
 **Not yet ported ⏳ (legacy `ตั้งค่า`/`วิเคราะห์` tabs):**
-- Bulk **import** from Excel (sales/expense/opex)
 - **Analytics** tab: multi-month trend table + MoM comparison
 - Role-based visibility matrix (per-role permissions)
 - Admin data tools: delete-whole-month, deduplicate-month

@@ -1,9 +1,128 @@
 'use server';
 
+import ExcelJS from 'exceljs';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
+import { computeNetRevenue } from '../../lib/gp';
 
 const FIELDS = ['name', 'phone', 'tax_id', 'address', 'logo_url'];
+
+const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+// อ่านค่าจากหลายชื่อคอลัมน์ที่เป็นไปได้
+const pick = (row, ...names) => {
+  for (const n of names) if (row[n] != null && row[n] !== '') return row[n];
+  return '';
+};
+
+// แปลงวันที่: Date | ISO | dd/mm/yyyy (รองรับปี พ.ศ.)
+function toISO(v) {
+  if (v instanceof Date) return new Date(v.getTime() - v.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const s = String(v || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    let [, d, mo, y] = m; y = Number(y); if (y > 2500) y -= 543;
+    return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+  return null;
+}
+
+function sheetToObjects(ws) {
+  if (!ws) return [];
+  const out = [];
+  let headers = [];
+  ws.eachRow((row, n) => {
+    const vals = row.values; // 1-indexed (vals[0] undefined)
+    if (n === 1) { headers = vals.map((v) => String(v == null ? '' : v).trim()); return; }
+    const obj = {};
+    headers.forEach((h, i) => { if (h) obj[h] = vals[i]; });
+    out.push(obj);
+  });
+  return out;
+}
+
+// นำเข้าข้อมูลจาก .xlsx (type: 'sales' | 'expense')
+export async function importData(prevState, formData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+
+  const type = String(formData.get('type') || '');
+  const file = formData.get('file');
+  if (!(file instanceof File) || !file.size) return { status: 'error', message: 'กรุณาเลือกไฟล์ .xlsx' };
+
+  let ws;
+  try {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await file.arrayBuffer()));
+    ws = wb.worksheets[0];
+  } catch {
+    return { status: 'error', message: 'อ่านไฟล์ไม่ได้ — ต้องเป็น .xlsx' };
+  }
+  const rows = sheetToObjects(ws);
+  if (!rows.length) return { status: 'error', message: 'ไม่พบข้อมูลในไฟล์' };
+
+  let ok = 0;
+  let skipped = 0;
+
+  if (type === 'sales') {
+    for (const r of rows) {
+      const date = toISO(pick(r, 'วันที่', 'date'));
+      if (!date) { skipped++; continue; }
+      const payload = {
+        date,
+        total_cups: num(pick(r, 'แก้วรวม', 'ยอดขาย(แก้ว)', 'ยอดขาย(แก้วรวม)', 'total_cups')),
+        kshop_amount: num(pick(r, 'K-Shop', 'K-Shop(฿)', 'kshop_amount')),
+        cash_amount: num(pick(r, 'เงินสด', 'เงินสด(฿)', 'cash_amount')),
+        shopee_before_gp: num(pick(r, 'Shopee(ก่อน GP)', 'Shopee(฿)ก่อน GP', 'shopee_before_gp')),
+        grab_before_gp: num(pick(r, 'Grab(ก่อน GP)', 'Grab(฿)ก่อน GP', 'grab_before_gp')),
+        lineman_before_gp: num(pick(r, 'Lineman(ก่อน GP)', 'LineMan(฿)ก่อน GP', 'lineman_before_gp')),
+        free_cups: num(pick(r, 'แก้วฟรี(แก้ว)', 'free_cups')),
+        free_cup_cost: num(pick(r, 'ต้นทุน/แก้วฟรี(฿)', 'free_cup_cost')),
+        pastry_pieces: num(pick(r, 'ขนม(ชิ้น)', 'pastry_pieces')),
+        pastry_revenue: num(pick(r, 'รายได้ขนม', 'รายได้ขนม(฿)', 'pastry_revenue')),
+      };
+      const provided = num(pick(r, 'รายรับสุทธิ', 'รายรับสุทธิ(฿)', 'net_revenue'));
+      payload.net_revenue = provided > 0 ? provided : computeNetRevenue(payload);
+      const { error } = await supabase.rpc('upsert_sales_daily', { p_data: payload });
+      if (error) return { status: 'error', message: `แถวขาย: ${error.message}` };
+      ok++;
+    }
+  } else if (type === 'expense') {
+    const records = [];
+    for (const r of rows) {
+      const date = toISO(pick(r, 'วันที่', 'date'));
+      const item_name = String(pick(r, 'รายการ', 'item_name')).trim();
+      // ใช้หมวดตามไฟล์ (รองรับทั้งหมวดรายจ่ายและ OPEX เหมือน import เดิม)
+      const category = String(pick(r, 'หมวดหมู่', 'หมวด', 'category')).trim() || 'ต้นทุนวัตถุดิบ';
+      if (!date || !item_name) { skipped++; continue; }
+      records.push({
+        date, category,
+        subcategory: String(pick(r, 'ซัพพลายเออร์', 'ผู้ขาย', 'supplier')).trim() || null,
+        item_name,
+        unit: String(pick(r, 'หน่วย', 'unit')).trim(),
+        unit_price: num(pick(r, 'ราคา/หน่วย', 'ราคา/หน่วย(฿)', 'unit_price')),
+        quantity: num(pick(r, 'จำนวน', 'quantity')) || 1,
+        total_amount: num(pick(r, 'รวม (฿)', 'รวม(฿)', 'total_amount')),
+        payment_method: String(pick(r, 'ชำระด้วย', 'payment_method')).trim() || 'บัญชี หจก.',
+        month_label: '',
+        recorded_by: user.id,
+      });
+      ok++;
+    }
+    if (records.length) {
+      const { error } = await supabase.from('expenses').insert(records);
+      if (error) return { status: 'error', message: error.message };
+    }
+  } else {
+    return { status: 'error', message: 'ชนิดข้อมูลไม่ถูกต้อง' };
+  }
+
+  revalidatePath('/reports');
+  revalidatePath('/dashboard');
+  return { status: 'ok', message: `นำเข้าสำเร็จ ${ok} แถว${skipped ? ` (ข้าม ${skipped} แถวที่ข้อมูลไม่ครบ)` : ''}` };
+}
 
 // บันทึกข้อมูลบริษัทลง business_config (key = biz_info) — ใช้ร่วมทุกเครื่อง
 export async function saveBizInfo(input) {
