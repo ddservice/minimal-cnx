@@ -10,6 +10,7 @@ import {
   currentMonthInput,
 } from '../../lib/opex';
 import OpexForm from './opex-form';
+import Form50 from './form50';
 
 export default async function OpexPage({ searchParams }) {
   const { supabase, role, name, isAdmin, allowed } = await requireSession();
@@ -36,13 +37,13 @@ export default async function OpexPage({ searchParams }) {
     .lte('date', mEnd);
   const income = (salesRows || []).reduce((a, r) => a + Number(r.net_revenue || 0), 0);
 
-  // ข้อมูลบริษัท (สำหรับหัวสลิปเงินเดือน)
-  const { data: bizCfg } = await supabase
+  // ข้อมูลบริษัท (หัวสลิป) + ผู้รับเงิน 50 ทวิ
+  const { data: cfgs } = await supabase
     .from('business_config')
-    .select('value')
-    .eq('key', 'biz_info')
-    .maybeSingle();
-  const bizInfo = bizCfg?.value || {};
+    .select('key, value')
+    .in('key', ['biz_info', 'form50_payees']);
+  const bizInfo = cfgs?.find((c) => c.key === 'biz_info')?.value || {};
+  const form50Payees = cfgs?.find((c) => c.key === 'form50_payees')?.value || {};
 
   const operating = {};
   const staff = {};
@@ -73,6 +74,12 @@ export default async function OpexPage({ searchParams }) {
         bizInfo={bizInfo}
         isAdmin={isAdmin}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
+      />
+      <Form50
+        amounts={{ rent: operating.rent || 0, staff_sub: staff.staff_sub || 0 }}
+        payees={form50Payees}
+        bizInfo={bizInfo}
+        monthLabel={monthLabel}
       />
     </AppShell>
   );

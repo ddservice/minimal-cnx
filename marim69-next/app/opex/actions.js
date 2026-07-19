@@ -4,6 +4,17 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX } from '../../lib/opex';
 
+// บันทึกข้อมูลผู้รับเงิน (ฟอร์ม 50 ทวิ) ลง business_config — ใช้ร่วมทุกเครื่อง
+export async function saveForm50Payees(payees) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const { error } = await supabase.from('business_config').upsert({ key: 'form50_payees', value: payees || {} });
+  if (error) return { status: 'error', message: error.message };
+  revalidatePath('/opex');
+  return { status: 'ok', message: 'บันทึกข้อมูลผู้รับเงินเรียบร้อย' };
+}
+
 const OP_LABEL = Object.fromEntries(OPEX_OPERATING.items.map((i) => [i.key, i.label]));
 const OP_KEYS = new Set(OPEX_OPERATING.items.map((i) => i.key));
 const STAFF_LABEL = Object.fromEntries(OPEX_STAFF.fixed.map((i) => [i.key, i.label]));

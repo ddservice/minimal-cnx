@@ -54,7 +54,7 @@ Also ported ✅: **bakery presets** (`lib/bakery.js`, auto-fill default price), 
 **Payroll formula is verified identical to legacy `calEmpTotal`.** SSO 5% each side on min(salary,15000); commission = income×rate; commission WHT 3%; company cost = gross + companySSO.
 
 **Not yet ported ⏳ (niche):**
-- Form 50/50-ทวิ (ภ.ง.ด.1 หนังสือรับรองหัก ณ ที่จ่าย) PDF generation
+- (done) Form 50 ทวิ printable certificate — see below
 - Employee pay-history log + reprint; price-history modals (last price is shown, full history isn't)
 - Free-cup promo actual-unit-cost config + evidence upload (Supabase Storage)
 - Editable/persisted OPEX defaults (currently static in `lib/opex.js`)
