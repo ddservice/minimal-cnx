@@ -1,5 +1,6 @@
-// OPEX หมวด "ค่าใช้จ่ายดำเนินการ" — item_key ต้องตรงกับ dashboard เดิม
-// (ค่าแรงพนักงาน + ภาษีและอื่นๆ = สไลซ์ถัดไป มี WHT/VAT/พนักงานหลายคน)
+// OPEX 3 หมวด — item_key/category ต้องตรงกับ dashboard เดิม
+// (WHT หัก ณ ที่จ่าย, VAT auto จากยอดขาย, สลิป/คอมมิชชั่น = ตัวช่วย เลื่อนไว้ทีหลัง)
+
 export const OPEX_OPERATING = {
   category: 'ค่าใช้จ่ายดำเนินการ',
   items: [
@@ -12,6 +13,29 @@ export const OPEX_OPERATING = {
     { key: 'repair', label: 'ค่าซ่อมบำรุงเครื่องชงกาแฟ' },
   ],
 };
+
+export const OPEX_STAFF = {
+  category: 'ค่าแรงพนักงาน',
+  // รายการคงที่
+  fixed: [
+    { key: 'salary_dir', label: 'เงินเดือนกรรมการ' },
+    { key: 'staff_sub', label: 'พนักงานแทน' },
+  ],
+  // พนักงานเป็นแถวแบบ dynamic → key = emp1, emp2, ...
+  empPrefix: 'emp',
+};
+
+export const OPEX_TAX = {
+  category: 'ภาษีและอื่นๆ',
+  items: [{ key: 'vat', label: 'ภาษีมูลค่าเพิ่ม (VAT 7%)' }],
+};
+
+// รวม category ทั้งหมดที่ถือเป็น OPEX (ใช้ตอน query/summary)
+export const OPEX_ALL_CATEGORIES = [
+  OPEX_OPERATING.category,
+  OPEX_STAFF.category,
+  OPEX_TAX.category,
+];
 
 // '2026-07' (input type=month) -> '07/2026' (month_label ใน DB)
 export function monthInputToLabel(m) {
