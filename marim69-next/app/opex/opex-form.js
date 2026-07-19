@@ -1,32 +1,147 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX } from '../../lib/opex';
+import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX, DEFAULT_EMPLOYEES } from '../../lib/opex';
 import { saveOpexAction } from './actions';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const sumObj = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0);
+
+const COMM_RATES = [['0', 'ไม่มี'], ['0.01', '1%'], ['0.015', '1.5%'], ['0.02', '2%'], ['0.025', '2.5%'], ['0.03', '3%']];
+
+// คำนวณสลิปเงินเดือน (ตรงกับ dashboard เดิม)
+function payslip(e, income) {
+  const salary = Number(e.salary) || 0;
+  const position = Number(e.position) || 0;
+  const diligence = Number(e.diligence) || 0;
+  const commAmt = Math.round(income * (Number(e.commRate) || 0));
+  const ssoBase = Math.min(salary, 15000); // ฐานประกันสังคมสูงสุด 15,000
+  const ssoEmp = Math.round(ssoBase * 0.05);
+  const ssoCo = Math.round(ssoBase * 0.05);
+  const gross = salary + position + commAmt + diligence;
+  const commTax = Math.round(commAmt * 0.03);
+  const netTransfer = salary - ssoEmp + position + diligence + (commAmt - commTax);
+  const companyCost = gross + ssoCo; // ค่าใช้จ่ายบริษัท = gross + ประกันสังคมบริษัท
+  return { commAmt, ssoEmp, ssoCo, gross, commTax, netTransfer, companyCost };
+}
+
+// พิมพ์ใบรับรอง/สลิปเงินเดือน (เปิดหน้าต่างพิมพ์)
+function printSlip(e, ps, monthLabel) {
+  let biz = {};
+  try { biz = JSON.parse(localStorage.getItem('mm69_biz_info') || '{}'); } catch {}
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const f = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  const [mm, yy] = String(monthLabel || '').split('/');
+  const salary = Number(e.salary) || 0, position = Number(e.position) || 0, diligence = Number(e.diligence) || 0;
+  const row = (label, val, cls = '') => `<tr class="${cls}"><td>${label}</td><td class="num">${val}</td></tr>`;
+  const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
+<title>สลิปเงินเดือน ${esc(e.label)} ${mm || ''}/${yy || ''}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Sarabun','Segoe UI',sans-serif;font-size:13.5px;color:#1a1a1a;padding:32px 40px;max-width:680px;margin:0 auto;line-height:1.5}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid #1a1a1a;margin-bottom:16px}
+  .bname{font-size:17px;font-weight:700}
+  .bsub{font-size:11px;color:#666;margin-top:2px}
+  .meta{text-align:right;font-size:11px;color:#444}
+  .meta b{display:block;font-size:12px;color:#1a1a1a}
+  .title{background:#1a1a1a;color:#fff;text-align:center;padding:8px;font-size:15px;font-weight:700;letter-spacing:1px;margin-bottom:16px}
+  .emp{display:flex;justify-content:space-between;font-size:13px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px}
+  td{padding:7px 12px;border:1px solid #d8cdbd}
+  th{background:#f5f1e8;padding:8px 12px;border:1px solid #c8b89a;text-align:left;font-size:12px;font-weight:700}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .sub td{background:#faf7f0;font-weight:700;border-top:2px solid #c8b89a}
+  .ded td{color:#b00000}
+  .net td{background:#1a1a1a;color:#fff;font-weight:700;font-size:14px}
+  .sign{display:flex;justify-content:space-between;margin-top:44px;font-size:12px;color:#444}
+  .sign div{text-align:center;width:45%}
+  .sign .line{border-top:1px solid #999;margin-bottom:5px;padding-top:34px}
+  @media print{body{padding:0}}
+</style></head><body>
+  <div class="head">
+    <div><div class="bname">${esc(biz.name || 'Minimal Maerim')}</div><div class="bsub">${esc(biz.tax_id ? 'เลขผู้เสียภาษี ' + biz.tax_id : '')}${biz.address ? '<br>' + esc(biz.address) : ''}</div></div>
+    <div class="meta"><b>สลิปเงินเดือน</b>งวด ${esc(mm || '--')}/${esc(yy || '----')}<br>วันที่ ${esc(today)}</div>
+  </div>
+  <div class="title">ใบรับรอง / สลิปเงินเดือน</div>
+  <div class="emp"><span><b>พนักงาน:</b> ${esc(e.label)}</span><span><b>งวดเดือน:</b> ${esc(mm || '--')}/${esc(yy || '----')}</span></div>
+  <table>
+    <tr><th>รายรับ</th><th class="num">บาท</th></tr>
+    ${row('เงินเดือน', f(salary))}
+    ${row('ค่าประจำตำแหน่ง', f(position))}
+    ${row('Commission', f(ps.commAmt))}
+    ${row('เบี้ยขยัน', f(diligence))}
+    ${row('รวมรายรับ (Gross)', f(ps.gross), 'sub')}
+  </table>
+  <table>
+    <tr><th>รายการหัก</th><th class="num">บาท</th></tr>
+    ${row('ประกันสังคม (พนักงาน 5%)', '− ' + f(ps.ssoEmp), 'ded')}
+    ${row('หัก ณ ที่จ่าย Commission 3%', '− ' + f(ps.commTax), 'ded')}
+    ${row('โอนสุทธิให้พนักงาน', f(ps.netTransfer), 'net')}
+  </table>
+  <table>
+    <tr><th>ส่วนของบริษัท</th><th class="num">บาท</th></tr>
+    ${row('ประกันสังคม (บริษัทสมทบ 5%)', f(ps.ssoCo))}
+    ${row('รวมค่าใช้จ่ายบริษัท', f(ps.companyCost), 'sub')}
+  </table>
+  <div class="sign"><div><div class="line"></div>ผู้จ่ายเงิน</div><div><div class="line"></div>ผู้รับเงิน</div></div>
+</body></html>`;
+  const w = window.open('', '_blank', 'width=760,height=920');
+  if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป — โปรดอนุญาตป๊อปอัปเพื่อพิมพ์สลิป'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 400);
+}
 
 export default function OpexForm({ monthInput, monthLabel, existing, income = 0 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
 
-  const initFixed = (items, saved) => {
+  const initFixed = (items, saved, useDefault) => {
     const o = {};
-    items.forEach((it) => (o[it.key] = saved[it.key] != null ? String(saved[it.key]) : ''));
+    items.forEach((it) => {
+      o[it.key] = saved[it.key] != null ? String(saved[it.key]) : (useDefault && it.def != null ? String(it.def) : '');
+    });
     return o;
   };
 
-  const [operating, setOperating] = useState(() => initFixed(OPEX_OPERATING.items, existing.operating));
-  const [staff, setStaff] = useState(() => initFixed(OPEX_STAFF.fixed, existing.staff));
-  const [tax, setTax] = useState(() => initFixed(OPEX_TAX.items, existing.tax));
-  const [employees, setEmployees] = useState(() =>
-    existing.employees?.length
+  const [operating, setOperating] = useState(() => initFixed(OPEX_OPERATING.items, existing.operating, false));
+  const [staff, setStaff] = useState(() => initFixed(OPEX_STAFF.fixed, existing.staff, true)); // เติมค่าตั้งต้น (36000/0)
+  const [tax, setTax] = useState(() => initFixed(OPEX_TAX.items, existing.tax, false));
+  const [employees, setEmployees] = useState(() => {
+    let slips = [];
+    if (typeof window !== 'undefined') {
+      try { slips = JSON.parse(localStorage.getItem('mm69_emp_slip') || '[]'); } catch {}
+    }
+    const base = existing.employees?.length
       ? existing.employees.map((e) => ({ label: e.label || '', amount: e.amount != null ? String(e.amount) : '' }))
-      : [{ label: 'พนักงานคนที่ 1', amount: '' }]
-  );
+      : DEFAULT_EMPLOYEES.map((e) => ({ label: e.label, amount: '' }));
+    return base.map((e, i) => {
+      const def = DEFAULT_EMPLOYEES[i] || {};
+      const slip = slips[i] || {};
+      return {
+        // เติมเงินเดือน/ตำแหน่งตั้งต้นจากข้อมูลเดิม (localStorage ทับได้)
+        salary: slip.salary ?? def.salary ?? '',
+        position: slip.position ?? def.position ?? '',
+        commRate: slip.commRate ?? '0',
+        diligence: slip.diligence ?? '',
+        showSlip: false,
+        label: e.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
+        amount: e.amount, // ยอดที่บันทึกจริง (จาก DB) — คงไว้ ไม่ทับด้วย slip อัตโนมัติ
+      };
+    });
+  });
+
+  // จำค่าสลิป (เงินเดือน/ตำแหน่ง/คอมฯ) ในเครื่อง — ไม่แตะ DB
+  useEffect(() => {
+    const slim = employees.map((e) => ({
+      label: e.label, salary: e.salary, position: e.position, commRate: e.commRate, diligence: e.diligence,
+    }));
+    try { localStorage.setItem('mm69_emp_slip', JSON.stringify(slim)); } catch {}
+  }, [employees]);
 
   const empTotal = employees.reduce((a, e) => a + (Number(e.amount) || 0), 0);
   const grand = sumObj(operating) + sumObj(staff) + sumObj(tax) + empTotal;
@@ -63,7 +178,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0 
             const rv = Number(operating.rent) || 0;
             return (
               <div key={it.key}>
-                <Row label={it.label} value={operating[it.key]} onChange={onChange} />
+                <Row label={it.label} value={operating[it.key]} onChange={onChange} placeholder={it.def} />
                 {rv > 0 && (
                   <div style={whtBox}>
                     <div style={{ ...whtRow, background: '#f0fdf4' }}>
@@ -79,7 +194,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0 
               </div>
             );
           }
-          return <Row key={it.key} label={it.label} value={operating[it.key]} onChange={onChange} />;
+          return <Row key={it.key} label={it.label} value={operating[it.key]} onChange={onChange} placeholder={it.def} />;
         })}
       </Section>
 
@@ -90,16 +205,58 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0 
         ))}
         <div style={{ borderTop: '1px dashed var(--border)', margin: '8px 0', paddingTop: 8 }}>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>พนักงาน</div>
-          {employees.map((e, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <input value={e.label} onChange={(ev) => setEmp(i, 'label', ev.target.value)} placeholder="ชื่อ/ตำแหน่ง" style={{ ...inp, flex: '1 1 140px' }} />
-              <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', ev.target.value)} placeholder="0" style={{ ...inp, flex: '0 1 130px' }} />
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
-              {employees.length > 1 && (
-                <button type="button" onClick={() => removeEmp(i)} style={btnRemove}>ลบ</button>
-              )}
-            </div>
-          ))}
+          {employees.map((e, i) => {
+            const ps = payslip(e, income);
+            return (
+              <div key={i} style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input value={e.label} onChange={(ev) => setEmp(i, 'label', ev.target.value)} placeholder="ชื่อ/ตำแหน่ง" style={{ ...inp, flex: '1 1 140px' }} />
+                  <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', ev.target.value)} placeholder="0" style={{ ...inp, flex: '0 1 120px' }} />
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
+                  <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
+                    <i className="ti ti-calculator" /> สลิป
+                  </button>
+                  {employees.length > 1 && (
+                    <button type="button" onClick={() => removeEmp(i)} style={btnRemove}>ลบ</button>
+                  )}
+                </div>
+
+                {e.showSlip && (
+                  <div style={slipBox}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 10 }}>
+                      <SlipField label="เงินเดือน" value={e.salary} onChange={(v) => setEmp(i, 'salary', v)} />
+                      <SlipField label="ค่าประจำตำแหน่ง" value={e.position} onChange={(v) => setEmp(i, 'position', v)} />
+                      <div>
+                        <label style={lbl}>Commission (% ยอดขาย)</label>
+                        <select value={e.commRate} onChange={(ev) => setEmp(i, 'commRate', ev.target.value)} style={inp}>
+                          {COMM_RATES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                      </div>
+                      <SlipField label="เบี้ยขยัน" value={e.diligence} onChange={(v) => setEmp(i, 'diligence', v)} />
+                    </div>
+
+                    <div style={slipCalc}>
+                      <SlipRow label={`รวม Gross (คอมฯ ${fmt(ps.commAmt)})`} value={fmt(ps.gross)} />
+                      <SlipRow label="หัก ประกันสังคม (พนักงาน 5%)" value={`− ${fmt(ps.ssoEmp)}`} color="#c00000" />
+                      <SlipRow label="หัก Commission tax 3%" value={`− ${fmt(ps.commTax)}`} color="#c00000" />
+                      <SlipRow label="💸 โอนให้พนักงาน" value={fmt(ps.netTransfer)} strong />
+                      <SlipRow label="+ ประกันสังคม (บริษัท 5%)" value={`+ ${fmt(ps.ssoCo)}`} color="var(--muted)" />
+                      <SlipRow label="รวมค่าใช้จ่ายบริษัท" value={fmt(ps.companyCost)} strong />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                      <button type="button" onClick={() => setEmp(i, 'amount', String(ps.companyCost))} style={btnMini}>
+                        ใช้ยอดนี้ ({fmt(ps.companyCost)} ฿)
+                      </button>
+                      <button type="button" onClick={() => printSlip(e, ps, monthLabel)} style={btnSlip}>
+                        <i className="ti ti-printer" /> พิมพ์สลิป
+                      </button>
+                    </div>
+                    {income <= 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>* คอมมิชชั่นคำนวณจากยอดขายเดือนนี้ (ยังไม่มีข้อมูลขาย)</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <button type="button" onClick={addEmp} style={btnAdd}>+ เพิ่มพนักงาน</button>
         </div>
       </Section>
@@ -155,12 +312,30 @@ function Section({ title, total, children }) {
   );
 }
 
-function Row({ label, value, onChange }) {
+function Row({ label, value, onChange, placeholder }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
       <label style={{ flex: '1 1 160px', fontSize: 14 }}>{label}</label>
-      <input type="number" min="0" step="any" value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" style={{ ...inp, flex: '0 1 160px' }} />
+      <input type="number" min="0" step="any" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder != null ? String(placeholder) : '0'} style={{ ...inp, flex: '0 1 160px' }} />
       <span style={{ fontSize: 13, color: 'var(--muted)', width: 12 }}>฿</span>
+    </div>
+  );
+}
+
+function SlipField({ label, value, onChange }) {
+  return (
+    <div>
+      <label style={lbl}>{label}</label>
+      <input type="number" min="0" step="any" value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" style={inp} />
+    </div>
+  );
+}
+
+function SlipRow({ label, value, color, strong }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: strong ? '7px 0' : '2px 0', borderTop: strong ? '1px solid var(--border)' : 'none', fontWeight: strong ? 700 : 400 }}>
+      <span style={{ color: color || (strong ? 'var(--coffee)' : 'var(--muted)') }}>{label}</span>
+      <strong style={{ color: color || (strong ? 'var(--coffee)' : 'var(--text)'), fontWeight: strong ? 700 : 600 }}>{value} ฿</strong>
     </div>
   );
 }
@@ -175,3 +350,6 @@ const whtBox = { border: '1px solid var(--border)', borderRadius: 2, overflow: '
 const whtRow = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 11px', fontWeight: 600 };
 const hintBox = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', background: 'var(--beige)', border: '1px solid var(--border)', borderRadius: 2, padding: '8px 11px', margin: '-2px 0 12px', fontSize: 12, color: 'var(--muted)' };
 const btnMini = { border: '1px solid var(--taupe)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 2, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
+const btnSlip = { border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 2, padding: '6px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 };
+const slipBox = { border: '1px solid var(--border)', borderRadius: 2, background: 'var(--beige)', padding: 12, marginTop: 8 };
+const slipCalc = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '10px 12px', fontSize: 13 };

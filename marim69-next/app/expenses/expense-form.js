@@ -3,7 +3,11 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../lib/expense-categories';
+import { SUPPLIERS_ITEMS } from '../../lib/suppliers';
 import { saveExpensesAction } from './actions';
+
+const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
+const SUPPLIER_KEYS = Object.keys(SUPPLIERS_ITEMS);
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
@@ -27,6 +31,8 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
+  const isMaterial = category === MATERIAL_CATEGORY;
+  const [lastSupplier, setLastSupplier] = useState(''); // ค้างซัพพลายเออร์ล่าสุดให้แถวถัดไป
   const [rows, setRows] = useState([emptyRow()]);
 
   const grand = rows.reduce((a, r) => a + rowTotal(r), 0);
@@ -36,8 +42,14 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
 
   const setRow = (i, k, v) =>
     setRows(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
-  const addRow = () => setRows([...rows, emptyRow()]);
+  const addRow = () => setRows([...rows, { ...emptyRow(), supplier: isMaterial ? lastSupplier : '' }]);
   const removeRow = (i) => setRows(rows.length > 1 ? rows.filter((_, idx) => idx !== i) : rows);
+
+  // เลือกซัพพลายเออร์ → เคลียร์รายการ (รายการเปลี่ยนตามเจ้า) + จำไว้ให้แถวถัดไป
+  function onSupplier(i, sup) {
+    setLastSupplier(sup);
+    setRows(rows.map((r, idx) => (idx === i ? { ...r, supplier: sup, item_name: '' } : r)));
+  }
 
   // เลือก/พิมพ์ชื่อที่เคยบันทึก → เติมผู้ขาย/หน่วย/ราคาล่าสุดให้ (เฉพาะช่องที่ยังว่าง)
   function onItemName(i, value) {
@@ -65,7 +77,7 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
     const res = await saveExpensesAction({ date, category, rows });
     setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
     if (res.status === 'ok') {
-      setRows([emptyRow()]);
+      setRows([{ ...emptyRow(), supplier: isMaterial ? lastSupplier : '' }]);
       startTransition(() => router.refresh());
     }
   }
@@ -109,19 +121,38 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
             )}
           </div>
           <div style={grid}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={lbl}>ชื่อรายการ *</label>
-              <input list="exp-catalog" value={r.item_name} onChange={(e) => onItemName(i, e.target.value)} placeholder="เช่น เมล็ดกาแฟ" style={inp} />
-              {catMap[r.item_name?.trim()]?.unit_price != null && (
-                <div style={{ fontSize: 11, color: 'var(--taupe-dark)', marginTop: 3 }}>
-                  ราคาล่าสุด: {fmt(catMap[r.item_name.trim()].unit_price)} ฿{catMap[r.item_name.trim()].unit ? ` / ${catMap[r.item_name.trim()].unit}` : ''}
+            {isMaterial ? (
+              <>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={lbl}>ซัพพลายเออร์ *</label>
+                  <select value={r.supplier} onChange={(e) => onSupplier(i, e.target.value)} style={inp}>
+                    <option value="">— เลือกซัพพลายเออร์ —</option>
+                    {SUPPLIER_KEYS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
-              )}
-            </div>
-            <div>
-              <label style={lbl}>ผู้ขาย/ซัพพลายเออร์</label>
-              <input value={r.supplier} onChange={(e) => setRow(i, 'supplier', e.target.value)} style={inp} />
-            </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={lbl}>รายการสินค้า *</label>
+                  <input list={`items-${i}`} value={r.item_name} onChange={(e) => onItemName(i, e.target.value)}
+                    placeholder={r.supplier ? 'เลือก/พิมพ์รายการ' : 'เลือกซัพพลายเออร์ก่อน'} disabled={!r.supplier} style={inp} />
+                  <datalist id={`items-${i}`}>
+                    {(SUPPLIERS_ITEMS[r.supplier] || []).map((it) => <option key={it} value={it} />)}
+                  </datalist>
+                  <LastPrice catMap={catMap} name={r.item_name} />
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={lbl}>ชื่อรายการ *</label>
+                  <input list="exp-catalog" value={r.item_name} onChange={(e) => onItemName(i, e.target.value)} placeholder="เช่น เมล็ดกาแฟ" style={inp} />
+                  <LastPrice catMap={catMap} name={r.item_name} />
+                </div>
+                <div>
+                  <label style={lbl}>ผู้ขาย/ซัพพลายเออร์</label>
+                  <input value={r.supplier} onChange={(e) => setRow(i, 'supplier', e.target.value)} style={inp} />
+                </div>
+              </>
+            )}
             <div>
               <label style={lbl}>จำนวน</label>
               <input type="number" min="0" step="any" value={r.quantity} onChange={(e) => setRow(i, 'quantity', e.target.value)} style={inp} />
@@ -173,6 +204,16 @@ export default function ExpenseForm({ date, category, catalog = [] }) {
         </div>
       )}
     </form>
+  );
+}
+
+function LastPrice({ catMap, name }) {
+  const hit = catMap[(name || '').trim()];
+  if (!hit || hit.unit_price == null) return null;
+  return (
+    <div style={{ fontSize: 11, color: 'var(--taupe-dark)', marginTop: 3 }}>
+      ราคาล่าสุด: {fmt(hit.unit_price)} ฿{hit.unit ? ` / ${hit.unit}` : ''}
+    </div>
   );
 }
 
