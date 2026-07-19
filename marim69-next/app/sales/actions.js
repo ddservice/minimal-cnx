@@ -50,3 +50,24 @@ export async function saveSalesAction(input) {
     message: `บันทึกยอดขายวันที่ ${date} เรียบร้อย (สุทธิ ${payload.net_revenue.toLocaleString('th-TH')} ฿)`,
   };
 }
+
+// ── ลบยอดขายทั้งวัน (RLS delete = admin เท่านั้น) ──
+export async function deleteSalesAction(date) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+
+  const d = String(date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { status: 'error', message: 'วันที่ไม่ถูกต้อง' };
+
+  // .select() เพื่อเช็คว่าลบได้จริง — RLS ที่บล็อกจะคืน 0 แถว (ไม่ error)
+  const { data, error } = await supabase.from('sales_daily').delete().eq('date', d).select('id');
+  if (error) return { status: 'error', message: error.message };
+  if (!data?.length) return { status: 'error', message: 'ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin' };
+
+  revalidatePath('/sales');
+  revalidatePath('/dashboard');
+  return { status: 'ok', message: `ลบยอดขายวันที่ ${d} เรียบร้อย` };
+}

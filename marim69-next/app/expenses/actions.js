@@ -9,59 +9,94 @@ const num = (v) => {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
-// บันทึกรายจ่ายหลายรายการ (append) — total คำนวณฝั่งเซิร์ฟเวอร์รวม VAT
-export async function saveExpensesAction(input) {
+// total รวม VAT 7% (ตรงกับ dashboard เดิม: pEff = price * 1.07)
+const lineTotal = (price, qty, vat) =>
+  Math.round((vat ? price * 1.07 : price) * qty * 100) / 100;
+
+async function auth() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  return { supabase, user };
+}
+
+const DENY = { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+
+function refresh() {
+  revalidatePath('/expenses');
+  revalidatePath('/reports');
+  revalidatePath('/dashboard');
+}
+
+// map row จากฟอร์ม → record สำหรับ insert/update (คำนวณ total ฝั่งเซิร์ฟเวอร์)
+function toRecord(r) {
+  const price = num(r.unit_price);
+  const qty = num(r.quantity) || 1;
+  return {
+    subcategory: String(r.supplier || '').trim() || null,
+    item_name: String(r.item_name || '').trim(),
+    unit: String(r.unit || '').trim(),
+    unit_price: price,
+    quantity: qty,
+    total_amount: lineTotal(price, qty, !!r.vat),
+    payment_method: String(r.payment_method || 'บัญชี หจก.'),
+  };
+}
+
+// ── เพิ่มรายจ่ายหลายรายการ (append) ──
+export async function saveExpensesAction(input) {
+  const { supabase, user } = await auth();
+  if (!user) return DENY;
 
   const date = String(input.date || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return { status: 'error', message: 'วันที่ไม่ถูกต้อง' };
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { status: 'error', message: 'วันที่ไม่ถูกต้อง' };
   const category = String(input.category || '');
-  if (!EXPENSE_CATEGORY_VALUES.includes(category)) {
-    return { status: 'error', message: 'หมวดหมู่ไม่ถูกต้อง' };
-  }
+  if (!EXPENSE_CATEGORY_VALUES.includes(category)) return { status: 'error', message: 'หมวดหมู่ไม่ถูกต้อง' };
 
-  const rows = Array.isArray(input.rows) ? input.rows : [];
-  const records = rows
+  const records = (Array.isArray(input.rows) ? input.rows : [])
     .filter((r) => String(r.item_name || '').trim() && num(r.unit_price) > 0)
-    .map((r) => {
-      const price = num(r.unit_price);
-      const qty = num(r.quantity) || 1;
-      const vat = !!r.vat;
-      // VAT 7% บวกเข้า total (ตรงกับ dashboard เดิม: pEff = price * 1.07)
-      const total = Math.round((vat ? price * 1.07 : price) * qty * 100) / 100;
-      return {
-        date,
-        category,
-        subcategory: String(r.supplier || '').trim() || null,
-        item_name: String(r.item_name).trim(),
-        unit: String(r.unit || '').trim(),
-        unit_price: price,
-        quantity: qty,
-        total_amount: total,
-        payment_method: String(r.payment_method || 'บัญชี หจก.'),
-        month_label: '', // trigger ตั้งค่าจาก date ให้เอง
-        recorded_by: user.id,
-      };
-    });
+    .map((r) => ({ ...toRecord(r), date, category, month_label: '', recorded_by: user.id }));
 
-  if (!records.length) {
-    return { status: 'error', message: 'กรุณากรอกอย่างน้อย 1 รายการ (ชื่อ + ราคา)' };
-  }
+  if (!records.length) return { status: 'error', message: 'กรุณากรอกอย่างน้อย 1 รายการ (ชื่อ + ราคา)' };
 
   const { error } = await supabase.from('expenses').insert(records);
   if (error) return { status: 'error', message: error.message };
 
-  revalidatePath('/expenses');
-  revalidatePath('/dashboard');
+  refresh();
   const sum = records.reduce((a, r) => a + r.total_amount, 0);
-  return {
-    status: 'ok',
-    message: `บันทึก ${records.length} รายการ รวม ${sum.toLocaleString('th-TH')} ฿`,
-  };
+  return { status: 'ok', message: `บันทึก ${records.length} รายการ รวม ${sum.toLocaleString('th-TH')} ฿` };
+}
+
+// ── แก้ไขรายการเดียว (RLS update = authenticated) ──
+export async function updateExpenseAction(input) {
+  const { supabase, user } = await auth();
+  if (!user) return DENY;
+
+  const id = String(input.id || '');
+  if (!id) return { status: 'error', message: 'ไม่พบรายการ' };
+  const rec = toRecord(input);
+  if (!rec.item_name) return { status: 'error', message: 'กรุณาระบุชื่อรายการ' };
+
+  const { data, error } = await supabase.from('expenses').update(rec).eq('id', id).select('id');
+  if (error) return { status: 'error', message: error.message };
+  if (!data?.length) return { status: 'error', message: 'แก้ไขไม่สำเร็จ (ไม่พบรายการ)' };
+
+  refresh();
+  return { status: 'ok', message: 'แก้ไขรายการเรียบร้อย' };
+}
+
+// ── ลบรายการเดียว (RLS delete = admin/manager+ เท่านั้น) ──
+export async function deleteExpenseAction(id) {
+  const { supabase, user } = await auth();
+  if (!user) return DENY;
+  if (!id) return { status: 'error', message: 'ไม่พบรายการ' };
+
+  // .select() เพื่อเช็คว่าลบได้จริง — RLS ที่บล็อกจะคืน 0 แถว (ไม่ error)
+  const { data, error } = await supabase.from('expenses').delete().eq('id', String(id)).select('id');
+  if (error) return { status: 'error', message: error.message };
+  if (!data?.length) return { status: 'error', message: 'ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin หรือ manager' };
+
+  refresh();
+  return { status: 'ok', message: 'ลบรายการเรียบร้อย' };
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { gpNet, computeNetRevenue } from '../../lib/gp';
-import { saveSalesAction } from './actions';
+import { saveSalesAction, deleteSalesAction } from './actions';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
@@ -68,6 +68,13 @@ export default function SalesForm({ date, existing }) {
     if (res.status === 'ok') startTransition(() => router.refresh());
   }
 
+  async function onDelete() {
+    if (!window.confirm(`ลบยอดขายวันที่ ${date} ทั้งหมด?`)) return;
+    const res = await deleteSalesAction(date);
+    setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
+    if (res.status === 'ok') startTransition(() => router.refresh());
+  }
+
   return (
     <form onSubmit={onSubmit}>
       {/* วันที่ */}
@@ -123,9 +130,16 @@ export default function SalesForm({ date, existing }) {
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--coffee)' }}>{fmt(netRevenue)} ฿</div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>= K-Shop + เงินสด + Delivery(หลัง GP)</div>
           </div>
-          <button type="submit" style={btn} disabled={isPending}>
-            {isPending ? 'กำลังบันทึก...' : existing ? 'อัปเดตยอดขาย' : 'บันทึกยอดขาย'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {existing && (
+              <button type="button" onClick={onDelete} style={btnDelete} disabled={isPending}>
+                ลบวันนี้
+              </button>
+            )}
+            <button type="submit" style={btn} disabled={isPending}>
+              {isPending ? 'กำลังบันทึก...' : existing ? 'อัปเดตยอดขาย' : 'บันทึกยอดขาย'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -174,3 +188,4 @@ const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(15
 const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
 const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 14 };
 const btn = { border: 0, borderRadius: 10, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer', alignSelf: 'center' };
+const btnDelete = { border: 0, borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 600, background: '#fff0f0', color: 'var(--danger)', cursor: 'pointer' };
