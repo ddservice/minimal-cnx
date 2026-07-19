@@ -2357,12 +2357,19 @@ function loadUsers() {
   .catch(() => setUserStatus('เชื่อมต่อไม่ได้', 'err'));
 }
 
+// Escape ค่าที่มาจาก user/DB ก่อนใส่ลง HTML — ป้องกัน XSS
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+
 function _roleChip(role) {
   const cfg = {
     admin:    { bg:'#3d2b1f', color:'#fff', label:'Admin' },
     'co-admin':{ bg:'#1a5fa5', color:'#fff', label:'Co-Admin' },
     manager:  { bg:'#c8a97e', color:'#fff', label:'Manager' },
-  }[role] || { bg:'#ddd', color:'#333', label:role };
+  }[role] || { bg:'#ddd', color:'#333', label:escapeHtml(role) };
   return `<span style="background:${cfg.bg};color:${cfg.color};padding:3px 10px;border-radius:12px;font-size:11px;white-space:nowrap">${cfg.label}</span>`;
 }
 
@@ -2382,35 +2389,36 @@ function renderUserTable(users) {
     const onlineDot = u.has_token
       ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--success)"><i class="ti ti-circle-filled"></i> online</span>`
       : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><i class="ti ti-circle"></i> ออฟไลน์</span>`;
+    // ค่าทั้งหมดมาจาก DB (ตั้งโดย user) → escape ก่อนใส่ HTML/attribute เสมอ
     html += `
-    <div class="user-card" data-username="${u.username}" data-fullname="${fullName.replace(/"/g,'&quot;')}" data-nickname="${nickname.replace(/"/g,'&quot;')}" data-role="${u.role}"
+    <div class="user-card" data-username="${escapeHtml(u.username)}" data-fullname="${escapeHtml(fullName)}" data-nickname="${escapeHtml(nickname)}" data-role="${escapeHtml(u.role)}"
          style="border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface)">
       <!-- Row 1: identity + status -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-weight:700;font-size:14px">${u.username}</span>
+            <span style="font-weight:700;font-size:14px">${escapeHtml(u.username)}</span>
             ${isSelf ? '<span style="font-size:10px;background:var(--c-coffee);color:#fff;padding:1px 7px;border-radius:8px">คุณ</span>' : ''}
             ${_roleChip(u.role)}
             ${onlineDot}
           </div>
-          ${u.email ? `<div style="font-size:12px;margin-top:4px;color:var(--muted)"><i class="ti ti-mail" style="font-size:11px"></i> ${u.email}</div>` : ''}
-          ${fullName ? `<div style="font-size:12px;margin-top:2px;color:var(--text)"><i class="ti ti-user" style="font-size:11px;color:var(--muted)"></i> ${fullName}</div>` : ''}
-          ${nickname ? `<div style="font-size:11px;color:var(--muted)">ชื่อเล่น: ${nickname}</div>` : ''}
+          ${u.email ? `<div style="font-size:12px;margin-top:4px;color:var(--muted)"><i class="ti ti-mail" style="font-size:11px"></i> ${escapeHtml(u.email)}</div>` : ''}
+          ${fullName ? `<div style="font-size:12px;margin-top:2px;color:var(--text)"><i class="ti ti-user" style="font-size:11px;color:var(--muted)"></i> ${escapeHtml(fullName)}</div>` : ''}
+          ${nickname ? `<div style="font-size:11px;color:var(--muted)">ชื่อเล่น: ${escapeHtml(nickname)}</div>` : ''}
         </div>
       </div>
-      <!-- Row 2: action buttons -->
+      <!-- Row 2: action buttons — อ่านค่าจาก data-* ของการ์ด ไม่ฝังค่าใน onclick -->
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" style="font-size:12px;padding:7px 14px;min-height:0;background:#f5ede3;color:var(--c-coffee);flex:1"
-          onclick="openEditUser('${u.username}','${fullName.replace(/'/g,"\\'")}','${nickname.replace(/'/g,"\\'")}','${u.role}')">
+        <button type="button" class="btn" style="font-size:12px;padding:7px 14px;min-height:0;background:#f5ede3;color:var(--c-coffee);flex:1"
+          onclick="editUserFromCard(this)">
           <i class="ti ti-pencil"></i> แก้ไข
         </button>
-        <button class="btn" style="font-size:12px;padding:7px 14px;min-height:0;background:#e8f0fe;color:#1a5fa5;flex:1"
-          onclick="showResetPw('${u.username}','${nickname||u.username}')">
+        <button type="button" class="btn" style="font-size:12px;padding:7px 14px;min-height:0;background:#e8f0fe;color:#1a5fa5;flex:1"
+          onclick="resetPwFromCard(this)">
           <i class="ti ti-key"></i> รีเซ็ต PW
         </button>
-        ${!isSelf ? `<button class="btn" style="font-size:12px;padding:7px 14px;min-height:0;background:#fff0f0;color:var(--danger);flex:1"
-          onclick="doDeleteUser('${u.username}','${nickname||u.username}')">
+        ${!isSelf ? `<button type="button" class="btn" style="font-size:12px;padding:7px 14px;min-height:0;background:#fff0f0;color:var(--danger);flex:1"
+          onclick="deleteUserFromCard(this)">
           <i class="ti ti-trash"></i> ลบ
         </button>` : ''}
       </div>
@@ -2418,6 +2426,20 @@ function renderUserTable(users) {
   });
   wrap.innerHTML = html;
 }
+
+// อ่านค่าจาก dataset ของการ์ด (ปลอดภัยกว่าฝังค่าใน inline handler)
+function _cardData(btn) {
+  const c = btn.closest('.user-card');
+  return {
+    username: c.dataset.username || '',
+    fullName: c.dataset.fullname || '',
+    nickname: c.dataset.nickname || '',
+    role:     c.dataset.role || '',
+  };
+}
+function editUserFromCard(btn)   { const d = _cardData(btn); openEditUser(d.username, d.fullName, d.nickname, d.role); }
+function resetPwFromCard(btn)    { const d = _cardData(btn); showResetPw(d.username, d.nickname || d.username); }
+function deleteUserFromCard(btn) { const d = _cardData(btn); doDeleteUser(d.username, d.nickname || d.username); }
 
 function doChangeRole(username, newRole) {
   if (!newRole) return;
@@ -2542,8 +2564,8 @@ function _renderUserEditHistory(username) {
   if (!hist.length) { body.innerHTML = '<span style="color:var(--muted)">ยังไม่มีประวัติการแก้ไข</span>'; return; }
   body.innerHTML = hist.map(h => `
     <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:var(--bg)">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${h.at} โดย <strong>${h.by}</strong></div>
-      ${h.diffs.map(d=>`<div style="font-size:12px">· <span style="color:var(--muted)">${d.field}:</span> <span style="text-decoration:line-through;color:#b00">${d.old}</span> → <strong style="color:var(--success)">${d.new}</strong></div>`).join('')}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${escapeHtml(h.at)} โดย <strong>${escapeHtml(h.by)}</strong></div>
+      ${h.diffs.map(d=>`<div style="font-size:12px">· <span style="color:var(--muted)">${escapeHtml(d.field)}:</span> <span style="text-decoration:line-through;color:#b00">${escapeHtml(d.old)}</span> → <strong style="color:var(--success)">${escapeHtml(d.new)}</strong></div>`).join('')}
     </div>`).join('');
 }
 

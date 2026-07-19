@@ -1,0 +1,95 @@
+:root {
+  --coffee: #3d2b1f;
+  --border: #e5ddd3;
+  --muted: #8a7f72;
+  --bg: #faf7f2;
+  --surface: #fff;
+  --danger: #c0392b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Sarabun', system-ui, sans-serif;
+  background: var(--bg);
+  color: #2b2018;
+}
+
+.center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.field {
+  display: block;
+  width: 100%;
+  padding: 11px 13px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--coffee);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.err {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+.chip {
+  display: inline-block;
+  background: var(--coffee);
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.link-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
