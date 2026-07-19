@@ -53,9 +53,10 @@ Also ported ✅: **bakery presets** (`lib/bakery.js`, auto-fill default price), 
 
 **Payroll formula is verified identical to legacy `calEmpTotal`.** SSO 5% each side on min(salary,15000); commission = income×rate; commission WHT 3%; company cost = gross + companySSO.
 
-**Not yet ported ⏳ (niche):**
-- (done) Form 50 ทวิ printable certificate — see below
-- Employee pay-history log + reprint; price-history modals (last price is shown, full history isn't)
+Also ported ✅: **Form 50 ทวิ** (`app/opex/form50.js`) — withholding-tax certificate for rent 40(5)ก 5% and staff-sub 40(2) 3%; enter payee (name/tax id/address/date/condition, saved to `business_config.form50_payees`), print an HTML certificate with correct Thai baht-text.
+
+**Not yet ported ⏳ (niche, low priority):**
+- Employee pay-history log + reprint; material/bakery price-history modals (last price is shown, full history isn't)
 - Free-cup promo actual-unit-cost config + evidence upload (Supabase Storage)
 - Editable/persisted OPEX defaults (currently static in `lib/opex.js`)
 
