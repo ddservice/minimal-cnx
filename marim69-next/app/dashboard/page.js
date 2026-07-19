@@ -17,7 +17,7 @@ const ACTIONS = [
 ];
 
 export default async function DashboardPage() {
-  const { supabase, role, name, isAdmin } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requireSession();
   const ml = monthLabel();
 
   const { data: summary } = await supabase.rpc('get_monthly_summary', { p_month_label: ml });
@@ -38,7 +38,7 @@ export default async function DashboardPage() {
   const freeCups = sales.reduce((a, s) => a + Number(s.free_cups || 0), 0);
 
   return (
-    <AppShell role={role} name={name} isAdmin={isAdmin}>
+    <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <div className="kpis">
         <div className="kpi">
           <div className="kpi-label"><i className="ti ti-trending-up" /> รายรับเดือนนี้</div>

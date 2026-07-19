@@ -49,9 +49,14 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 Also ported ✅: **Analytics** (`/analytics`) — defaults to current year (Jan→current), with a manual from/to month range; income/expense/profit table + MoM %, signed profit trend chart, **top materials by spend & by order count**, and top suppliers. Dashboard shows 6 KPI tiles (income/expense/profit + cups/pastry/free-cups).
 
-**Not yet ported ⏳ (minor/niche):**
-- Role-based visibility matrix (per-role permissions)
-- Admin data tools: delete-whole-month, deduplicate-month
-- Bakery preset prices (`BAKERY_DEFAULTS`), free-cup promo evidence upload (Supabase Storage)
+Also ported ✅: **bakery presets** (`lib/bakery.js`, auto-fill default price), **admin data tools** (`/settings`: delete-month, dedup — admin, double-confirm), **role-visibility matrix** (`/settings` → `business_config.role_perms`; `lib/perms.js` + `requireSession().allowed` filters nav tabs per role; admin always full — visibility only, RLS still the real guard), **payroll remittance summary** (สปส. + ภ.ง.ด. [rent 5% + staff-sub 3% + commission 3%] + ภ.พ.30 — for the accounting office), staff_sub 3% WHT breakdown, employee detail fields (name/title/ID/bank) on the slip.
+
+**Payroll formula is verified identical to legacy `calEmpTotal`.** SSO 5% each side on min(salary,15000); commission = income×rate; commission WHT 3%; company cost = gross + companySSO.
+
+**Not yet ported ⏳ (niche):**
+- Form 50/50-ทวิ (ภ.ง.ด.1 หนังสือรับรองหัก ณ ที่จ่าย) PDF generation
+- Employee pay-history log + reprint; price-history modals (last price is shown, full history isn't)
+- Free-cup promo actual-unit-cost config + evidence upload (Supabase Storage)
+- Editable/persisted OPEX defaults (currently static in `lib/opex.js`)
 
 See memory `[[marim69-migration]]` for ongoing plan.

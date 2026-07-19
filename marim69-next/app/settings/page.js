@@ -4,20 +4,23 @@ import PageHeader from '../../components/page-header';
 import SettingsForm from './settings-form';
 import ImportForm from './import-form';
 import DataTools from './data-tools';
+import RolePerms from './role-perms';
 
 export default async function SettingsPage() {
-  const { supabase, role, name, isAdmin } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requireSession();
 
-  const { data: cfg } = await supabase
+  const { data: cfgs } = await supabase
     .from('business_config')
-    .select('value')
-    .eq('key', 'biz_info')
-    .maybeSingle();
+    .select('key, value')
+    .in('key', ['biz_info', 'role_perms']);
+  const biz = cfgs?.find((c) => c.key === 'biz_info')?.value || {};
+  const perms = cfgs?.find((c) => c.key === 'role_perms')?.value || {};
 
   return (
-    <AppShell role={role} name={name} isAdmin={isAdmin}>
+    <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-settings" title="ตั้งค่า" />
-      <SettingsForm biz={cfg?.value || {}} />
+      <SettingsForm biz={biz} />
+      {isAdmin && <RolePerms perms={perms} />}
       {isAdmin && <ImportForm />}
       {isAdmin && <DataTools />}
     </AppShell>

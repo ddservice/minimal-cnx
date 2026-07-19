@@ -4,7 +4,7 @@ import SignOutButton from './sign-out-button';
 const ROLE_LABEL = { admin: 'Admin', 'co-admin': 'Co-Admin', manager: 'Manager', staff: 'Staff' };
 
 // เปลือกหน้าจอมาตรฐาน: header (แบรนด์ + ผู้ใช้ + ออกจากระบบ) + แท็บเมนู
-export default function AppShell({ name, role, isAdmin, children }) {
+export default function AppShell({ name, role, isAdmin, allowed, children }) {
   return (
     <div className="wrap">
       <header className="app-header">
@@ -21,7 +21,7 @@ export default function AppShell({ name, role, isAdmin, children }) {
         <SignOutButton />
       </header>
 
-      <AppNav isAdmin={isAdmin} />
+      <AppNav isAdmin={isAdmin} allowed={allowed} />
 
       <main>{children}</main>
     </div>

@@ -9,7 +9,7 @@ function todayISO() {
 }
 
 export default async function SalesPage({ searchParams }) {
-  const { supabase, role, name, isAdmin } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requireSession();
 
   const sp = await searchParams;
   const date = sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
@@ -21,7 +21,7 @@ export default async function SalesPage({ searchParams }) {
     .maybeSingle();
 
   return (
-    <AppShell role={role} name={name} isAdmin={isAdmin}>
+    <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-cash" title="บันทึกยอดขายรายวัน" />
       <SalesForm date={date} existing={existing || null} />
     </AppShell>

@@ -8,7 +8,7 @@ import RevenueChart from './revenue-chart';
 import ExpenseChart from './expense-chart';
 
 export default async function ReportsPage({ searchParams }) {
-  const { supabase, role, name, isAdmin } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requireSession();
 
   const sp = await searchParams;
   const monthInput = /^\d{4}-\d{2}$/.test(sp?.month || '') ? sp.month : currentMonthInput();
@@ -42,7 +42,7 @@ export default async function ReportsPage({ searchParams }) {
   ];
 
   return (
-    <AppShell role={role} name={name} isAdmin={isAdmin}>
+    <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-chart-bar" title="สรุปรายเดือน">
         <MonthPicker value={monthInput} />
         <a className="link-btn" href={`/export?month=${monthInput}`}>

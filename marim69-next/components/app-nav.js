@@ -2,20 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { NAV_TABS } from '../lib/perms';
 
-const TABS = [
-  { href: '/dashboard', label: 'ภาพรวม', icon: 'ti-layout-dashboard' },
-  { href: '/sales', label: 'ยอดขาย', icon: 'ti-cash' },
-  { href: '/expenses', label: 'รายจ่าย', icon: 'ti-receipt' },
-  { href: '/opex', label: 'ค่าดำเนินการ', icon: 'ti-building-store' },
-  { href: '/reports', label: 'สรุป', icon: 'ti-chart-bar' },
-  { href: '/analytics', label: 'วิเคราะห์', icon: 'ti-chart-line' },
-  { href: '/settings', label: 'ตั้งค่า', icon: 'ti-settings' },
-];
-
-export default function AppNav({ isAdmin }) {
+export default function AppNav({ isAdmin, allowed }) {
   const path = usePathname();
-  const tabs = isAdmin ? [...TABS, { href: '/admin', label: 'ผู้ใช้', icon: 'ti-users' }] : TABS;
+  const allowSet = new Set(allowed || NAV_TABS.map((t) => t.href));
+  const visible = NAV_TABS.filter((t) => allowSet.has(t.href));
+  const tabs = isAdmin ? [...visible, { href: '/admin', label: 'ผู้ใช้', icon: 'ti-users' }] : visible;
 
   return (
     <nav className="app-nav">

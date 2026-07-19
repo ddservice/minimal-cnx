@@ -35,7 +35,7 @@ function summarize(summary) {
 const pct = (cur, prev) => (prev ? ((cur - prev) / Math.abs(prev)) * 100 : null);
 
 export default async function AnalyticsPage({ searchParams }) {
-  const { supabase, role, name, isAdmin } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requireSession();
   const sp = await searchParams;
 
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -80,7 +80,7 @@ export default async function AnalyticsPage({ searchParams }) {
   const tableRows = [...results].reverse();
 
   return (
-    <AppShell role={role} name={name} isAdmin={isAdmin}>
+    <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-chart-line" title="วิเคราะห์">
         <RangePicker from={from} to={to} />
       </PageHeader>

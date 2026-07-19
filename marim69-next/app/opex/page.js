@@ -12,7 +12,7 @@ import {
 import OpexForm from './opex-form';
 
 export default async function OpexPage({ searchParams }) {
-  const { supabase, role, name, isAdmin } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requireSession();
 
   const sp = await searchParams;
   const monthInput = /^\d{4}-\d{2}$/.test(sp?.month || '') ? sp.month : currentMonthInput();
@@ -64,7 +64,7 @@ export default async function OpexPage({ searchParams }) {
   });
 
   return (
-    <AppShell role={role} name={name} isAdmin={isAdmin}>
+    <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-building-store" title="ค่าดำเนินการ (รายเดือน)" />
       <OpexForm
         monthInput={monthInput}

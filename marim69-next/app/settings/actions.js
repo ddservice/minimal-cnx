@@ -178,6 +178,16 @@ export async function dedupMonthAction(input) {
   return { status: 'ok', message: `ลบรายการซ้ำ ${data?.length || 0} รายการ` };
 }
 
+// บันทึกสิทธิ์การมองเห็นแท็บตามตำแหน่ง (business_config key = role_perms)
+export async function saveRolePerms(perms) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
+  const { error } = await supabase.from('business_config').upsert({ key: 'role_perms', value: perms || {} });
+  if (error) return { status: 'error', message: error.message };
+  revalidatePath('/', 'layout');
+  return { status: 'ok', message: 'บันทึกสิทธิ์การเข้าถึงเรียบร้อย' };
+}
+
 // บันทึกข้อมูลบริษัทลง business_config (key = biz_info) — ใช้ร่วมทุกเครื่อง
 export async function saveBizInfo(input) {
   const supabase = await createClient();
