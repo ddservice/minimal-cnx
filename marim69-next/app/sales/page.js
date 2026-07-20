@@ -23,7 +23,9 @@ export default async function SalesPage({ searchParams }) {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-cash" title="บันทึกยอดขายรายวัน" />
-      <SalesForm date={date} existing={existing || null} defaultCoffeePrice={defaultCoffeePrice} />
+      {/* key={date} → บังคับ remount ตอนเปลี่ยนวันที่ ไม่งั้น useState ที่ initialize จาก existing
+          จะรันแค่ครั้งแรกตอน mount เท่านั้น เปลี่ยนวันที่แล้ว props เปลี่ยนแต่ state ค้างของวันเก่า */}
+      <SalesForm key={date} date={date} existing={existing || null} defaultCoffeePrice={defaultCoffeePrice} />
     </AppShell>
   );
 }

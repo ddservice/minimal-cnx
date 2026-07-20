@@ -70,7 +70,11 @@ export default async function OpexPage({ searchParams }) {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-building-store" title="ค่าดำเนินการ (รายเดือน)" />
+      {/* key={monthInput} → บังคับ remount ตอนเปลี่ยนเดือน — เหตุผลเดียวกับ SalesForm (ดู app/sales/page.js):
+          operating/staff/tax/employees ทั้งหมด initialize จาก existing ผ่าน useState(() => ...) ครั้งเดียว
+          ตอน mount เท่านั้น ถ้าไม่ remount ตัวเลขเดือนเก่าจะค้างอยู่ทั้งที่เปลี่ยนเดือนแล้ว */}
       <OpexForm
+        key={monthInput}
         monthInput={monthInput}
         monthLabel={monthLabel}
         income={income}
