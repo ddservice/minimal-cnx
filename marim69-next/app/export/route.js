@@ -58,7 +58,7 @@ export async function GET(request) {
   kv('ต้นทุนวัตถุดิบ', matTotal);
   kv('ต้นทุนขนม', bakTotal);
   kv('รายจ่ายจิปาถะ', miscTotal);
-  kv('ค่าดำเนินการ (OPEX)', opexTotal);
+  kv('ค่าดำเนินการ', opexTotal);
   kv('รวมรายจ่าย', totalExp, 'FFC0392B');
   s1.addRow([]);
   kv(profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ', profit, profit >= 0 ? 'FF1A5FA5' : 'FFC0392B');

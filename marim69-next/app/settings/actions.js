@@ -190,7 +190,7 @@ export async function saveOpexDefaults(defaults) {
   const res = await upsertBusinessConfig(supabase, 'opex_defaults', clean);
   if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/opex');
-  return { status: 'ok', message: 'บันทึกค่าตั้งต้น OPEX เรียบร้อย' };
+  return { status: 'ok', message: 'บันทึกค่าตั้งต้นค่าดำเนินการเรียบร้อย' };
 }
 
 // บันทึกสิทธิ์การมองเห็นแท็บตามตำแหน่ง (business_config key = role_perms)

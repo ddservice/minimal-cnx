@@ -376,7 +376,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <SlipRow label="รวมค่าใช้จ่ายบริษัท" value={fmt(ps.companyCost)} strong />
                     </div>
                     <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                      <i className="ti ti-refresh" /> ยอดรวมค่าใช้จ่ายบริษัทด้านบนจะถูกใช้เป็นยอด OPEX ของพนักงานคนนี้โดยอัตโนมัติเมื่อบันทึก
+                      <i className="ti ti-refresh" /> ยอดรวมค่าใช้จ่ายบริษัทด้านบนจะถูกใช้เป็นยอดค่าดำเนินการของพนักงานคนนี้โดยอัตโนมัติเมื่อบันทึก
                     </p>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                       <button type="button" onClick={() => {
@@ -450,7 +450,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
       {/* รวม + บันทึก */}
       <div style={{ ...card, background: '#f5ede3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>ยอดรวม OPEX ทั้งหมด</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>ยอดรวมค่าดำเนินการทั้งหมด</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--coffee)' }}>{fmt(grand)} ฿</div>
         </div>
         <button type="submit" style={btnSave} disabled={isPending}>

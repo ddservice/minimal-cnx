@@ -40,7 +40,7 @@ export default async function ReportsPage({ searchParams }) {
     { label: 'ต้นทุนวัตถุดิบ', v: matTotal },
     { label: 'ต้นทุนขนม', v: bakTotal },
     { label: 'รายจ่ายจิปาถะ', v: miscTotal },
-    { label: 'ค่าดำเนินการ (OPEX)', v: opexTotal },
+    { label: 'ค่าดำเนินการ', v: opexTotal },
     { label: 'รวมรายจ่าย', v: totalExp, total: true },
   ];
   const expCols = [
