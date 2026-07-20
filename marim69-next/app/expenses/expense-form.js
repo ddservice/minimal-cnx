@@ -6,6 +6,7 @@ import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../lib/expense-categorie
 import { SUPPLIERS_ITEMS } from '../../lib/suppliers';
 import { BAKERY_DEFAULTS } from '../../lib/bakery';
 import { BASIC_UNITS } from '../../lib/units';
+import DateField from '../../components/date-field';
 import { saveExpensesAction } from './actions';
 
 const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
@@ -111,14 +112,7 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
         <div style={grid}>
           <div>
             <label style={lbl}>วันที่</label>
-            <div style={dateClip}>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && navDate(e.target.value)}
-                style={inp}
-              />
-            </div>
+            <DateField value={date} onChange={(v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && navDate(v)} />
           </div>
           <div>
             <label style={lbl}>หมวดหมู่</label>
@@ -254,7 +248,6 @@ const card = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 };
 const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
 const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 14 };
-const dateClip = { overflow: 'hidden', borderRadius: 'var(--radius-md)' };
 const btnRemove = { border: 0, background: '#fff0f0', color: 'var(--danger)', borderRadius: 'var(--radius-md)', padding: '5px 12px', fontSize: 12, cursor: 'pointer' };
 const btnAdd = { border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--coffee)', borderRadius: 'var(--radius-md)', padding: '10px', width: '100%', fontSize: 14, cursor: 'pointer', marginBottom: 12, fontWeight: 600 };
 const btnSave = { border: 0, borderRadius: 'var(--radius-md)', padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer' };

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import DateField from '../../components/date-field';
 import { deleteMonthAction, dedupMonthAction } from './actions';
 
 function curMonth() {
@@ -40,7 +41,7 @@ export default function DataTools() {
       </div>
       <div className="card-body">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 12 }}>
-          <div className="field"><label>เดือน</label><div style={{ overflow: 'hidden', borderRadius: 'var(--radius-md)' }}><input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div></div>
+          <div className="field"><label>เดือน</label><DateField type="month" value={month} onChange={setMonth} /></div>
           <div className="field"><label>ขอบเขต</label>
             <select className="input" value={scope} onChange={(e) => setScope(e.target.value)}>
               <option value="all">ทั้งหมด (ขาย + จ่าย)</option>

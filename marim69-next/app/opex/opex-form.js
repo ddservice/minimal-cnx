@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX, DEFAULT_EMPLOYEES } from '../../lib/opex';
 import { computePayslip } from '../../lib/payslip';
+import DateField from '../../components/date-field';
 import { saveOpexAction, saveEmpDetails } from './actions';
 
 const EMP_DETAIL_FIELDS = ['fullname', 'lastname', 'title', 'id_card', 'bank_name', 'account_no', 'account_holder'];
@@ -199,8 +200,8 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
   const remitWHT = rentWht + staffSubWht + commWht;                        // ภ.ง.ด. รวม
   const vatAmt = Number(tax.vat) || 0;                                     // ภ.พ.30
 
-  function onMonthChange(e) {
-    if (/^\d{4}-\d{2}$/.test(e.target.value)) router.push(`/opex?month=${e.target.value}`);
+  function onMonthChange(v) {
+    if (/^\d{4}-\d{2}$/.test(v)) router.push(`/opex?month=${v}`);
   }
 
   const setEmp = (i, k, v) => setEmployees(employees.map((e, idx) => (idx === i ? { ...e, [k]: v } : e)));
@@ -219,9 +220,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
     <form onSubmit={onSubmit}>
       <div style={card}>
         <label style={lbl}>เดือน</label>
-        <div style={{ overflow: 'hidden', borderRadius: 'var(--radius-md)', display: 'inline-block', maxWidth: 200 }}>
-          <input type="month" value={monthInput} onChange={onMonthChange} style={{ ...inp, maxWidth: 200 }} />
-        </div>
+        <div style={{ maxWidth: 200 }}><DateField type="month" value={monthInput} onChange={onMonthChange} /></div>
         <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>({monthLabel})</span>
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import DateField from '../../components/date-field';
 import { saveForm50Payees } from './actions';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -133,9 +134,7 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, isAdmin =
                 <input className="input" disabled={!isAdmin} placeholder="ชื่อผู้รับเงิน" value={pv.name} onChange={(e) => set(it.id, 'name', e.target.value)} />
                 <input className="input" disabled={!isAdmin} placeholder="เลขผู้เสียภาษี/บัตรปชช." value={pv.taxid} onChange={(e) => set(it.id, 'taxid', e.target.value)} />
                 <input className="input" disabled={!isAdmin} style={{ gridColumn: '1 / -1' }} placeholder="ที่อยู่ผู้รับเงิน" value={pv.addr} onChange={(e) => set(it.id, 'addr', e.target.value)} />
-                <div style={{ overflow: 'hidden', borderRadius: 'var(--radius-md)' }}>
-                  <input className="input" disabled={!isAdmin} type="date" value={pv.date} onChange={(e) => set(it.id, 'date', e.target.value)} />
-                </div>
+                <DateField disabled={!isAdmin} value={pv.date} onChange={(v) => set(it.id, 'date', v)} />
                 <select className="input" disabled={!isAdmin} value={pv.cond} onChange={(e) => set(it.id, 'cond', e.target.value)}>
                   <option value="1">หัก ณ ที่จ่าย</option>
                   <option value="2">ออกภาษีให้ครั้งเดียว</option>
