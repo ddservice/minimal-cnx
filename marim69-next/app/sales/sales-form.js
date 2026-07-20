@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { gpNet, computeNetRevenue } from '../../lib/gp';
+import { sanitizeNumberString } from '../../lib/format';
 import { createClient } from '../../lib/supabase/client';
 import DateField from '../../components/date-field';
 import { saveSalesAction, deleteSalesAction } from './actions';
@@ -39,7 +40,7 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
   const [evidenceUrl, setEvidenceUrl] = useState(existing?.free_cup_evidence_url || '');
   const [evidenceStatus, setEvidenceStatus] = useState(null); // { text, type }
 
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const set = (k) => (e) => setF({ ...f, [k]: sanitizeNumberString(e.target.value) });
 
   // แนบหลักฐานแก้วฟรี (แคปจาก LINE OA / POS) → Supabase Storage bucket 'evidence'
   async function onEvidenceFile(e) {

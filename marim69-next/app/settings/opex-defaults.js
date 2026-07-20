@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { OPEX_OPERATING, OPEX_STAFF } from '../../lib/opex';
+import { sanitizeNumberString } from '../../lib/format';
 import { saveOpexDefaults } from './actions';
 
 const ITEMS = [...OPEX_OPERATING.items, ...OPEX_STAFF.fixed];
@@ -36,7 +37,7 @@ export default function OpexDefaults({ defaults }) {
             <div className="field" key={it.key}>
               <label>{it.label}</label>
               <input className="input" type="number" min="0" step="any" value={f[it.key]}
-                onChange={(e) => setF({ ...f, [it.key]: e.target.value })} placeholder="0" />
+                onChange={(e) => setF({ ...f, [it.key]: sanitizeNumberString(e.target.value) })} placeholder="0" />
             </div>
           ))}
         </div>

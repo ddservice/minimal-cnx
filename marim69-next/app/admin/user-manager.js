@@ -10,6 +10,7 @@ import {
   deleteUserAction,
 } from './actions';
 import { MIN_PASSWORD_LENGTH } from '../../lib/auth-policy';
+import { stripDigits } from '../../lib/format';
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -85,9 +86,9 @@ export default function UserManager({ initialUsers, myUsername }) {
           <input style={inp} placeholder="ชื่อผู้ใช้ (username)" value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })} />
           <input style={inp} placeholder="ชื่อ-นามสกุล" value={form.full_name}
-            onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+            onChange={(e) => setForm({ ...form, full_name: stripDigits(e.target.value) })} />
           <input style={inp} placeholder="ชื่อเล่น" value={form.nickname}
-            onChange={(e) => setForm({ ...form, nickname: e.target.value })} />
+            onChange={(e) => setForm({ ...form, nickname: stripDigits(e.target.value) })} />
           <input style={inp} type="password" placeholder={`รหัสผ่าน (≥${MIN_PASSWORD_LENGTH} ตัว)`} value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <select style={inp} value={form.role}
@@ -162,8 +163,8 @@ function UserCard({ user, isSelf, editing, onEdit, onCancel, onSave, onResetPw, 
 
       {editing && (
         <div style={{ ...grid2, marginTop: 12 }}>
-          <input style={inp} placeholder="ชื่อ-นามสกุล" value={full} onChange={(e) => setFull(e.target.value)} />
-          <input style={inp} placeholder="ชื่อเล่น" value={nick} onChange={(e) => setNick(e.target.value)} />
+          <input style={inp} placeholder="ชื่อ-นามสกุล" value={full} onChange={(e) => setFull(stripDigits(e.target.value))} />
+          <input style={inp} placeholder="ชื่อเล่น" value={nick} onChange={(e) => setNick(stripDigits(e.target.value))} />
           <select style={inp} value={role} onChange={(e) => setRole(e.target.value)}>
             {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>

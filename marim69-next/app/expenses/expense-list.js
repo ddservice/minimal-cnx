@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { fmtMoney } from '../../lib/format';
+import { fmtMoney, sanitizeNumberString } from '../../lib/format';
 import { PAYMENT_METHODS } from '../../lib/expense-categories';
 import { updateExpenseAction, deleteExpenseAction } from './actions';
 
@@ -103,9 +103,9 @@ function EditRow({ row, onDone, onMsg }) {
       <div style={editGrid}>
         <input value={f.item_name} onChange={set('item_name')} placeholder="ชื่อรายการ" style={inp} />
         <input value={f.supplier} onChange={set('supplier')} placeholder="ผู้ขาย" style={inp} />
-        <input type="number" min="0" step="any" value={f.quantity} onChange={set('quantity')} placeholder="จำนวน" style={inp} />
+        <input type="number" min="0" step="any" value={f.quantity} onChange={(e) => setF({ ...f, quantity: sanitizeNumberString(e.target.value) })} placeholder="จำนวน" style={inp} />
         <input value={f.unit} onChange={set('unit')} placeholder="หน่วย" style={inp} />
-        <input type="number" min="0" step="any" value={f.unit_price} onChange={set('unit_price')} placeholder="ราคา/หน่วย" style={inp} />
+        <input type="number" min="0" step="any" value={f.unit_price} onChange={(e) => setF({ ...f, unit_price: sanitizeNumberString(e.target.value) })} placeholder="ราคา/หน่วย" style={inp} />
         <select value={f.payment_method} onChange={set('payment_method')} style={inp}>
           {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>

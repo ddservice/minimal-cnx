@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX, DEFAULT_EMPLOYEES } from '../../lib/opex';
 import { computePayslip } from '../../lib/payslip';
+import { sanitizeNumberString, stripDigits, digitsOnly } from '../../lib/format';
 import DateField from '../../components/date-field';
 import { saveOpexAction, saveEmpDetails } from './actions';
 
@@ -292,7 +293,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                     title={e.hasRealName ? 'ดึงมาจากชื่อ-นามสกุลใน "ข้อมูลส่วนตัว" ด้านล่าง — แก้ไขที่นั่น' : undefined}
                     style={e.hasRealName ? { ...inp, flex: '1 1 140px', background: 'var(--beige)', color: 'var(--muted)', cursor: 'not-allowed' } : { ...inp, flex: '1 1 140px' }}
                   />
-                  <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', ev.target.value)} placeholder="0" style={{ ...inp, flex: '0 1 120px' }} />
+                  <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', sanitizeNumberString(ev.target.value))} placeholder="0" style={{ ...inp, flex: '0 1 120px' }} />
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
                   <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
                     <i className="ti ti-calculator" /> คำนวณเงินเดือน
@@ -323,17 +324,17 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                     <div style={detailWrap}>
                       <div style={detailHead}><i className="ti ti-id-badge-2" /> ข้อมูลส่วนตัว</div>
                       <div style={detailGrid}>
-                        <SlipField text disabled={!canEditEmpDetails} label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
-                        <SlipField text disabled={!canEditEmpDetails} label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
+                        <SlipField text noDigits disabled={!canEditEmpDetails} label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
+                        <SlipField text noDigits disabled={!canEditEmpDetails} label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
                         <SlipField text disabled={!canEditEmpDetails} label="ตำแหน่ง" value={e.title} onChange={(v) => setEmp(i, 'title', v)} />
-                        <SlipField text disabled={!canEditEmpDetails} label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
+                        <SlipField text onlyDigits disabled={!canEditEmpDetails} label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
                       </div>
 
                       <div style={{ ...detailHead, marginTop: 12 }}><i className="ti ti-building-bank" /> บัญชีธนาคาร (สำหรับโอนเงินเดือน)</div>
                       <div style={detailGrid}>
                         <SlipField text disabled={!canEditEmpDetails} label="ธนาคาร" value={e.bank_name} onChange={(v) => setEmp(i, 'bank_name', v)} />
-                        <SlipField text disabled={!canEditEmpDetails} label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
-                        <SlipField text disabled={!canEditEmpDetails} label="ชื่อบัญชี (ถ้าต่างจากชื่อ-สกุล)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
+                        <SlipField text onlyDigits disabled={!canEditEmpDetails} label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
+                        <SlipField text noDigits disabled={!canEditEmpDetails} label="ชื่อบัญชี (ถ้าต่างจากชื่อ-สกุล)" value={e.account_holder} onChange={(v) => setEmp(i, 'account_holder', v)} />
                       </div>
 
                       {canEditEmpDetails ? (
@@ -473,13 +474,21 @@ function Row({ label, value, onChange, placeholder }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
       <label style={{ flex: '1 1 160px', fontSize: 14 }}>{label}</label>
-      <input type="number" min="0" step="any" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder != null ? String(placeholder) : '0'} style={{ ...inp, flex: '0 1 160px' }} />
+      <input type="number" min="0" step="any" value={value} onChange={(e) => onChange(sanitizeNumberString(e.target.value))} placeholder={placeholder != null ? String(placeholder) : '0'} style={{ ...inp, flex: '0 1 160px' }} />
       <span style={{ fontSize: 13, color: 'var(--muted)', width: 12 }}>฿</span>
     </div>
   );
 }
 
-function SlipField({ label, value, onChange, text, disabled }) {
+// noDigits: กันตัวเลขในช่องชื่อคนจริงๆ (ชื่อ/นามสกุล/ชื่อบัญชี)
+// digitsOnly: กันตัวอักษรในช่องที่เป็นตัวเลขล้วนแต่ห้ามตัด leading zero (เลขบัตร ปชช./เลขบัญชี)
+function SlipField({ label, value, onChange, text, disabled, noDigits, onlyDigits }) {
+  const clean = (v) => {
+    if (!text) return sanitizeNumberString(v);
+    if (noDigits) return stripDigits(v);
+    if (onlyDigits) return digitsOnly(v);
+    return v;
+  };
   return (
     <div>
       <label style={lbl}>{label}</label>
@@ -487,7 +496,7 @@ function SlipField({ label, value, onChange, text, disabled }) {
         type={text ? 'text' : 'number'}
         {...(text ? {} : { min: '0', step: 'any' })}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(clean(e.target.value))}
         placeholder={text ? '' : '0'}
         disabled={disabled}
         style={disabled ? { ...inp, background: 'var(--beige)', color: 'var(--muted)', cursor: 'not-allowed' } : inp}

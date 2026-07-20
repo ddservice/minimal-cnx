@@ -44,10 +44,11 @@ create trigger tr_profiles_guard_self_update
 -- เขียนได้ทุกคีย์ใน business_config โดยตรง (ข้าม Server Action ที่เช็ค role)
 --
 -- แบ่งเป็น 2 ระดับ:
---  - admin เท่านั้น: role_perms (สิทธิ์เมนู), form50_payees (ข้อมูลผู้รับเงิน
---    50 ทวิ — เสี่ยงถูกสวมสิทธิ์เปลี่ยนบัญชีธนาคารผู้รับ), opex_defaults
---  - admin + co-admin: emp_details (ชื่อ/บัตร ปชช./บัญชีธนาคารพนักงาน —
---    ให้ co-admin จัดการได้ตามที่ใช้งานจริง)
+--  - admin เท่านั้น: role_perms (สิทธิ์เมนู), opex_defaults
+--  - admin + co-admin: emp_details (ชื่อ/บัตร ปชช./บัญชีธนาคารพนักงาน),
+--    form50_payees (ข้อมูลผู้รับเงิน 50 ทวิ — ย้ายจาก admin-only มา
+--    admin+co-admin เมื่อ 2026-07-20 ตามที่ใช้งานจริง — co-admin ต้อง
+--    กรอกได้ ทุกการแก้ไขยัง audit-logged เสมอ ดู FIX 5 ด้านล่าง)
 --  - คีย์อื่นๆ (biz_info, emp_pay_history ฯลฯ) ยังให้ทุก role เขียนได้เหมือนเดิม
 --    (ตั้งใจไว้แต่แรก เพื่อไม่ให้ manager ถูกบล็อกเหมือนระบบเก่า)
 --
@@ -62,9 +63,9 @@ create policy "config: write authenticated"
   on public.business_config for insert
   with check (
     case
-      when key in ('role_perms', 'form50_payees', 'opex_defaults')
+      when key in ('role_perms', 'opex_defaults')
         then public.fn_my_role() = 'admin'
-      when key = 'emp_details'
+      when key in ('emp_details', 'form50_payees')
         then public.fn_my_role() in ('admin', 'co-admin')
       else true
     end
@@ -75,9 +76,9 @@ create policy "config: update authenticated"
   on public.business_config for update
   using (
     case
-      when key in ('role_perms', 'form50_payees', 'opex_defaults')
+      when key in ('role_perms', 'opex_defaults')
         then public.fn_my_role() = 'admin'
-      when key = 'emp_details'
+      when key in ('emp_details', 'form50_payees')
         then public.fn_my_role() in ('admin', 'co-admin')
       else true
     end
@@ -115,5 +116,38 @@ create policy "expenses: update manager+"
   on public.expenses for update
   using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
 
+-- ── FIX 5 (2026-07-20): audit log ครอบคลุม business_config ด้วย ────────
+-- ปัญหา: tr_audit_sales/tr_audit_expenses (ใน supabase_migration.sql) เก็บ
+-- ประวัติเฉพาะ sales_daily/expenses — business_config (form50_payees,
+-- emp_details, role_perms, opex_defaults ฯลฯ) ไม่เคยถูกบันทึกว่าใครแก้ไข
+-- เมื่อไหร่เลย ทั้งที่เพิ่งเปิดให้ co-admin แก้ form50_payees ได้ (FIX 2)
+-- — "ทุกการเปลี่ยนแปลงต้องรู้ว่าใครแก้" ใช้ trigger เดียวกับ sales/expenses
+-- ไม่ได้ตรงๆ เพราะ fn_audit_log() อ้างอิง new.id/old.id แต่ business_config
+-- ใช้ key (text) เป็น primary key ไม่มีคอลัมน์ id — ต้องมีฟังก์ชันแยก
+-- (record_id เก็บเป็น null แทน — ดู key ได้จาก old_data/new_data JSON)
+
+create or replace function public.fn_audit_log_config()
+returns trigger language plpgsql security definer as $$
+declare
+  _user_id uuid := auth.uid();
+begin
+  if (tg_op = 'INSERT') then
+    insert into public.audit_log(table_name, record_id, action, new_data, performed_by)
+    values (tg_table_name, null, 'INSERT', to_jsonb(new), _user_id);
+  elsif (tg_op = 'UPDATE') then
+    insert into public.audit_log(table_name, record_id, action, old_data, new_data, performed_by)
+    values (tg_table_name, null, 'UPDATE', to_jsonb(old), to_jsonb(new), _user_id);
+  elsif (tg_op = 'DELETE') then
+    insert into public.audit_log(table_name, record_id, action, old_data, performed_by)
+    values (tg_table_name, null, 'DELETE', to_jsonb(old), _user_id);
+  end if;
+  return coalesce(new, old);
+end; $$;
+
+drop trigger if exists tr_audit_business_config on public.business_config;
+create trigger tr_audit_business_config
+  after insert or update or delete on public.business_config
+  for each row execute function public.fn_audit_log_config();
+
 -- ── ตรวจผลลัพธ์ ─────────────────────────────────────────────────
-select 'harden_security applied ✓ — profiles self-escalation blocked; business_config tiered by key; audit_log admin-only; sales/expenses update = manager+' as result;
+select 'harden_security applied ✓ — profiles self-escalation blocked; business_config tiered by key (form50_payees now admin+co-admin); audit_log admin-only; sales/expenses update = manager+; business_config changes now audit-logged' as result;

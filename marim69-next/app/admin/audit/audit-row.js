@@ -2,13 +2,15 @@ import { fmtMoney } from '../../../lib/format';
 
 const ACTION_LABEL = { INSERT: 'เพิ่ม', UPDATE: 'แก้ไข', DELETE: 'ลบ' };
 const ACTION_COLOR = { INSERT: 'var(--success)', UPDATE: 'var(--taupe-dark)', DELETE: 'var(--danger)' };
-const TABLE_LABEL = { sales_daily: 'ยอดขาย', expenses: 'รายจ่าย' };
-const HIDE_FIELDS = new Set(['id', 'created_at', 'updated_at']);
+const TABLE_LABEL = { sales_daily: 'ยอดขาย', expenses: 'รายจ่าย', business_config: 'ตั้งค่าระบบ' };
+const HIDE_FIELDS = new Set(['id', 'created_at', 'updated_at', 'key']); // key ของ business_config โชว์ใน summary แล้ว
 
-// ค่าตัวเลข (มักลงท้ายด้วย _amount/_cost/_revenue/total) แสดงแบบมีจุลภาค อย่างอื่นแสดงดิบ
+// ค่าตัวเลข (มักลงท้ายด้วย _amount/_cost/_revenue/total) แสดงแบบมีจุลภาค, object (เช่น business_config.value
+// ที่เป็น jsonb) แสดงเป็น JSON ดิบ, อย่างอื่นแสดงดิบ
 function fmtVal(field, v) {
   if (v == null || v === '') return '—';
   if (typeof v === 'number' && /amount|cost|revenue|total|price/i.test(field)) return fmtMoney(v);
+  if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
 
@@ -32,6 +34,7 @@ export default function AuditRow({ row, performer }) {
     timeStyle: 'short',
   });
   const who = performer?.full_name || performer?.username || 'ไม่ทราบผู้ใช้';
+  const configKey = row.table_name === 'business_config' ? (row.new_data?.key || row.old_data?.key) : null;
 
   const changes =
     row.action === 'UPDATE'
@@ -44,7 +47,10 @@ export default function AuditRow({ row, performer }) {
     <details style={rowBox}>
       <summary style={summaryStyle}>
         <span style={{ ...badge, background: color }}>{label}</span>
-        <span style={{ fontWeight: 600 }}>{TABLE_LABEL[row.table_name] || row.table_name}</span>
+        <span style={{ fontWeight: 600 }}>
+          {TABLE_LABEL[row.table_name] || row.table_name}
+          {configKey ? ` — ${configKey}` : ''}
+        </span>
         <span className="muted" style={{ fontSize: 12 }}>{when}</span>
         <span className="muted" style={{ fontSize: 12, marginLeft: 'auto' }}>โดย {who}</span>
       </summary>

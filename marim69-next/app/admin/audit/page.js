@@ -6,7 +6,7 @@ import PageHeader from '../../../components/page-header';
 import AuditFilters from './audit-filters';
 import AuditRow from './audit-row';
 
-const VALID_TABLES = new Set(['sales_daily', 'expenses']);
+const VALID_TABLES = new Set(['sales_daily', 'expenses', 'business_config']);
 const VALID_ACTIONS = new Set(['INSERT', 'UPDATE', 'DELETE']);
 const LIMIT = 150;
 

@@ -6,6 +6,7 @@ const TABLES = [
   { value: '', label: 'ทุกตาราง' },
   { value: 'sales_daily', label: 'ยอดขาย' },
   { value: 'expenses', label: 'รายจ่าย' },
+  { value: 'business_config', label: 'ตั้งค่าระบบ' },
 ];
 const ACTIONS = [
   { value: '', label: 'ทุกการกระทำ' },

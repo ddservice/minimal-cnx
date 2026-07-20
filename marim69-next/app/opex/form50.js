@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import DateField from '../../components/date-field';
+import { stripDigits, digitsOnly } from '../../lib/format';
 import { saveForm50Payees } from './actions';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -37,7 +38,7 @@ function bahtText(num) {
   return s;
 }
 
-export default function Form50({ amounts, payees, bizInfo, monthLabel, isAdmin = false }) {
+export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit = false }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -131,11 +132,11 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, isAdmin =
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>ยอด {fmt(amt)} · หัก <strong style={{ color: 'var(--danger)' }}>{fmt(wht)}</strong> ฿</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                <input className="input" disabled={!isAdmin} placeholder="ชื่อผู้รับเงิน" value={pv.name} onChange={(e) => set(it.id, 'name', e.target.value)} />
-                <input className="input" disabled={!isAdmin} placeholder="เลขผู้เสียภาษี/บัตรปชช." value={pv.taxid} onChange={(e) => set(it.id, 'taxid', e.target.value)} />
-                <input className="input" disabled={!isAdmin} style={{ gridColumn: '1 / -1' }} placeholder="ที่อยู่ผู้รับเงิน" value={pv.addr} onChange={(e) => set(it.id, 'addr', e.target.value)} />
-                <DateField disabled={!isAdmin} value={pv.date} onChange={(v) => set(it.id, 'date', v)} />
-                <select className="input" disabled={!isAdmin} value={pv.cond} onChange={(e) => set(it.id, 'cond', e.target.value)}>
+                <input className="input" disabled={!canEdit} placeholder="ชื่อผู้รับเงิน" value={pv.name} onChange={(e) => set(it.id, 'name', stripDigits(e.target.value))} />
+                <input className="input" disabled={!canEdit} placeholder="เลขผู้เสียภาษี/บัตรปชช." value={pv.taxid} onChange={(e) => set(it.id, 'taxid', digitsOnly(e.target.value))} />
+                <input className="input" disabled={!canEdit} style={{ gridColumn: '1 / -1' }} placeholder="ที่อยู่ผู้รับเงิน" value={pv.addr} onChange={(e) => set(it.id, 'addr', e.target.value)} />
+                <DateField disabled={!canEdit} value={pv.date} onChange={(v) => set(it.id, 'date', v)} />
+                <select className="input" disabled={!canEdit} value={pv.cond} onChange={(e) => set(it.id, 'cond', e.target.value)}>
                   <option value="1">หัก ณ ที่จ่าย</option>
                   <option value="2">ออกภาษีให้ครั้งเดียว</option>
                   <option value="3">ออกภาษีให้ตลอดไป</option>
@@ -147,12 +148,12 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, isAdmin =
             </div>
           );
         })}
-        {isAdmin ? (
+        {canEdit ? (
           <button type="button" className="btn btn-coffee" onClick={onSave} disabled={isPending}>
             <i className="ti ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกข้อมูลผู้รับเงิน'}
           </button>
         ) : (
-          <p className="muted" style={{ fontSize: 12 }}><i className="ti ti-lock" /> เฉพาะ Admin แก้ไขข้อมูลผู้รับเงินได้ (พิมพ์เอกสารได้ตามปกติ)</p>
+          <p className="muted" style={{ fontSize: 12 }}><i className="ti ti-lock" /> เฉพาะ Admin หรือ Co-Admin แก้ไขข้อมูลผู้รับเงินได้ (พิมพ์เอกสารได้ตามปกติ)</p>
         )}
         {msg && <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>}
       </div>
