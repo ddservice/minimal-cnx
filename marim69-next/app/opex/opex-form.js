@@ -219,7 +219,9 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
     <form onSubmit={onSubmit}>
       <div style={card}>
         <label style={lbl}>เดือน</label>
-        <input type="month" value={monthInput} onChange={onMonthChange} style={{ ...inp, maxWidth: 200 }} />
+        <div style={{ overflow: 'hidden', borderRadius: 'var(--radius-md)', display: 'inline-block', maxWidth: 200 }}>
+          <input type="month" value={monthInput} onChange={onMonthChange} style={{ ...inp, maxWidth: 200 }} />
+        </div>
         <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>({monthLabel})</span>
       </div>
 

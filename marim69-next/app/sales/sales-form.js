@@ -116,7 +116,9 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
       {/* วันที่ */}
       <div style={card}>
         <label style={lbl}>วันที่</label>
-        <input type="date" value={date} onChange={onDateChange} style={inp} />
+        <div style={dateClip}>
+          <input type="date" value={date} onChange={onDateChange} style={inp} />
+        </div>
         {existing && (
           <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
             (มีข้อมูลแล้ว — บันทึกจะทับของเดิม)
@@ -239,6 +241,9 @@ const card = {
 const h2 = { marginTop: 0, marginBottom: 12, fontSize: 15 };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 };
 const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
+// iOS Safari เพนต์ native date-picker chrome ล้นกรอบตัวเองเวลามี border-radius — ห่อด้วย
+// overflow:hidden กันไว้ (ตั้ง overflow บน input เองมักไม่ช่วยเพราะเป็น native widget paint)
+const dateClip = { overflow: 'hidden', borderRadius: 'var(--radius-md)' };
 const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 14 };
 const btn = { border: 0, borderRadius: 'var(--radius-md)', padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer', alignSelf: 'center' };
 const btnDelete = { border: 0, borderRadius: 'var(--radius-md)', padding: '12px 16px', fontSize: 14, fontWeight: 600, background: '#fff0f0', color: 'var(--danger)', cursor: 'pointer' };
