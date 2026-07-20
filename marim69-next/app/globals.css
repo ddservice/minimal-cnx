@@ -265,6 +265,10 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
   border-color: var(--color-accent); outline: none; box-shadow: 0 0 0 3px rgba(179, 139, 109, .18);
 }
 .input:disabled, .field input:disabled, .field select:disabled { background: var(--color-surface-2); color: var(--color-text-muted); cursor: not-allowed; }
+/* วันที่/เดือน (date & month) หลายที่ (sales-form, expense-form, range-picker ฯลฯ) ใช้ inline style
+   ที่ไม่ได้กำหนด background/color ไว้ — iOS Safari เลยใช้สีพื้นเทาของระบบเอง (native control chrome)
+   ทำให้หน้าตาไม่ตรงกับ input อื่น และ auto width ของตัวควบคุมระบบบางครั้งกว้างเกินการ์ด ใส่ max-width กันไว้ */
+input[type="date"], input[type="month"] { max-width: 100%; background: var(--color-surface); color: var(--color-text); }
 
 /* Buttons */
 .btn {
