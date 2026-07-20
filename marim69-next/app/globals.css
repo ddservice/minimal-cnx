@@ -80,7 +80,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Sarabun', sans-serif;
+  font-family: var(--font-prompt), 'Sarabun', system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
   min-height: 100dvh;

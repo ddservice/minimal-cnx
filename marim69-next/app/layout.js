@@ -1,4 +1,14 @@
+import { Prompt } from 'next/font/google';
 import './globals.css';
+
+// Prompt รองรับทั้งไทย+อังกฤษในฟอนต์เดียว — โหลดผ่าน next/font (self-host อัตโนมัติ ไม่ยิง
+// request ไป Google Fonts ตอน runtime, ไม่มี layout shift) แล้วส่งเป็น CSS variable ให้ globals.css ใช้
+const prompt = Prompt({
+  subsets: ['thai', 'latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-prompt',
+});
 
 export const metadata = {
   title: 'Minimal Maerim',
@@ -16,7 +26,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="th">
+    <html lang="th" className={prompt.variable}>
       <head>
         <link
           rel="stylesheet"

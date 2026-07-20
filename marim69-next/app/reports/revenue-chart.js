@@ -49,6 +49,7 @@ export default function RevenueChart({ sales }) {
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>สูงสุด {fmtMoney(maxV)} ฿</span>
       </div>
       <div style={{ overflowX: 'auto' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="กราฟยอดขายสุทธิรายวัน" style={{ display: 'block', minWidth: 320, overflow: 'visible' }}>
           <defs>
             <linearGradient id="revenueBarFill" x1="0" y1="0" x2="0" y2="1">
@@ -107,6 +108,7 @@ export default function RevenueChart({ sales }) {
             </foreignObject>
           )}
         </svg>
+        </div>
       </div>
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>วันที่ในเดือน · เลื่อนชี้ที่แท่งเพื่อดูยอด</div>
     </div>
