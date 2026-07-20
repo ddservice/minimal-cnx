@@ -10,10 +10,13 @@ const ROLE_LABEL = { admin: 'Admin', 'co-admin': 'Co-Admin', manager: 'Manager',
 const COLLAPSE_KEY = 'mm69_sidebar_collapsed'; // แค่ UI preference (เปิด/ยุบแถบ) ไม่ใช่ข้อมูลธุรกิจ — เก็บ localStorage ได้ปลอดภัย
 
 // Sidebar เดียว ทำหน้าที่ 2 โหมด: rail ยุบ/ขยายได้บนเดสก์ท็อป, drawer เลื่อนเข้า-ออกบนมือถือ
-export default function Sidebar({ name, role, isAdmin, allowed }) {
+// mobileOpen/setMobileOpen ถูกยกขึ้นไปให้ AppShell ถือ เพราะปุ่มแฮมเบอร์เกอร์ที่เปิด drawer
+// นี้อยู่ใน .mobile-topbar ซึ่งต้องอยู่ "ข้างใน" .shell-main (ไม่ใช่ sibling ของ .sidebar ใน .shell
+// ที่เป็น flex row) — ก่อนหน้านี้ mobile-topbar เป็น flex item แยกจาก .shell-main ทำให้บน Safari
+// จริงมันไม่ยอมขึ้นบรรทัดใหม่แม้จะตั้ง width:100% + flex-wrap แล้ว กลายเป็นเนื้อหาถูกบีบแคบจนตัวเลขล้น
+export default function Sidebar({ name, role, isAdmin, allowed, mobileOpen, setMobileOpen }) {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1'); } catch {}
@@ -21,8 +24,6 @@ export default function Sidebar({ name, role, isAdmin, allowed }) {
   useEffect(() => {
     try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch {}
   }, [collapsed]);
-  // ปิด drawer อัตโนมัติเมื่อเปลี่ยนหน้า (มือถือ)
-  useEffect(() => { setMobileOpen(false); }, [path]);
 
   const allowSet = new Set(allowed || NAV_TABS.map((t) => t.href));
   const visible = NAV_TABS.filter((t) => allowSet.has(t.href));
@@ -30,15 +31,6 @@ export default function Sidebar({ name, role, isAdmin, allowed }) {
 
   return (
     <>
-      {/* แถบบนสุดสำหรับมือถือ — ปุ่มแฮมเบอร์เกอร์เปิด drawer */}
-      <div className="mobile-topbar">
-        <button type="button" className="mobile-topbar-btn" onClick={() => setMobileOpen(true)} aria-label="เปิดเมนู">
-          <i className="ti ti-menu-2" />
-        </button>
-        <div className="brand-icon sidebar-brand-icon" style={{ width: 30, height: 30, fontSize: 15 }}><i className="ti ti-coffee" /></div>
-        <strong style={{ fontSize: 14 }}>Minimal Maerim</strong>
-      </div>
-
       <div className={`sidebar-overlay${mobileOpen ? ' open' : ''}`} onClick={() => setMobileOpen(false)} />
 
       <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' open' : ''}`}>

@@ -94,11 +94,7 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
 /* ================================================================
    APP SHELL — sidebar (desktop rail / mobile drawer) + main content
    ================================================================ */
-/* flex-wrap so .mobile-topbar (a flex-flow sibling of .sidebar/.shell-main, not nested
-   inside either) can force itself onto its own full-width row on mobile — see the
-   @media block below. Desktop never wraps in practice (sidebar + shell-main always
-   sum to container width), so this is a no-op there. */
-.shell { display: flex; flex-wrap: wrap; min-height: 100dvh; }
+.shell { display: flex; min-height: 100dvh; }
 
 .sidebar {
   width: var(--sidebar-w);
@@ -210,10 +206,7 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
   .sidebar.collapsed .sidebar-link span,
   .sidebar.collapsed .sidebar-footer .link-btn span { display: block; }
   .sidebar-collapse-btn { display: none; }
-  /* width:100% + .shell's flex-wrap forces this onto its own row instead of
-     shrink-to-fit beside .shell-main (the bug that squeezed page content into
-     a narrow right-hand column on phones). */
-  .mobile-topbar { display: flex; width: 100%; }
+  .mobile-topbar { display: flex; }
   .sidebar-overlay {
     display: block; position: fixed; inset: 0; background: rgba(36, 29, 22, 0.35);
     z-index: 99; opacity: 0; pointer-events: none; transition: opacity .2s ease;
