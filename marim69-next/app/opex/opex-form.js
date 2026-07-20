@@ -127,7 +127,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
   const [tax, setTax] = useState(() => {
     const t = initFixed(OPEX_TAX.items, existing.tax, false);
     // เติม VAT อัตโนมัติจากยอดขาย ถ้ายังไม่มีค่าที่บันทึกไว้ (เหมือน dashboard เดิม)
-    if ((t.vat === '' || t.vat == null) && income > 0) t.vat = String(Math.round(income * 0.07));
+    if ((t.vat === '' || t.vat == null) && income > 0) t.vat = String(Math.round(income * 0.07 * 100) / 100);
     return t;
   });
   const [employees, setEmployees] = useState(() => {
@@ -393,8 +393,8 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
             <Row label={it.label} value={tax[it.key]} onChange={(v) => setTax({ ...tax, [it.key]: v })} />
             {it.key === 'vat' && income > 0 && (
               <div style={hintBox}>
-                <span>VAT จากยอดขาย ({fmt(income)} × 7%) = <strong>{fmt(Math.round(income * 0.07))} ฿</strong></span>
-                <button type="button" style={btnMini} onClick={() => setTax({ ...tax, vat: String(Math.round(income * 0.07)) })}>
+                <span>VAT จากยอดขาย ({fmt(income)} × 7%) = <strong>{fmt(Math.round(income * 0.07 * 100) / 100)} ฿</strong></span>
+                <button type="button" style={btnMini} onClick={() => setTax({ ...tax, vat: String(Math.round(income * 0.07 * 100) / 100) })}>
                   ใช้ค่านี้
                 </button>
               </div>
