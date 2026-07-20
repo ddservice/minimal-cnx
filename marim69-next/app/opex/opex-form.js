@@ -137,8 +137,8 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
       try { slips = JSON.parse(localStorage.getItem('mm69_emp_slip') || '[]'); } catch {}
     }
     const base = existing.employees?.length
-      ? existing.employees.map((e) => ({ label: e.label || '', amount: e.amount != null ? String(e.amount) : '' }))
-      : DEFAULT_EMPLOYEES.map((e) => ({ label: e.label, amount: '' }));
+      ? existing.employees.map((e) => ({ label: e.label || '' }))
+      : DEFAULT_EMPLOYEES.map((e) => ({ label: e.label }));
     return base.map((e, i) => {
       const def = DEFAULT_EMPLOYEES[i] || {};
       const slip = slips[i] || {};
@@ -165,7 +165,6 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
         label: [detail.fullname, detail.lastname].filter(Boolean).join(' ')
           || e.label || dbDetail.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
         hasRealName: !!(detail.fullname || detail.lastname),
-        amount: e.amount, // ยอดที่บันทึกจริง (จาก DB) — คงไว้ ไม่ทับด้วย slip อัตโนมัติ
       };
     });
   });
@@ -193,11 +192,13 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
     if (res.status === 'ok') startTransition(() => router.refresh());
   }
 
-  const empTotal = employees.reduce((a, e) => a + (Number(e.amount) || 0), 0);
+  // ต้นทุนบริษัทต่อคน (เงินเดือน+ค่าตำแหน่ง+คอมฯ+เบี้ยขยัน+สปส.บริษัท) — ยอด OPEX ของพนักงานคำนวณสด
+  // จากตรงนี้เสมอ ไม่ใช้ e.amount ที่เคยให้กรอกเองแล้ว (เสี่ยงลืมกด/ไม่ตรงกับที่คำนวณจริง)
+  const empPs = employees.map((e) => payslip(e, income));
+  const empTotal = empPs.reduce((a, p) => a + p.companyCost, 0);
   const grand = sumObj(operating) + sumObj(staff) + sumObj(tax) + empTotal;
 
   // ── ยอดนำส่งหน่วยงาน (สำหรับสำนักงานบัญชี) ──
-  const empPs = employees.map((e) => payslip(e, income));
   const remitSSO = empPs.reduce((a, p) => a + p.ssoEmp + p.ssoCo, 0);      // สปส. (พนักงาน+บริษัท)
   const rentWht = Math.round((Number(operating.rent) || 0) * 0.05);         // ค่าเช่า 5%
   const staffSubWht = Math.round((Number(staff.staff_sub) || 0) * 0.03);    // พนักงานแทน 3%
@@ -210,13 +211,15 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
   }
 
   const setEmp = (i, k, v) => setEmployees(employees.map((e, idx) => (idx === i ? { ...e, [k]: v } : e)));
-  const addEmp = () => setEmployees([...employees, { label: `พนักงานคนที่ ${employees.length + 1}`, amount: '' }]);
+  const addEmp = () => setEmployees([...employees, { label: `พนักงานคนที่ ${employees.length + 1}` }]);
   const removeEmp = (i) => setEmployees(employees.length > 1 ? employees.filter((_, idx) => idx !== i) : employees);
 
   async function onSubmit(e) {
     e.preventDefault();
     setMsg(null);
-    const res = await saveOpexAction({ month_label: monthLabel, operating, staff, tax, employees });
+    // amount ส่งเป็นต้นทุนบริษัทที่คำนวณสดเสมอ (ไม่ใช่ค่าที่เคยให้กรอกเองแยกต่างหาก)
+    const employeesPayload = employees.map((emp, i) => ({ ...emp, amount: empPs[i].companyCost }));
+    const res = await saveOpexAction({ month_label: monthLabel, operating, staff, tax, employees: employeesPayload });
     setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
     if (res.status === 'ok') startTransition(() => router.refresh());
   }
@@ -293,7 +296,15 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                     title={e.hasRealName ? 'ดึงมาจากชื่อ-นามสกุลใน "ข้อมูลส่วนตัว" ด้านล่าง — แก้ไขที่นั่น' : undefined}
                     style={e.hasRealName ? { ...inp, flex: '1 1 140px', background: 'var(--beige)', color: 'var(--muted)', cursor: 'not-allowed' } : { ...inp, flex: '1 1 140px' }}
                   />
-                  <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', sanitizeNumberString(ev.target.value))} placeholder="0" style={{ ...inp, flex: '0 1 120px' }} />
+                  {/* ต้นทุนบริษัท (เงินเดือน+ค่าตำแหน่ง+คอมฯ+เบี้ยขยัน+สปส.บริษัท) คำนวณสดจากค่าใน
+                      "คำนวณเงินเดือน" ด้านล่างเสมอ ไม่ต้องกดปุ่มแยกอีกต่อไป — แก้เงินเดือน/เบี้ยขยัน
+                      ที่นั่นแล้วยอดนี้จะอัปเดตตามทันที */}
+                  <div
+                    title="ต้นทุนบริษัทรวม — คำนวณอัตโนมัติจากเงินเดือน/ค่าตำแหน่ง/คอมมิชชั่น/เบี้ยขยัน/สปส. ที่กรอกใน &quot;คำนวณเงินเดือน&quot; ด้านล่าง"
+                    style={{ ...inp, flex: '0 1 140px', background: 'var(--beige)', color: 'var(--coffee)', fontWeight: 700, textAlign: 'right', cursor: 'default' }}
+                  >
+                    {fmt(ps.companyCost)}
+                  </div>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
                   <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
                     <i className="ti ti-calculator" /> คำนวณเงินเดือน
@@ -364,10 +375,10 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <SlipRow label="+ ประกันสังคม (บริษัท 5%)" value={`+ ${fmt(ps.ssoCo)}`} color="var(--muted)" />
                       <SlipRow label="รวมค่าใช้จ่ายบริษัท" value={fmt(ps.companyCost)} strong />
                     </div>
+                    <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                      <i className="ti ti-refresh" /> ยอดรวมค่าใช้จ่ายบริษัทด้านบนจะถูกใช้เป็นยอด OPEX ของพนักงานคนนี้โดยอัตโนมัติเมื่อบันทึก
+                    </p>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                      <button type="button" onClick={() => setEmp(i, 'amount', String(ps.companyCost))} style={btnMini}>
-                        ใช้ยอดนี้ ({fmt(ps.companyCost)} ฿)
-                      </button>
                       <button type="button" onClick={() => {
                         if (monthsAgo(monthLabel) > 6 && !isAdmin) {
                           setMsg({ text: 'พิมพ์หนังสือรับรองย้อนหลังเกิน 6 เดือน ต้องเป็น admin เท่านั้น', type: 'err' });
