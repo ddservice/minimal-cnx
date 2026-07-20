@@ -14,8 +14,8 @@ export default function SignOutButton() {
   }
 
   return (
-    <button className="link-btn" onClick={signOut}>
-      <i className="ti ti-logout" /> ออกจากระบบ
+    <button className="link-btn" onClick={signOut} title="ออกจากระบบ">
+      <i className="ti ti-logout" /> <span>ออกจากระบบ</span>
     </button>
   );
 }

@@ -93,7 +93,11 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
 /* ================================================================
    APP SHELL — sidebar (desktop rail / mobile drawer) + main content
    ================================================================ */
-.shell { display: flex; min-height: 100dvh; }
+/* flex-wrap so .mobile-topbar (a flex-flow sibling of .sidebar/.shell-main, not nested
+   inside either) can force itself onto its own full-width row on mobile — see the
+   @media block below. Desktop never wraps in practice (sidebar + shell-main always
+   sum to container width), so this is a no-op there. */
+.shell { display: flex; flex-wrap: wrap; min-height: 100dvh; }
 
 .sidebar {
   width: var(--sidebar-w);
@@ -152,6 +156,10 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
 .sidebar.collapsed .sidebar-link span { display: none; }
 
 .sidebar-footer { padding: var(--space-3); border-top: 1px solid var(--color-border); }
+.sidebar-footer .link-btn { width: 100%; justify-content: center; }
+/* icon-only sign-out to match the collapsed nav links — without this the button kept
+   its full width text ("ออกจากระบบ") in a ~54px column and wrapped into 3 broken lines */
+.sidebar.collapsed .sidebar-footer .link-btn span { display: none; }
 
 .shell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .shell-container { max-width: var(--container-max); width: 100%; margin: 0 auto; padding: var(--space-6) var(--space-5) 64px; }
@@ -179,9 +187,13 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
   .sidebar.open { transform: translateX(0); }
   .sidebar.collapsed { width: min(var(--sidebar-w), 82vw); } /* no icon-only mode on mobile */
   .sidebar.collapsed .sidebar-brand-text,
-  .sidebar.collapsed .sidebar-link span { display: block; }
+  .sidebar.collapsed .sidebar-link span,
+  .sidebar.collapsed .sidebar-footer .link-btn span { display: block; }
   .sidebar-collapse-btn { display: none; }
-  .mobile-topbar { display: flex; }
+  /* width:100% + .shell's flex-wrap forces this onto its own row instead of
+     shrink-to-fit beside .shell-main (the bug that squeezed page content into
+     a narrow right-hand column on phones). */
+  .mobile-topbar { display: flex; width: 100%; }
   .sidebar-overlay {
     display: block; position: fixed; inset: 0; background: rgba(36, 29, 22, 0.35);
     z-index: 99; opacity: 0; pointer-events: none; transition: opacity .2s ease;
