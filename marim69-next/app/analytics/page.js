@@ -54,6 +54,19 @@ export default async function AnalyticsPage({ searchParams }) {
     })
   );
 
+  // แนวโน้มกำไร/ขาดทุนรายเดือน (กราฟ) ตรึงไว้ที่ปีปัจจุบันเสมอ ม.ค.–ธ.ค. ไม่ผูกกับ RangePicker
+  // ด้านบน (ซึ่งควบคุมแค่ KPI/ตาราง/วัตถุดิบ) เพื่อให้เห็นภาพรวมทั้งปีตลอด แม้ผู้ใช้จะเลือกช่วงอื่นดูก็ตาม
+  const curYear = now.getFullYear();
+  const yearMonths = monthsBetween(`${curYear}-01`, `${curYear}-12`);
+  const yearResults = await Promise.all(
+    yearMonths.map(async (mo) => {
+      const cached = results.find((r) => r.label === mo.label); // เลี่ยงยิง RPC ซ้ำถ้าเดือนนี้โหลดไปแล้ว
+      if (cached) return cached;
+      const { data } = await supabase.rpc('get_monthly_summary', { p_month_label: mo.label });
+      return { label: mo.label, data, ...summarize(data) };
+    })
+  );
+
   // ── รวมข้อมูลวัตถุดิบทั้งช่วง ──
   const matAgg = {};   // ชื่อ → { total, count }
   const supAgg = {};   // ซัพพลายเออร์ → total
@@ -94,7 +107,7 @@ export default async function AnalyticsPage({ searchParams }) {
         <Kpi icon="ti-trophy" label="เดือนกำไรสูงสุด" value={best ? best.label : '—'} sub={best ? `${fmtMoney(best.profit)} ฿` : ''} plain />
       </div>
 
-      <ProfitChart data={results} />
+      <ProfitChart data={yearResults} />
 
       {/* วัตถุดิบใช้เยอะสุด */}
       <div className="card">
