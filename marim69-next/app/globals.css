@@ -226,11 +226,18 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
 .card-head h2, .card-head span { font-size: 13.5px; font-weight: 600; color: var(--color-text); letter-spacing: 0.01em; }
 .card-body { padding: var(--space-5); }
 
-/* KPI stat tiles — icon badge left, label/value/sub stacked right (denser, more scannable) */
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+/* KPI stat tiles — icon badge left, label/value/sub stacked right (denser, more scannable)
+   Fixed column counts per breakpoint instead of auto-fit: auto-fit packs as many columns as
+   physically fit a wide desktop screen (e.g. 5), so a 6th tile on its own dangling last row
+   left 4 empty column-widths of blank space beside it — looked broken/unbalanced. Capping at
+   2/3 columns means dashboard's 6 tiles form two clean rows of 3 no matter how wide the screen is. */
+.kpis { display: grid; grid-template-columns: 1fr; gap: var(--space-4); margin-bottom: var(--space-6); }
 .kpi { display: flex; align-items: flex-start; gap: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-sm); transition: box-shadow .15s, transform .15s; min-width: 0; }
-@media (max-width: 480px) {
-  .kpis { grid-template-columns: 1fr; } /* การ์ดเดี่ยวเต็มความกว้างบนจอแคบ กันตัวเลขบาทหลักล้านล้น */
+@media (min-width: 481px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 720px) {
+  .kpis { grid-template-columns: repeat(3, 1fr); }
 }
 .kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .kpi-icon {
