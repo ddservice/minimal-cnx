@@ -6,6 +6,7 @@ import { monthInputToLabel, currentMonthInput, OPEX_ALL_CATEGORIES } from '../..
 import MonthPicker from './month-picker';
 import RevenueChart from './revenue-chart';
 import ExpenseChart from './expense-chart';
+import DataTable from '../../components/data-table';
 
 export default async function ReportsPage({ searchParams }) {
   const { supabase, role, name, isAdmin, allowed } = await requireSession();
@@ -34,11 +35,18 @@ export default async function ReportsPage({ searchParams }) {
   const pastryRev = sales.reduce((a, s) => a + Number(s.pastry_revenue || 0), 0);
   const daysRecorded = sales.length;
 
-  const rows = [
+  const expRows = [
     { label: 'ต้นทุนวัตถุดิบ', v: matTotal },
     { label: 'ต้นทุนขนม', v: bakTotal },
     { label: 'รายจ่ายจิปาถะ', v: miscTotal },
     { label: 'ค่าดำเนินการ (OPEX)', v: opexTotal },
+    { label: 'รวมรายจ่าย', v: totalExp, total: true },
+  ];
+  const expCols = [
+    { key: 'label', label: 'หมวด', render: (r) => <span style={{ fontWeight: r.total ? 700 : 400 }}>{r.label}</span> },
+    { key: 'v', label: 'จำนวนเงิน', align: 'right', render: (r) => (
+      <strong style={{ fontWeight: r.total ? 700 : 600, color: r.total ? 'var(--danger)' : 'var(--text)' }}>{fmtMoney(r.v)} ฿</strong>
+    ) },
   ];
 
   return (
@@ -62,20 +70,7 @@ export default async function ReportsPage({ searchParams }) {
       <div className="card">
         <div className="card-head"><i className="ti ti-list-details" /><h2>รายจ่ายแยกหมวด — {monthLabel}</h2></div>
         <div className="card-body">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.label} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ padding: '9px 4px' }}>{r.label}</td>
-                  <td style={{ padding: '9px 4px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(r.v)} ฿</td>
-                </tr>
-              ))}
-              <tr style={{ borderTop: '2px solid var(--border)', fontWeight: 700 }}>
-                <td style={{ padding: '9px 4px' }}>รวมรายจ่าย</td>
-                <td style={{ padding: '9px 4px', textAlign: 'right', color: 'var(--danger)', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(totalExp)} ฿</td>
-              </tr>
-            </tbody>
-          </table>
+          <DataTable columns={expCols} rows={expRows} rowKey={(r) => r.label} />
         </div>
       </div>
 

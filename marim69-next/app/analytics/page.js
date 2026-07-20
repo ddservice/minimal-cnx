@@ -5,6 +5,7 @@ import { fmtMoney } from '../../lib/format';
 import { OPEX_ALL_CATEGORIES } from '../../lib/opex';
 import ProfitChart from './profit-chart';
 import RangePicker from './range-picker';
+import DataTable from '../../components/data-table';
 
 const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
 const isMonth = (s) => /^\d{4}-\d{2}$/.test(s || '');
@@ -97,22 +98,18 @@ export default async function AnalyticsPage({ searchParams }) {
       {/* วัตถุดิบใช้เยอะสุด */}
       <div className="card">
         <div className="card-head"><i className="ti ti-package" /><h2>วัตถุดิบใช้จ่ายเยอะสุด (ตามยอดเงิน)</h2></div>
-        <div className="card-body" style={{ overflowX: 'auto' }}>
-          {topSpend.length ? (
-            <table style={tbl}>
-              <thead><tr style={thr}><th style={{ ...th, textAlign: 'left' }}>#</th><th style={{ ...th, textAlign: 'left' }}>รายการ</th><th style={th}>ยอดรวม</th><th style={th}>จำนวนครั้ง</th></tr></thead>
-              <tbody>
-                {topSpend.map((m, i) => (
-                  <tr key={m.n} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={td}>{i + 1}</td>
-                    <td style={td}>{m.n}</td>
-                    <td style={{ ...tdNum, fontWeight: 700 }}>{fmtMoney(m.total)} ฿</td>
-                    <td style={tdNum}>{m.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : <p className="muted" style={{ fontSize: 13, margin: 0 }}>ยังไม่มีข้อมูลวัตถุดิบในช่วงนี้</p>}
+        <div className="card-body">
+          <DataTable
+            emptyText="ยังไม่มีข้อมูลวัตถุดิบในช่วงนี้"
+            rowKey={(r) => r.n}
+            rows={topSpend.map((m, i) => ({ ...m, rank: i + 1 }))}
+            columns={[
+              { key: 'rank', label: '#' },
+              { key: 'n', label: 'รายการ' },
+              { key: 'total', label: 'ยอดรวม', align: 'right', render: (r) => <strong>{fmtMoney(r.total)} ฿</strong> },
+              { key: 'count', label: 'จำนวนครั้ง', align: 'right' },
+            ]}
+          />
         </div>
       </div>
 
@@ -139,29 +136,24 @@ export default async function AnalyticsPage({ searchParams }) {
       {/* ตารางรายเดือน */}
       <div className="card">
         <div className="card-head"><i className="ti ti-table" /><h2>เปรียบเทียบรายเดือน</h2></div>
-        <div className="card-body" style={{ overflowX: 'auto' }}>
-          <table style={{ ...tbl, minWidth: 460 }}>
-            <thead>
-              <tr style={thr}>
-                <th style={{ ...th, textAlign: 'left' }}>เดือน</th><th style={th}>รายรับ</th><th style={th}>รายจ่าย</th><th style={th}>กำไร</th><th style={th}>MoM</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((r, i) => {
-                const prev = tableRows[i + 1];
-                const mom = r.hasData && prev?.hasData ? pct(r.profit, prev.profit) : null;
-                return (
-                  <tr key={r.label} style={{ borderTop: '1px solid var(--border)', opacity: r.hasData ? 1 : 0.45 }}>
-                    <td style={{ ...td, fontWeight: 600 }}>{r.label}</td>
-                    <td style={tdNum}>{fmtMoney(r.income)}</td>
-                    <td style={tdNum}>{fmtMoney(r.exp)}</td>
-                    <td style={{ ...tdNum, color: r.profit >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>{fmtMoney(r.profit)}</td>
-                    <td style={{ ...tdNum, color: mom == null ? 'var(--muted)' : mom >= 0 ? 'var(--success)' : 'var(--danger)' }}>{mom == null ? '—' : `${mom >= 0 ? '+' : ''}${mom.toFixed(0)}%`}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="card-body">
+          <DataTable
+            rowKey={(r) => r.label}
+            rows={tableRows.map((r, i) => ({ ...r, mom: r.hasData && tableRows[i + 1]?.hasData ? pct(r.profit, tableRows[i + 1].profit) : null }))}
+            columns={[
+              { key: 'label', label: 'เดือน', render: (r) => <span style={{ fontWeight: 600, opacity: r.hasData ? 1 : 0.45 }}>{r.label}</span> },
+              { key: 'income', label: 'รายรับ', align: 'right', render: (r) => <span style={{ opacity: r.hasData ? 1 : 0.45 }}>{fmtMoney(r.income)}</span> },
+              { key: 'exp', label: 'รายจ่าย', align: 'right', render: (r) => <span style={{ opacity: r.hasData ? 1 : 0.45 }}>{fmtMoney(r.exp)}</span> },
+              { key: 'profit', label: 'กำไร', align: 'right', render: (r) => (
+                <strong style={{ color: r.profit >= 0 ? 'var(--success)' : 'var(--danger)', opacity: r.hasData ? 1 : 0.45 }}>{fmtMoney(r.profit)}</strong>
+              ) },
+              { key: 'mom', label: 'MoM', align: 'right', render: (r) => (
+                <span style={{ color: r.mom == null ? 'var(--muted)' : r.mom >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                  {r.mom == null ? '—' : `${r.mom >= 0 ? '+' : ''}${r.mom.toFixed(0)}%`}
+                </span>
+              ) },
+            ]}
+          />
         </div>
       </div>
     </AppShell>
@@ -178,9 +170,4 @@ function Kpi({ icon, label, val, sub, cls, plain }) {
   );
 }
 
-const tbl = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
-const thr = { textAlign: 'right', color: 'var(--muted)' };
-const th = { padding: '7px 8px', fontWeight: 600, textAlign: 'right' };
-const td = { padding: '8px' };
-const tdNum = { padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
 const rankRow = { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', borderTop: '1px solid var(--border)', fontSize: 13 };

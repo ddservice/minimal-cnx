@@ -543,20 +543,20 @@ function PayHistory({ hist, employee, bizInfo, isAdmin, onMsg }) {
   );
 }
 
-const card = { border: '1px solid var(--border)', borderRadius: 2, padding: 16, background: 'var(--surface)', marginBottom: 12 };
+const card = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, background: 'var(--surface)', marginBottom: 12 };
 const lbl = { display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 };
-const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 2, fontSize: 14 };
-const btnRemove = { border: 0, background: '#fff0f0', color: 'var(--danger)', borderRadius: 2, padding: '6px 12px', fontSize: 12, cursor: 'pointer' };
-const btnAdd = { border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--coffee)', borderRadius: 2, padding: '8px', width: '100%', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
-const btnSave = { border: 0, borderRadius: 2, padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer' };
-const whtBox = { border: '1px solid var(--border)', borderRadius: 2, overflow: 'hidden', margin: '-2px 0 12px', fontSize: 12 };
+const inp = { width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 14 };
+const btnRemove = { border: 0, background: '#fff0f0', color: 'var(--danger)', borderRadius: 'var(--radius-md)', padding: '6px 12px', fontSize: 12, cursor: 'pointer' };
+const btnAdd = { border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--coffee)', borderRadius: 'var(--radius-md)', padding: '8px', width: '100%', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
+const btnSave = { border: 0, borderRadius: 'var(--radius-md)', padding: '12px 22px', fontSize: 15, fontWeight: 700, background: 'var(--coffee)', color: '#fff', cursor: 'pointer' };
+const whtBox = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden', margin: '-2px 0 12px', fontSize: 12 };
 const whtRow = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 11px', fontWeight: 600 };
-const hintBox = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', background: 'var(--beige)', border: '1px solid var(--border)', borderRadius: 2, padding: '8px 11px', margin: '-2px 0 12px', fontSize: 12, color: 'var(--muted)' };
-const btnMini = { border: '1px solid var(--taupe)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 2, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
-const btnSlip = { border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 2, padding: '6px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 };
-const slipBox = { border: '1px solid var(--border)', borderRadius: 2, background: 'var(--beige)', padding: 12, marginTop: 8 };
-const slipCalc = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '10px 12px', fontSize: 13 };
-const detailWrap = { border: '1px solid var(--border)', borderRadius: 2, background: 'var(--surface)', padding: 12, marginBottom: 10 };
+const hintBox = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', background: 'var(--beige)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '8px 11px', margin: '-2px 0 12px', fontSize: 12, color: 'var(--muted)' };
+const btnMini = { border: '1px solid var(--taupe)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 'var(--radius-md)', padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
+const btnSlip = { border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--taupe-dark)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 };
+const slipBox = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--beige)', padding: 12, marginTop: 8 };
+const slipCalc = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 12px', fontSize: 13 };
+const detailWrap = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--surface)', padding: 12, marginBottom: 10 };
 const detailHead = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--taupe-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 8 };
 const detailGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 };
-const btnSaveDetail = { border: 0, background: 'var(--coffee)', color: '#fff', borderRadius: 2, padding: '9px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 };
+const btnSaveDetail = { border: 0, background: 'var(--coffee)', color: '#fff', borderRadius: 'var(--radius-md)', padding: '9px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 };

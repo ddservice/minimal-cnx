@@ -28,7 +28,7 @@ export default function RevenueChart({ sales }) {
   const labelEvery = n <= 16 ? 1 : Math.ceil(n / 16);
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 2, padding: 16, background: 'var(--surface)', marginBottom: 12 }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, background: 'var(--surface)', marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <h2 style={{ margin: 0, fontSize: 15 }}>ยอดขายสุทธิรายวัน</h2>
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>สูงสุด {fmtMoney(maxV)} ฿</span>

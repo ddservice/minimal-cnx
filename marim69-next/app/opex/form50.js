@@ -124,7 +124,7 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, isAdmin =
           const wht = Math.round(amt * it.rate);
           const pv = state[it.id];
           return (
-            <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 2, padding: 14, marginBottom: 12, background: 'var(--beige)' }}>
+            <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 14, marginBottom: 12, background: 'var(--beige)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                 <strong style={{ fontSize: 14 }}>{it.label} — หัก ณ ที่จ่าย {it.rateLabel}</strong>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>ยอด {fmt(amt)} · หัก <strong style={{ color: 'var(--danger)' }}>{fmt(wht)}</strong> ฿</span>

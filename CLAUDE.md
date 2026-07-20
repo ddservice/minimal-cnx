@@ -44,9 +44,29 @@ Maintained by Claude. **Update this file after every change** to the project.
 ## App structure (`marim69-next/`)
 
 - `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `reports`, `admin`, `export` (xlsx Route Handler)
-- `components/` — `app-shell`, `app-nav`, `sign-out-button`, `page-header`
-- `lib/` — `supabase/{client,server,middleware}`, `session`, `format`, `gp`, `opex`, `expense-categories`, `suppliers` (curated supplier→item catalog)
-- Design: Swiss/minimalist tokens in `app/globals.css` + warm taupe/beige accents; Tabler icons via CDN.
+- `components/` — `app-shell`, `sidebar`, `sign-out-button`, `page-header`, `data-table`
+- `lib/` — `supabase/{client,server,middleware}`, `session`, `format`, `gp`, `opex`, `expense-categories`, `suppliers` (curated supplier→item catalog), `config-store`
+- Design: see "Design system" below.
+
+## Design system (2026-07-20 redesign — soft/modern, sidebar layout)
+
+**Everything is driven by CSS custom properties defined once at the top of `app/globals.css` (`:root`).** To retheme the whole app, edit values there only — never hardcode a color/radius/shadow in a component.
+
+- **Brand tokens:** `--color-primary` (coffee, primary actions/active states), `--color-accent` (taupe, highlights/focus). Swap these two to rebrand entirely.
+- **Neutrals:** `--color-bg` (page canvas), `--color-surface`/`--color-surface-2`, `--color-border`, `--color-text`/`--color-text-muted`.
+- **Radius scale:** `--radius-sm` (8px) / `--radius-md` (12px, default for cards/inputs/buttons) / `--radius-lg` (16px, cards/login) / `--radius-full` (pills/badges/chips). This is *the* lever for "soft vs boxy" — the previous Swiss-style redesign used a flat 2px everywhere, which read as rigid; this pass replaced it app-wide.
+- **Shadow scale:** `--shadow-sm`/`--shadow-md`/`--shadow-lg` — soft, layered, multi-stop shadows instead of hard 1px borders for depth.
+- **Legacy aliases:** `--coffee`, `--taupe`, `--border`, `--surface`, etc. all map onto the tokens above, so the many components using inline `style={{ ...: 'var(--coffee)' }}` continue to work without edits.
+- **Inline-style radius:** components still use inline `style={{}}` objects (not just `className`) for layout-specific spacing — but every `borderRadius` value in those objects is `'var(--radius-md)'` (or `--radius-full` for true pills), never a hardcoded number. Grep for `borderRadius: [0-9]` before adding new inline styles — if you find a literal number, that's a bug, use a token.
+
+**Layout — sidebar shell, not the old top-tab bar:**
+- `components/sidebar.js` (client) renders `lib/perms.js` `NAV_TABS` (same source of truth as before) as a **collapsible left rail on desktop** (icon-only toggle, state remembered in `localStorage` — pure UI preference, not business data, so this doesn't violate the localStorage rule elsewhere in this doc) and a **slide-in drawer on mobile** (`<960px`, hamburger trigger + backdrop overlay, auto-closes on route change).
+- `components/app-shell.js` is now just `<div class="shell"><Sidebar/><div class="shell-main"><div class="shell-container">{children}</div></div></div>` — every page's `<AppShell>` usage is unchanged, so no page needed to be touched for the shell swap.
+- `.wrap` class still exists (aliased to the same container styles) for anything not going through `AppShell`.
+
+**Responsive tables — `components/data-table.js`:**
+- Desktop: renders a normal `<table>`. Mobile (`<720px`): pure-CSS transform (`.rtable` rules in globals.css) turns each row into a bordered, shadowed card with `data-label` pseudo-labels — no JS breakpoint logic.
+- Usage: `<DataTable columns={[{key,label,align,render?}]} rows={[...]} rowKey={(r) => ...} />`. Applied to `/reports` (category breakdown) and `/analytics` (top materials, monthly comparison) as the reference implementations. **Other raw `<table>` usages in the app (e.g. `/admin/audit` inline diff table) were left as-is** (horizontal-scroll on mobile, still functional) — convert them to `DataTable` opportunistically when touching those files, not urgent.
 
 ## Feature status vs legacy
 

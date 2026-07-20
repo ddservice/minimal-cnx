@@ -80,8 +80,8 @@ export default function AuditRow({ row, performer }) {
   );
 }
 
-const rowBox = { border: '1px solid var(--border)', borderRadius: 2, padding: '10px 12px', background: 'var(--surface)' };
+const rowBox = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 12px', background: 'var(--surface)' };
 const summaryStyle = { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer', listStyle: 'none' };
-const badge = { color: '#fff', padding: '2px 10px', borderRadius: 2, fontSize: 11, fontWeight: 700 };
+const badge = { color: '#fff', padding: '3px 11px', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 700 };
 const th = { padding: '5px 8px', fontWeight: 600 };
 const td = { padding: '5px 8px', fontVariantNumeric: 'tabular-nums' };
