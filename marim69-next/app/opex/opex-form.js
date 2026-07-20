@@ -159,7 +159,11 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
         showSlip: false,
         showHistory: false,
         detailSaved: false,
-        label: e.label || dbDetail.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
+        // ถ้ามีชื่อ-นามสกุลจริงบันทึกไว้แล้ว (จากส่วน "ข้อมูลส่วนตัว" ด้านล่าง) ให้ใช้ชื่อจริงแสดงแทน
+        // ป้ายกำกับทั่วไปเสมอ — ตัดปัญหาต้องพิมพ์ชื่อซ้ำ 2 ที่ (แหล่งข้อมูลจริงคือฟิลด์ fullname/lastname)
+        label: [detail.fullname, detail.lastname].filter(Boolean).join(' ')
+          || e.label || dbDetail.label || slip.label || def.label || `พนักงานคนที่ ${i + 1}`,
+        hasRealName: !!(detail.fullname || detail.lastname),
         amount: e.amount, // ยอดที่บันทึกจริง (จาก DB) — คงไว้ ไม่ทับด้วย slip อัตโนมัติ
       };
     });
@@ -280,7 +284,14 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
             return (
               <div key={i} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input value={e.label} onChange={(ev) => setEmp(i, 'label', ev.target.value)} placeholder="ชื่อ/ตำแหน่ง" style={{ ...inp, flex: '1 1 140px' }} />
+                  <input
+                    value={e.label}
+                    onChange={(ev) => setEmp(i, 'label', ev.target.value)}
+                    placeholder="ชื่อ/ตำแหน่ง"
+                    disabled={e.hasRealName}
+                    title={e.hasRealName ? 'ดึงมาจากชื่อ-นามสกุลใน "ข้อมูลส่วนตัว" ด้านล่าง — แก้ไขที่นั่น' : undefined}
+                    style={e.hasRealName ? { ...inp, flex: '1 1 140px', background: 'var(--beige)', color: 'var(--muted)', cursor: 'not-allowed' } : { ...inp, flex: '1 1 140px' }}
+                  />
                   <input type="number" min="0" step="any" value={e.amount} onChange={(ev) => setEmp(i, 'amount', ev.target.value)} placeholder="0" style={{ ...inp, flex: '0 1 120px' }} />
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
                   <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
