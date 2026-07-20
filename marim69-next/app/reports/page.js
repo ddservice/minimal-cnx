@@ -7,6 +7,7 @@ import MonthPicker from './month-picker';
 import RevenueChart from './revenue-chart';
 import ExpenseChart from './expense-chart';
 import DataTable from '../../components/data-table';
+import Kpi from '../../components/kpi';
 
 export default async function ReportsPage({ searchParams }) {
   const { supabase, role, name, isAdmin, allowed } = await requireSession();
@@ -59,9 +60,9 @@ export default async function ReportsPage({ searchParams }) {
       </PageHeader>
 
       <div className="kpis">
-        <Kpi label="รายรับสุทธิ (หัก GP)" value={income} cls="green" icon="ti-trending-up" />
-        <Kpi label="รายจ่ายรวม" value={totalExp} cls="red" icon="ti-trending-down" />
-        <Kpi label={profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'} value={profit} cls={profit >= 0 ? 'blue' : 'red'} icon="ti-scale" />
+        <Kpi label="รายรับสุทธิ (หัก GP)" value={fmtMoney(income)} sub="บาท" cls="green" icon="ti-trending-up" />
+        <Kpi label="รายจ่ายรวม" value={fmtMoney(totalExp)} sub="บาท" cls="red" icon="ti-trending-down" />
+        <Kpi label={profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'} value={fmtMoney(profit)} sub="บาท" cls={profit >= 0 ? 'blue' : 'red'} icon="ti-scale" />
       </div>
 
       <RevenueChart sales={sales} />
@@ -85,16 +86,6 @@ export default async function ReportsPage({ searchParams }) {
 
       {daysRecorded === 0 && <p className="muted" style={{ fontSize: 13 }}>ยังไม่มีข้อมูลยอดขายในเดือนนี้</p>}
     </AppShell>
-  );
-}
-
-function Kpi({ label, value, cls, icon }) {
-  return (
-    <div className="kpi">
-      <div className="kpi-label"><i className={`ti ${icon}`} /> {label}</div>
-      <div className={`kpi-val ${cls}`}>{fmtMoney(value)}</div>
-      <div className="kpi-sub">บาท</div>
-    </div>
   );
 }
 

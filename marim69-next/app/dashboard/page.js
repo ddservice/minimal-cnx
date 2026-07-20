@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
+import Kpi from '../../components/kpi';
 import { fmtMoney } from '../../lib/format';
 import { OPEX_ALL_CATEGORIES } from '../../lib/opex';
 
@@ -40,36 +41,12 @@ export default async function DashboardPage() {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <div className="kpis">
-        <div className="kpi">
-          <div className="kpi-label"><i className="ti ti-trending-up" /> รายรับเดือนนี้</div>
-          <div className="kpi-val green">{fmtMoney(income)}</div>
-          <div className="kpi-sub">บาท (หัก GP) · {ml}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label"><i className="ti ti-trending-down" /> รายจ่ายเดือนนี้</div>
-          <div className="kpi-val red">{fmtMoney(totalExp)}</div>
-          <div className="kpi-sub">บาท</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label"><i className="ti ti-scale" /> {profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</div>
-          <div className={`kpi-val ${profit >= 0 ? 'blue' : 'red'}`}>{fmtMoney(profit)}</div>
-          <div className="kpi-sub">บาท / เดือน</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label"><i className="ti ti-cup" /> ยอดขายรวม</div>
-          <div className="kpi-val">{fmtMoney(totalCups)}</div>
-          <div className="kpi-sub">แก้ว</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label"><i className="ti ti-cookie" /> ขนม</div>
-          <div className="kpi-val">{fmtMoney(pastryPieces)}</div>
-          <div className="kpi-sub">ชิ้น</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label"><i className="ti ti-gift" /> แก้วฟรี</div>
-          <div className="kpi-val">{fmtMoney(freeCups)}</div>
-          <div className="kpi-sub">แก้ว</div>
-        </div>
+        <Kpi icon="ti-trending-up" label="รายรับเดือนนี้" value={fmtMoney(income)} sub={`บาท (หัก GP) · ${ml}`} cls="green" />
+        <Kpi icon="ti-trending-down" label="รายจ่ายเดือนนี้" value={fmtMoney(totalExp)} sub="บาท" cls="red" />
+        <Kpi icon="ti-scale" label={profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'} value={fmtMoney(profit)} sub="บาท / เดือน" cls={profit >= 0 ? 'blue' : 'red'} />
+        <Kpi icon="ti-cup" label="ยอดขายรวม" value={fmtMoney(totalCups)} sub="แก้ว" />
+        <Kpi icon="ti-cookie" label="ขนม" value={fmtMoney(pastryPieces)} sub="ชิ้น" />
+        <Kpi icon="ti-gift" label="แก้วฟรี" value={fmtMoney(freeCups)} sub="แก้ว" />
       </div>
 
       <div className="card-head" style={{ background: 'transparent', border: 0, padding: '4px 2px 10px' }}>

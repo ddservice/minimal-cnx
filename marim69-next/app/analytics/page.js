@@ -6,6 +6,7 @@ import { OPEX_ALL_CATEGORIES } from '../../lib/opex';
 import ProfitChart from './profit-chart';
 import RangePicker from './range-picker';
 import DataTable from '../../components/data-table';
+import Kpi from '../../components/kpi';
 
 const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
 const isMonth = (s) => /^\d{4}-\d{2}$/.test(s || '');
@@ -87,10 +88,10 @@ export default async function AnalyticsPage({ searchParams }) {
       </PageHeader>
 
       <div className="kpis">
-        <Kpi icon="ti-calendar-stats" label="ช่วงที่เลือก" val={`${withData.length}/${months.length}`} sub="เดือนที่มีข้อมูล" plain />
-        <Kpi icon="ti-sum" label="กำไรรวม" val={fmtMoney(totalProfit)} sub="บาท" cls={totalProfit >= 0 ? 'blue' : 'red'} />
-        <Kpi icon="ti-scale" label="กำไรเฉลี่ย/เดือน" val={fmtMoney(avgProfit)} sub="บาท" cls={avgProfit >= 0 ? 'green' : 'red'} />
-        <Kpi icon="ti-trophy" label="เดือนกำไรสูงสุด" val={best ? best.label : '—'} sub={best ? `${fmtMoney(best.profit)} ฿` : ''} plain />
+        <Kpi icon="ti-calendar-stats" label="ช่วงที่เลือก" value={`${withData.length}/${months.length}`} sub="เดือนที่มีข้อมูล" plain />
+        <Kpi icon="ti-sum" label="กำไรรวม" value={fmtMoney(totalProfit)} sub="บาท" cls={totalProfit >= 0 ? 'blue' : 'red'} />
+        <Kpi icon="ti-scale" label="กำไรเฉลี่ย/เดือน" value={fmtMoney(avgProfit)} sub="บาท" cls={avgProfit >= 0 ? 'green' : 'red'} />
+        <Kpi icon="ti-trophy" label="เดือนกำไรสูงสุด" value={best ? best.label : '—'} sub={best ? `${fmtMoney(best.profit)} ฿` : ''} plain />
       </div>
 
       <ProfitChart data={results} />
@@ -157,16 +158,6 @@ export default async function AnalyticsPage({ searchParams }) {
         </div>
       </div>
     </AppShell>
-  );
-}
-
-function Kpi({ icon, label, val, sub, cls, plain }) {
-  return (
-    <div className="kpi">
-      <div className="kpi-label"><i className={`ti ${icon}`} /> {label}</div>
-      <div className={`kpi-val ${plain ? '' : cls || ''}`} style={plain ? { fontSize: 20 } : undefined}>{val}</div>
-      <div className="kpi-sub">{sub}</div>
-    </div>
   );
 }
 
