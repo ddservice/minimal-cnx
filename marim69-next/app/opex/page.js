@@ -92,6 +92,7 @@ export default async function OpexPage({ searchParams }) {
         bizInfo={bizInfo}
         monthLabel={monthLabel}
         canEdit={role === 'admin' || role === 'co-admin'}
+        isAdmin={isAdmin}
       />
     </AppShell>
   );

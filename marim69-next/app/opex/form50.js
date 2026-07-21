@@ -7,6 +7,7 @@ import { stripDigits, digitsOnly } from '../../lib/format';
 import { saveForm50Payees } from './actions';
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const todayISO = () => new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 const ITEMS = [
   { id: 'rent', label: 'ค่าเช่าร้าน', rate: 0.05, rateLabel: '5%', incomeType: 'เงินได้ตามมาตรา 40(5) ก. ค่าเช่า' },
@@ -38,7 +39,7 @@ function bahtText(num) {
   return s;
 }
 
-export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit = false }) {
+export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit = false, isAdmin = false }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -68,6 +69,8 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit =
     const biz = bizInfo || {};
     const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const cond = { '1': 'หัก ณ ที่จ่าย', '2': 'ออกภาษีให้ครั้งเดียว', '3': 'ออกภาษีให้ตลอดไป' }[pv.cond] || 'หัก ณ ที่จ่าย';
+    // ไม่ต้องเลือกวันทุกครั้ง — ใช้วันที่พิมพ์จริงเป็นค่าเริ่มต้นเสมอ เว้นแต่ admin ตั้งวันที่ตายตัวไว้ (pv.date)
+    const printDate = new Date(`${pv.date || todayISO()}T00:00:00`).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>50 ทวิ ${esc(it.label)} ${esc(monthLabel)}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -98,7 +101,7 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit =
   </div>
   <table>
     <tr><th style="width:46%">ประเภทเงินได้พึงประเมินที่จ่าย</th><th style="width:20%">วันเดือนปีที่จ่าย</th><th class="num">จำนวนเงินที่จ่าย</th><th class="num">ภาษีที่หัก (${it.rateLabel})</th></tr>
-    <tr><td>${esc(it.incomeType)}</td><td>${esc(pv.date || monthLabel)}</td><td class="num">${fmt(amt)}</td><td class="num">${fmt(wht)}</td></tr>
+    <tr><td>${esc(it.incomeType)}</td><td>${esc(printDate)}</td><td class="num">${fmt(amt)}</td><td class="num">${fmt(wht)}</td></tr>
     <tr><td colspan="2" style="text-align:right;font-weight:700">รวมเงินภาษีที่หักนำส่ง</td><td class="num"></td><td class="num" style="font-weight:700">${fmt(wht)}</td></tr>
     <tr><td colspan="4">รวมเงินภาษีที่หักนำส่ง (ตัวอักษร) — <b>${bahtText(wht)}</b></td></tr>
   </table>
@@ -135,13 +138,25 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit =
                 <input className="input" disabled={!canEdit} placeholder="ชื่อผู้รับเงิน" value={pv.name} onChange={(e) => set(it.id, 'name', stripDigits(e.target.value))} />
                 <input className="input" disabled={!canEdit} placeholder="เลขผู้เสียภาษี/บัตรปชช." value={pv.taxid} onChange={(e) => set(it.id, 'taxid', digitsOnly(e.target.value))} />
                 <input className="input" disabled={!canEdit} style={{ gridColumn: '1 / -1' }} placeholder="ที่อยู่ผู้รับเงิน" value={pv.addr} onChange={(e) => set(it.id, 'addr', e.target.value)} />
-                <DateField disabled={!canEdit} value={pv.date} onChange={(v) => set(it.id, 'date', v)} />
                 <select className="input" disabled={!canEdit} value={pv.cond} onChange={(e) => set(it.id, 'cond', e.target.value)}>
                   <option value="1">หัก ณ ที่จ่าย</option>
                   <option value="2">ออกภาษีให้ครั้งเดียว</option>
                   <option value="3">ออกภาษีให้ตลอดไป</option>
                 </select>
               </div>
+              {/* วันที่บนใบรับรองใช้วันที่พิมพ์จริงอัตโนมัติเสมอ ไม่ต้องเลือกทุกครั้ง — เฉพาะ admin
+                  เท่านั้นที่ตั้งวันที่ตายตัวแทนได้ (เช่น พิมพ์ย้อนหลัง) ค่านี้จะกลายเป็นค่าเริ่มต้นถาวร
+                  จนกว่าจะล้าง/เปลี่ยน (ไม่ใช่แค่ครั้งเดียว) */}
+              {isAdmin && (
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
+                    ตั้งวันที่ตายตัวแทนวันพิมพ์จริง (ไม่บังคับ — เฉพาะ Admin)
+                  </label>
+                  <div style={{ maxWidth: 200 }}>
+                    <DateField value={pv.date} onChange={(v) => set(it.id, 'date', v)} placeholder="ใช้วันที่พิมพ์จริง" />
+                  </div>
+                </div>
+              )}
               <div style={{ marginTop: 10, textAlign: 'right' }}>
                 <button type="button" className="btn btn-gold" onClick={() => print(it)}><i className="ti ti-printer" /> พิมพ์ 50 ทวิ</button>
               </div>
