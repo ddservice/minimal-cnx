@@ -1,4 +1,5 @@
 import { Prompt } from 'next/font/google';
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import './globals.css';
 
 // Prompt รองรับทั้งไทย+อังกฤษในฟอนต์เดียว — โหลดผ่าน next/font (self-host อัตโนมัติ ไม่ยิง
@@ -27,12 +28,6 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="th" className={prompt.variable}>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"
-        />
-      </head>
       <body>{children}</body>
     </html>
   );

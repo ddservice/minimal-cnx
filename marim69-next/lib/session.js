@@ -3,11 +3,19 @@ import { createClient } from './supabase/server';
 import { allowedHrefs } from './perms';
 
 // ตรวจ session + ดึง profile ครั้งเดียว ใช้ร่วมทุกหน้า (คืน supabase client มาใช้ต่อได้)
+//
+// ใช้ getSession() (อ่าน JWT จาก cookie ในเครื่อง) แทน getUser() (ยิง request ไป Supabase Auth
+// server จริง) เพราะ middleware.js เรียก getUser() ยืนยัน + refresh cookie ให้แล้วเสมอก่อนหน้านี้
+// ในทุก request (รวม Server Action) — เรียก getUser() ซ้ำอีกทีที่นี่มีแต่เสียเวลาเปล่า (round-trip
+// ไป Supabase Auth 2 รอบต่อการโหลดหน้า 1 ครั้ง) โดยไม่ได้เพิ่มความปลอดภัยจริง เพราะพึ่ง cookie
+// ชุดเดียวกันที่ middleware เพิ่ง verify มา — ถ้า middleware ไม่ได้รันมาก่อนหน้า (ไม่ควรเกิดขึ้นตาม
+// matcher ปัจจุบันซึ่งครอบทุก path) getSession() ก็จะแค่ไม่พบ session แล้วเด้งไป /login เหมือนเดิม
 export async function requireSession() {
   const supabase = await createClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) redirect('/login');
 
   const [{ data: profile }, { data: permCfg }] = await Promise.all([
