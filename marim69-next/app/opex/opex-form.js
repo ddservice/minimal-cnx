@@ -136,9 +136,19 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
     if (typeof window !== 'undefined') {
       try { slips = JSON.parse(localStorage.getItem('mm69_emp_slip') || '[]'); } catch {}
     }
-    const base = existing.employees?.length
-      ? existing.employees.map((e) => ({ label: e.label || '' }))
-      : DEFAULT_EMPLOYEES.map((e) => ({ label: e.label }));
+    // จำนวนพนักงานที่ "ควรมี" เสมอ = มากสุดของ DEFAULT_EMPLOYEES, จำนวนแถวที่บันทึกไว้เดือนนี้,
+    // และเลขพนักงานสูงสุดที่เคยมีข้อมูลส่วนตัวบันทึกไว้ (emp_details อยู่ถาวรข้ามเดือน) — กันเดือนที่
+    // "ลืมกรอก/ลืมกดบันทึก" ของพนักงานคนใดคนหนึ่งแล้วยอด 0 บาททำให้แถวนั้นไม่ถูกบันทึกเลย (upsert_opex_item
+    // ข้ามรายการที่ amount เป็นค่าว่าง) จนช่องพนักงานคนนั้นหายไปจากฟอร์มทั้งที่ควรกรอกย้อนหลังได้
+    const empDetailNums = Object.keys(empDetails || {})
+      .map((k) => parseInt(k.slice(OPEX_STAFF.empPrefix.length), 10))
+      .filter(Number.isFinite);
+    const knownCount = Math.max(
+      DEFAULT_EMPLOYEES.length,
+      existing.employees?.length || 0,
+      empDetailNums.length ? Math.max(...empDetailNums) : 0
+    );
+    const base = Array.from({ length: knownCount }, (_, i) => ({ label: existing.employees?.[i]?.label || '' }));
     return base.map((e, i) => {
       const def = DEFAULT_EMPLOYEES[i] || {};
       const slip = slips[i] || {};
