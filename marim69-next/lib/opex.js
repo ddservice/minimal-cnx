@@ -9,7 +9,7 @@ export const OPEX_OPERATING = {
     { key: 'water', label: 'ค่าน้ำ' },
     { key: 'electric', label: 'ค่าไฟ' },
     { key: 'trash', label: 'ค่าทิ้งขยะ', def: 200 },
-    { key: 'internet', label: 'ค่าอินเทอร์เน็ต', def: 319 },
+    { key: 'internet', label: 'ค่าอินเทอร์เน็ต', def: 319.93 },
     { key: 'account', label: 'ค่าทำบัญชี', def: 2000 },
     { key: 'repair', label: 'ค่าซ่อมบำรุงเครื่องชงกาแฟ' },
   ],

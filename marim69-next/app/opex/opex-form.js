@@ -280,10 +280,12 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
             return (
               <div key={it.key}>
                 <Row label={it.label} value={staff[it.key]} onChange={onCh} />
+                {/* WHT 3% แบบ "ออกให้" — บริษัทรับภาระภาษีเอง ไม่ได้หักจากยอดที่จ่ายพนักงานแทน
+                    ยอดโอนจริงจึงเท่ากับยอดเต็ม (100%) ไม่ใช่ 97% เหมือน WHT แบบหักจากผู้รับทั่วไป */}
                 {sv > 0 && (
                   <div style={whtBox}>
-                    <div style={{ ...whtRow, background: '#f0fdf4' }}><span><i className="ti ti-wallet" /> จ่ายพนักงานแทน (97%)</span><strong style={{ color: '#16a34a' }}>{fmt(sv - w)} ฿</strong></div>
-                    <div style={{ ...whtRow, background: '#fff7ed' }}><span><i className="ti ti-receipt-tax" /> หัก ณ ที่จ่าย 3% (นำส่งสรรพากร)</span><strong style={{ color: '#ea580c' }}>{fmt(w)} ฿</strong></div>
+                    <div style={{ ...whtRow, background: '#f0fdf4' }}><span><i className="ti ti-wallet" /> ยอดโอนจริง (ออกภาษีให้ ไม่หักจากยอดนี้)</span><strong style={{ color: '#16a34a' }}>{fmt(sv)} ฿</strong></div>
+                    <div style={{ ...whtRow, background: '#fff7ed' }}><span><i className="ti ti-receipt-tax" /> หัก ณ ที่จ่าย 3% (บริษัทออกให้ นำส่งสรรพากรเพิ่ม)</span><strong style={{ color: '#ea580c' }}>{fmt(w)} ฿</strong></div>
                   </div>
                 )}
               </div>
