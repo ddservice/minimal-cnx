@@ -60,6 +60,28 @@ export async function saveExpensesAction(input) {
 
   if (!records.length) return { status: 'error', message: 'กรุณากรอกอย่างน้อย 1 รายการ (ชื่อ + ราคา)' };
 
+  // เตือนก่อนบันทึกถ้าดูซ้ำกับรายการที่มีอยู่แล้ว (วันที่+หมวด+ชื่อ+ยอดเงินตรงกัน — เกณฑ์เดียวกับ dedupMonthAction)
+  // ไม่บล็อกอัตโนมัติ เพราะบางครั้งซื้อของชื่อ/ราคาเดียวกัน 2 รอบในวันเดียวกันจริงๆ ก็มีได้
+  if (!input.force) {
+    const { data: sameDay } = await supabase
+      .from('expenses')
+      .select('item_name, total_amount')
+      .eq('date', date)
+      .eq('category', category);
+    const dupNames = records
+      .filter((r) => (sameDay || []).some((e) =>
+        (e.item_name || '').trim().toLowerCase() === r.item_name.trim().toLowerCase() &&
+        Number(e.total_amount) === r.total_amount
+      ))
+      .map((r) => r.item_name);
+    if (dupNames.length) {
+      return {
+        status: 'confirm',
+        message: `รายการนี้ดูซ้ำกับที่บันทึกไว้แล้วในวันนี้: ${dupNames.join(', ')} — ต้องการบันทึกต่อไปหรือไม่?`,
+      };
+    }
+  }
+
   const { error } = await supabase.from('expenses').insert(records);
   if (error) return { status: 'error', message: error.message };
 

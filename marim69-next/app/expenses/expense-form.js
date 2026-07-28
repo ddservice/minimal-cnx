@@ -86,7 +86,14 @@ export default function ExpenseForm({ date, category, catalog = [], onCategory }
   async function onSubmit(e) {
     e.preventDefault();
     setMsg(null);
-    const res = await saveExpensesAction({ date, category, rows });
+    let res = await saveExpensesAction({ date, category, rows });
+    if (res.status === 'confirm') {
+      if (!window.confirm(res.message)) {
+        setMsg({ text: 'ยกเลิกการบันทึก (ตรวจพบรายการซ้ำ)', type: 'err' });
+        return;
+      }
+      res = await saveExpensesAction({ date, category, rows, force: true });
+    }
     setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
     if (res.status === 'ok') {
       setRows([{ ...emptyRow(), supplier: isMaterial ? lastSupplier : '' }]);
