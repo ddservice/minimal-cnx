@@ -3,6 +3,7 @@ import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { fmtMoney } from '../../lib/format';
 import { monthInputToLabel, currentMonthInput, OPEX_ALL_CATEGORIES } from '../../lib/opex';
+import { EXPENSE_CATEGORIES } from '../../lib/expense-categories';
 import MonthPicker from './month-picker';
 import RevenueChart from './revenue-chart';
 import ExpenseChart from './expense-chart';
@@ -50,6 +51,24 @@ export default async function ReportsPage({ searchParams }) {
     ) },
   ];
 
+  // รายการรายจ่ายทั้งเดือนแบบละเอียด (ไม่รวมค่าดำเนินการ — มีหน้า /opex ของตัวเองแล้ว)
+  const catLabel = {};
+  EXPENSE_CATEGORIES.forEach((c) => { catLabel[c.value] = c.label; });
+  const itemRows = expenses
+    .filter((e) => !e.item_key)
+    .slice()
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const itemCols = [
+    { key: 'date', label: 'วันที่' },
+    { key: 'category', label: 'หมวด', render: (r) => catLabel[r.category] || r.category },
+    { key: 'item_name', label: 'รายการ' },
+    { key: 'subcategory', label: 'ผู้ขาย/ซัพพลายเออร์', render: (r) => r.subcategory || '—' },
+    { key: 'quantity', label: 'จำนวน', align: 'right', render: (r) => `${fmtMoney(r.quantity)} ${r.unit || ''}` },
+    { key: 'unit_price', label: 'ราคา/หน่วย', align: 'right', render: (r) => `${fmtMoney(r.unit_price)} ฿` },
+    { key: 'payment_method', label: 'ชำระด้วย' },
+    { key: 'total_amount', label: 'รวม', align: 'right', render: (r) => <strong>{fmtMoney(r.total_amount)} ฿</strong> },
+  ];
+
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-chart-bar" title="สรุปรายเดือน">
@@ -72,6 +91,13 @@ export default async function ReportsPage({ searchParams }) {
         <div className="card-head"><i className="ti ti-list-details" /><h2>รายจ่ายแยกหมวด — {monthLabel}</h2></div>
         <div className="card-body">
           <DataTable columns={expCols} rows={expRows} rowKey={(r) => r.label} />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><i className="ti ti-receipt-2" /><h2>รายการรายจ่ายทั้งเดือน — {monthLabel}</h2></div>
+        <div className="card-body">
+          <DataTable columns={itemCols} rows={itemRows} rowKey={(r) => r.id} emptyText="ยังไม่มีรายจ่ายในเดือนนี้" />
         </div>
       </div>
 

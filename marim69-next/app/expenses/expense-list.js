@@ -3,8 +3,11 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { fmtMoney, sanitizeNumberString } from '../../lib/format';
-import { PAYMENT_METHODS } from '../../lib/expense-categories';
+import { PAYMENT_METHODS, EXPENSE_CATEGORIES } from '../../lib/expense-categories';
 import { updateExpenseAction, deleteExpenseAction } from './actions';
+
+const CATEGORY_LABEL = {};
+EXPENSE_CATEGORIES.forEach((c) => { CATEGORY_LABEL[c.value] = c.label; });
 
 export default function ExpenseList({ rows, date }) {
   const [msg, setMsg] = useState(null);
@@ -14,14 +17,14 @@ export default function ExpenseList({ rows, date }) {
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, background: 'var(--surface)', marginTop: 8 }}>
-      <h2 style={{ marginTop: 0, fontSize: 15 }}>รายการที่บันทึกแล้ว ({date})</h2>
+      <h2 style={{ marginTop: 0, fontSize: 15 }}>รายการที่บันทึกแล้ว ({date}) — ทุกหมวด</h2>
 
       {msg && (
         <div style={{ margin: '8px 0', fontSize: 13, color: msg.type === 'ok' ? '#1e7e34' : '#c0392b' }}>{msg.text}</div>
       )}
 
       {!rows.length ? (
-        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>ยังไม่มีรายการในหมวดนี้</p>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>ยังไม่มีรายการในวันนี้</p>
       ) : (
         <>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -34,7 +37,7 @@ export default function ExpenseList({ rows, date }) {
             )}
           </div>
           <div style={{ textAlign: 'right', marginTop: 12, fontSize: 14 }}>
-            รวมทั้งหมด: <strong style={{ color: 'var(--coffee)' }}>{fmtMoney(sum)} ฿</strong>
+            รวมทั้งหมด (ทุกหมวด): <strong style={{ color: 'var(--coffee)' }}>{fmtMoney(sum)} ฿</strong>
           </div>
         </>
       )}
@@ -56,7 +59,10 @@ function ViewRow({ row, onEdit, onMsg }) {
   return (
     <div style={rowBox}>
       <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{row.item_name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>{row.item_name}</span>
+          <span style={catBadge}>{CATEGORY_LABEL[row.category] || row.category}</span>
+        </div>
         <div style={{ fontSize: 12, color: 'var(--muted)' }}>
           {row.subcategory ? `${row.subcategory} · ` : ''}
           {fmtMoney(row.quantity)} {row.unit || ''} × {fmtMoney(row.unit_price)} · {row.payment_method}
@@ -131,3 +137,4 @@ const btnBase = { border: 0, borderRadius: 'var(--radius-md)', padding: '6px 12p
 const btnGhost = { ...btnBase, background: '#f5ede3', color: 'var(--coffee)' };
 const btnDanger = { ...btnBase, background: '#fff0f0', color: 'var(--danger)' };
 const btnPrimary = { ...btnBase, background: 'var(--coffee)', color: '#fff' };
+const catBadge = { fontSize: 11, color: 'var(--coffee)', background: '#f5ede3', borderRadius: 'var(--radius-full)', padding: '2px 8px', fontWeight: 600 };
