@@ -5,8 +5,8 @@ cd "$(dirname "$0")"
 
 SUPABASE_URL="https://fkhfrylvronkmktlmmia.supabase.co"
 SUPABASE_ANON_KEY="sb_publishable_SoNHJNrw4yfgZI_RYHHTjg_WgQ0lan-"
-IMAGE="marim69-beta:latest"
-NAME="marim69-beta"
+IMAGE="minimalcnx:latest"
+NAME="minimalcnx"
 PORT="127.0.0.1:3001:3000"
 
 echo "==> git pull"

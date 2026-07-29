@@ -61,14 +61,14 @@ cd marim69-next                     # โค้ดแอปอยู่ในโ
 docker build \
   --build-arg NEXT_PUBLIC_SUPABASE_URL="https://fkhfrylvronkmktlmmia.supabase.co" \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_SoNHJNrw4yfgZI_RYHHTjg_WgQ0lan-" \
-  -t marim69-beta:latest .
+  -t minimalcnx:latest .
 
 # bind แค่ localhost:3001 — ออกเน็ตตรงไม่ได้ (nginx เท่านั้นที่ต่อได้)
 docker run -d \
-  --name marim69-beta \
+  --name minimalcnx \
   --restart unless-stopped \
   -p 127.0.0.1:${PORT}:3000 \
-  marim69-beta:latest
+  minimalcnx:latest
 
 # ทดสอบว่าแอปตอบ (ควรได้ HTTP 200)
 curl -s -o /dev/null -w "local app -> %{http_code}\n" http://127.0.0.1:${PORT}/login
@@ -85,7 +85,7 @@ curl -s -o /dev/null -w "local app -> %{http_code}\n" http://127.0.0.1:${PORT}/l
 ### ทางเลือก A — โดเมนตั้งเป็น "Flexible" (Cloudflare ↔ origin ใช้ HTTP)
 
 ```bash
-sudo tee /etc/nginx/sites-available/marim69-beta > /dev/null <<EOF
+sudo tee /etc/nginx/sites-available/minimalcnx > /dev/null <<EOF
 server {
     listen 80;
     listen [::]:80;
@@ -118,7 +118,7 @@ sudo chmod 600 /etc/ssl/cloudflare/beta.key
 ```
 3. สร้าง server block (ฟังทั้ง 80 และ 443 — รองรับทุก mode โดยไม่ต้องแก้ค่าโดเมน):
 ```bash
-sudo tee /etc/nginx/sites-available/marim69-beta > /dev/null <<EOF
+sudo tee /etc/nginx/sites-available/minimalcnx > /dev/null <<EOF
 server {
     listen 80;
     listen [::]:80;
@@ -147,7 +147,7 @@ EOF
 ### เปิดใช้งาน (เหมือนกันทั้ง A และ B)
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/marim69-beta /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/minimalcnx /etc/nginx/sites-enabled/
 sudo nginx -t          # ⬅️ ต้องขึ้น "syntax is ok" ก่อน ถ้า error จะไม่ reload
 sudo systemctl reload nginx   # reload = เว็บอื่นไม่หลุด
 ```
@@ -179,17 +179,17 @@ cd "$APPDIR" && git pull
 cd marim69-next
 docker build --build-arg NEXT_PUBLIC_SUPABASE_URL="https://fkhfrylvronkmktlmmia.supabase.co" \
              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_SoNHJNrw4yfgZI_RYHHTjg_WgQ0lan-" \
-             -t marim69-beta:latest .
-docker rm -f marim69-beta
-docker run -d --name marim69-beta --restart unless-stopped -p 127.0.0.1:${PORT}:3000 marim69-beta:latest
+             -t minimalcnx:latest .
+docker rm -f minimalcnx
+docker run -d --name minimalcnx --restart unless-stopped -p 127.0.0.1:${PORT}:3000 minimalcnx:latest
 ```
 
 ## ถอนออกทั้งหมด (ถ้าอยากลบ ไม่กระทบเว็บอื่น)
 
 ```bash
-docker rm -f marim69-beta
-docker rmi marim69-beta:latest
-sudo rm /etc/nginx/sites-enabled/marim69-beta /etc/nginx/sites-available/marim69-beta
+docker rm -f minimalcnx
+docker rmi minimalcnx:latest
+sudo rm /etc/nginx/sites-enabled/minimalcnx /etc/nginx/sites-available/minimalcnx
 sudo nginx -t && sudo systemctl reload nginx
 # แล้วลบ DNS record "beta" ที่ Cloudflare
 ```
