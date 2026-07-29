@@ -66,7 +66,7 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
       setEvidenceStatus({ text: 'แนบหลักฐานแล้ว ✓ — จะบันทึกลงระบบเมื่อกดบันทึกยอดขาย', type: 'ok' });
     } catch (err) {
       const m = err?.message || String(err);
-      const hint = /bucket/i.test(m) ? ' (ยังไม่ได้รัน add_free_cup_actual_cost.sql ใน Supabase)' : '';
+      const hint = /bucket/i.test(m) ? ' (ยังไม่ได้รัน sql/add_free_cup_actual_cost.sql ใน Supabase)' : '';
       setEvidenceStatus({ text: `อัปโหลดไม่สำเร็จ: ${m}${hint}`, type: 'err' });
     }
   }
