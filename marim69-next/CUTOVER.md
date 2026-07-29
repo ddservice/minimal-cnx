@@ -56,7 +56,7 @@ sudo nginx -t && sudo systemctl reload nginx
 - ไฟล์ HTML เดิมยังอยู่ครบใน `/var/www/minimalcnx` (ไม่ได้ลบ) — เก็บไว้เป็น fallback
 - `minimal.ddserviceth.com` (staging) จะยังชี้ container เดียวกัน — จะเก็บไว้เป็น
   staging ต่อ หรือปิดก็ได้
-- อัปเดตเวอร์ชันใหม่: `cd ~/apps/marim69-next && git pull && cd marim69-next && bash deploy.sh`
+- อัปเดตเวอร์ชันใหม่: `cd ~/apps/minimalcnx/marim69-next && bash deploy.sh`
 
 ## หมายเหตุความปลอดภัย
 
