@@ -38,8 +38,9 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 - Local: `cd marim69-next && npm install && npm run dev`
 - Build check: `npm run build` (standalone output; Docker uses it)
-- **Deploy to VPS (one line, run ON the VPS):** `cd ~/apps/marim69-next && git pull && cd marim69-next && bash deploy.sh`
-  - VPS authenticates to GitHub via a **read-only deploy key** (not a token). Container binds `127.0.0.1:3001`; nginx proxies. Cutover + rollback details in `marim69-next/CUTOVER.md`.
+- **Deploy to VPS (one line, run ON the VPS):** `cd ~/apps/minimalcnx/marim69-next && bash deploy.sh`
+  - VPS authenticates to GitHub via a **read-only deploy key** (not a token). Docker image/container are named `minimalcnx` (renamed 2026-07-29 from `marim69-beta` — dropped "beta" since this has been the live production app since the 2026-07-19 cutover, and the old name was confusing for anyone new looking at `docker ps`). Container binds `127.0.0.1:3001`; nginx proxies — nginx needed no changes for the rename since the port didn't change. Cutover + rollback details in `marim69-next/CUTOVER.md` (written before the rename — mentally substitute `minimalcnx` wherever it says `marim69-beta`).
+  - **Outer VPS folder is `~/apps/minimalcnx`** (renamed from `~/apps/marim69-next` in the same pass). The inner git-tracked subfolder is still named `marim69-next/` (unchanged — that's this repo's actual folder name, not VPS-specific), so the full path is `~/apps/minimalcnx/marim69-next/`.
 
 ## Domain formulas (keep identical to legacy)
 
