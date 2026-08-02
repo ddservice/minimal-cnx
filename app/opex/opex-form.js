@@ -123,7 +123,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
     return o;
   };
 
-  const [operating, setOperating] = useState(() => initFixed(OPEX_OPERATING.items, existing.operating, false));
+  const [operating, setOperating] = useState(() => initFixed(OPEX_OPERATING.items, existing.operating, true));
   const [staff, setStaff] = useState(() => initFixed(OPEX_STAFF.fixed, existing.staff, true)); // เติมค่าตั้งต้น (36000/0 หรือค่าที่ admin ตั้ง)
   const [tax, setTax] = useState(() => {
     const t = initFixed(OPEX_TAX.items, existing.tax, false);
