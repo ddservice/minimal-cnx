@@ -1,1 +1,6 @@
-archive/push_to_github.bat
+node_modules
+.next
+out
+.env
+.env*.local
+npm-debug.log*
