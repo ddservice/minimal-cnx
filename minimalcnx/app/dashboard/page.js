@@ -3,7 +3,7 @@ import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import Kpi from '../../components/kpi';
 import { fmtMoney } from '../../lib/format';
-import { OPEX_ALL_CATEGORIES } from '../../lib/opex';
+import { OPEX_ALL_CATEGORIES, computeEffectiveOpex } from '../../lib/opex';
 
 function monthLabel() {
   const d = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -21,17 +21,19 @@ export default async function DashboardPage() {
   const { supabase, role, name, isAdmin, allowed } = await requireSession();
   const ml = monthLabel();
 
-  const { data: summary } = await supabase.rpc('get_monthly_summary', { p_month_label: ml });
+  const [{ data: summary }, { data: opexCfg }] = await Promise.all([
+    supabase.rpc('get_monthly_summary', { p_month_label: ml }),
+    supabase.from('business_config').select('value').eq('key', 'opex_defaults').maybeSingle(),
+  ]);
   const sales = summary?.sales || [];
   const expenses = summary?.expenses || [];
+  const opexDefaults = opexCfg?.value || {};
 
   const income = sales.reduce((a, s) => a + Number(s.net_revenue || 0), 0);
   const regExp = expenses
     .filter((e) => !e.item_key)
     .reduce((a, e) => a + Number(e.total_amount || 0), 0);
-  const opexExp = expenses
-    .filter((e) => e.item_key && OPEX_ALL_CATEGORIES.includes(e.category))
-    .reduce((a, e) => a + Number(e.total_amount || 0), 0);
+  const opexExp = computeEffectiveOpex(expenses, opexDefaults);
   const totalExp = regExp + opexExp;
   const profit = income - totalExp;
   const totalCups = sales.reduce((a, s) => a + Number(s.total_cups || 0), 0);

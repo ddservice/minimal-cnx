@@ -2,7 +2,7 @@ import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { fmtMoney } from '../../lib/format';
-import { OPEX_ALL_CATEGORIES } from '../../lib/opex';
+import { OPEX_ALL_CATEGORIES, computeEffectiveOpex } from '../../lib/opex';
 import ProfitChart from './profit-chart';
 import RangePicker from './range-picker';
 import DataTable from '../../components/data-table';
@@ -24,12 +24,12 @@ function monthsBetween(from, to) {
   return out;
 }
 
-function summarize(summary) {
+function summarize(summary, opexDefaults = {}) {
   const sales = summary?.sales || [];
   const expenses = summary?.expenses || [];
   const income = sales.reduce((a, s) => a + Number(s.net_revenue || 0), 0);
   const reg = expenses.filter((e) => !e.item_key).reduce((a, e) => a + Number(e.total_amount || 0), 0);
-  const opex = expenses.filter((e) => e.item_key && OPEX_ALL_CATEGORIES.includes(e.category)).reduce((a, e) => a + Number(e.total_amount || 0), 0);
+  const opex = computeEffectiveOpex(expenses, opexDefaults);
   const exp = reg + opex;
   return { income, exp, profit: income - exp, hasData: sales.length > 0 || expenses.length > 0 };
 }
@@ -39,6 +39,9 @@ const pct = (cur, prev) => (prev ? ((cur - prev) / Math.abs(prev)) * 100 : null)
 export default async function AnalyticsPage({ searchParams }) {
   const { supabase, role, name, isAdmin, allowed } = await requireSession();
   const sp = await searchParams;
+
+  const { data: opexCfg } = await supabase.from('business_config').select('value').eq('key', 'opex_defaults').maybeSingle();
+  const opexDefaults = opexCfg?.value || {};
 
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
   const curInput = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -50,7 +53,7 @@ export default async function AnalyticsPage({ searchParams }) {
   const results = await Promise.all(
     months.map(async (mo) => {
       const { data } = await supabase.rpc('get_monthly_summary', { p_month_label: mo.label });
-      return { label: mo.label, data, ...summarize(data) };
+      return { label: mo.label, data, ...summarize(data, opexDefaults) };
     })
   );
 
@@ -63,7 +66,7 @@ export default async function AnalyticsPage({ searchParams }) {
       const cached = results.find((r) => r.label === mo.label); // เลี่ยงยิง RPC ซ้ำถ้าเดือนนี้โหลดไปแล้ว
       if (cached) return cached;
       const { data } = await supabase.rpc('get_monthly_summary', { p_month_label: mo.label });
-      return { label: mo.label, data, ...summarize(data) };
+      return { label: mo.label, data, ...summarize(data, opexDefaults) };
     })
   );
 

@@ -39,7 +39,8 @@ begin
     p_data->>'month_label',
     auth.uid()
   )
-  on conflict on constraint uidx_expenses_opex_item do update set
+  -- ระบุคอลัมน์ + เงื่อนไขให้ตรง partial unique index (ห้ามใช้ ON CONSTRAINT กับ index)
+  on conflict (month_label, item_key) where item_key is not null do update set
     item_name      = excluded.item_name,
     total_amount   = excluded.total_amount,
     payment_method = excluded.payment_method,

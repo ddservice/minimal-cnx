@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Read(//c/Users/Home/.ssh/**)",
+      "Bash(awk '{print $1}' ~/.ssh/known_hosts)",
+      "Bash(awk '{print $1}' ~/.ssh/known_hosts.old)",
+      "Bash(ssh *)",
+      "Bash(curl -sk -o /dev/null -w 'minimalcnx: %{http_code}\\\\n' https://minimalcnx.ddserviceth.com/ --max-time 15)",
+      "Bash(curl -sk -o /dev/null -w 'minimal: %{http_code}\\\\n' https://minimal.ddserviceth.com/ --max-time 15)",
+      "Bash(curl -sk -D - -o /dev/null https://minimalcnx.ddserviceth.com/reports --max-time 15)",
+      "Bash(curl -sk -D - -o /dev/null https://minimal.ddserviceth.com/reports --max-time 15)",
+      "Bash(set -e)",
+      "Bash(git mv *)",
+      "Bash(git check-ignore *)",
+      "Bash(curl -sk -o /dev/null -w 'minimalcnx.ddserviceth.com -> %{http_code}\\\\n' https://minimalcnx.ddserviceth.com/ --max-time 15)",
+      "Bash(curl -sk -o /dev/null -w 'minimal.ddserviceth.com -> %{http_code}\\\\n' https://minimal.ddserviceth.com/ --max-time 15)"
+    ]
+  }
+}

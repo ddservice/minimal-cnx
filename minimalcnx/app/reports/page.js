@@ -2,7 +2,7 @@ import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { fmtMoney } from '../../lib/format';
-import { monthInputToLabel, currentMonthInput, OPEX_ALL_CATEGORIES } from '../../lib/opex';
+import { monthInputToLabel, currentMonthInput, OPEX_ALL_CATEGORIES, computeEffectiveOpex } from '../../lib/opex';
 import { EXPENSE_CATEGORIES } from '../../lib/expense-categories';
 import MonthPicker from './month-picker';
 import RevenueChart from './revenue-chart';
@@ -17,9 +17,13 @@ export default async function ReportsPage({ searchParams }) {
   const monthInput = /^\d{4}-\d{2}$/.test(sp?.month || '') ? sp.month : currentMonthInput();
   const monthLabel = monthInputToLabel(monthInput);
 
-  const { data: summary } = await supabase.rpc('get_monthly_summary', { p_month_label: monthLabel });
+  const [{ data: summary }, { data: opexCfg }] = await Promise.all([
+    supabase.rpc('get_monthly_summary', { p_month_label: monthLabel }),
+    supabase.from('business_config').select('value').eq('key', 'opex_defaults').maybeSingle(),
+  ]);
   const sales = summary?.sales || [];
   const expenses = summary?.expenses || [];
+  const opexDefaults = opexCfg?.value || {};
 
   const income = sales.reduce((a, s) => a + Number(s.net_revenue || 0), 0);
   const catSum = (c) =>
@@ -27,9 +31,7 @@ export default async function ReportsPage({ searchParams }) {
   const matTotal = catSum('ต้นทุนวัตถุดิบ');
   const bakTotal = catSum('ต้นทุนขนมหน้าร้าน');
   const miscTotal = catSum('รายจ่ายจิปาถะ');
-  const opexTotal = expenses
-    .filter((e) => e.item_key && OPEX_ALL_CATEGORIES.includes(e.category))
-    .reduce((a, e) => a + Number(e.total_amount || 0), 0);
+  const opexTotal = computeEffectiveOpex(expenses, opexDefaults);
   const totalExp = matTotal + bakTotal + miscTotal + opexTotal;
   const profit = income - totalExp;
 

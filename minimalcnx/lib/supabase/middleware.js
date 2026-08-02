@@ -39,7 +39,21 @@ export async function updateSession(request) {
   ) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    // บังคับ https เสมอหากไม่ใช่ localhost/127.0.0.1 ป้องกัน Cloudflare HTTP redirect loop
+    const host = request.headers.get('host') || '';
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    if (!isLocal) {
+      url.protocol = 'https:';
+    }
     return NextResponse.redirect(url);
+  }
+
+  // หากมี location header เป็น http ในสภาพแวดล้อมจริง ปรับเป็น https
+  if (supabaseResponse.headers.has('location')) {
+    const loc = supabaseResponse.headers.get('location') || '';
+    if (loc.startsWith('http://') && !loc.includes('localhost') && !loc.includes('127.0.0.1')) {
+      supabaseResponse.headers.set('location', loc.replace('http://', 'https://'));
+    }
   }
 
   return supabaseResponse;

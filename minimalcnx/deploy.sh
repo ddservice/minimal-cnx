@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy/อัปเดตแอปบน VPS แบบบรรทัดเดียว — รันในโฟลเดอร์ marim69-next: bash deploy.sh
+# Deploy/อัปเดตแอปบน VPS แบบบรรทัดเดียว — รันในโฟลเดอร์ minimalcnx: bash deploy.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 

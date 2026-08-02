@@ -52,13 +52,13 @@ Maintained by Claude. **Update this file after every change** to the project.
 - Payroll (`payslip()` in `app/opex/opex-form.js`): SSO 5% of min(salary,15000) for employee AND company; commission = income × rate; commission tax 3%; gross = salary+position+commission+diligence; net transfer = salary−ssoEmp+position+diligence+(comm−commTax); **saved OPEX amount = companyCost = gross + companySSO**. **(2026-07-20) The per-employee OPEX amount is no longer a manually-typed field** — it used to require opening "คำนวณเงินเดือน" and clicking a separate "ใช้ยอดนี้" button to copy `companyCost` in, which was easy to forget (an employee's cost could silently stay at a stale/₿0 figure for a whole month). It's now computed live from `payslip(e, income).companyCost` on every render and at submit time — there is no independent `amount` state for employees anymore, so editing salary/position/commission/diligence updates the displayed and saved OPEX figure immediately with no extra step.
 - Employee defaults (`DEFAULT_EMPLOYEES`, `lib/opex.js`): emp1 13000/1500, emp2 12000/0; salary_dir default 36000. Payslip inputs persist in `localStorage` (`mm69_emp_slip`).
 
-## Repo layout (root)
-
-- `marim69-next/` — the live app (see below)
-- `sql/` — all Supabase SQL, base schema + every migration/fix, run against the one shared project (see "Migrations to run once")
-- `templates/` — `.xlsx` templates matching the Excel import feature's expected column format
-- `archive/` — superseded material kept for reference, not deleted: the pre-Supabase Google Apps Script version, old deploy batch scripts, and the legacy static dashboard (`archive/minimal_marim69_dashboard.html` — again, this repo copy is reference-only; the VPS's own `/var/www/minimalcnx` copy is the actual rollback path and is untouched by anything in this repo)
-- `CLAUDE.md` — this file
+- `minimalcnx/` — the live production app + SQL migrations + import templates
+  - `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `reports`, `admin`, `export`
+  - `components/` — UI components (`app-shell`, `sidebar`, `kpi`, `data-table`, `date-field`)
+  - `lib/` — core libraries (`supabase`, `session`, `format`, `gp`, `opex`, `config-store`)
+  - `sql/` — all Supabase SQL schema & migrations (`supabase_migration.sql`, `fix_bugs.sql`, `harden_security.sql`)
+  - `templates/` — `.xlsx` templates for Excel import feature
+- `CLAUDE.md` — this documentation file
 
 ## App structure (`marim69-next/`)
 
@@ -128,6 +128,12 @@ Also ported ✅: **employee pay-history + reprint** (`lib/payslip.js` exports `c
 Also ported ✅: **free-cup promo evidence upload** (`app/sales/sales-form.js`) — when `free_cups > 0`, an image/PDF file input uploads to Supabase Storage bucket `evidence` (path `free_cups/{date}_{ts}.{ext}`) via the browser client, stores the public URL in `sales_daily.free_cup_evidence_url` through `upsert_sales_daily`. **Requires `sql/add_free_cup_actual_cost.sql` to have been run in the Supabase SQL editor** — it adds the column, updates the RPC to accept/coalesce the URL, and creates the `evidence` bucket + RLS policies (authenticated insert, public read). Until run, uploads fail with a friendly "ยังไม่ได้รัน add_free_cup_actual_cost.sql" hint (same pattern as legacy) and the URL is silently dropped from the save payload (harmless no-op against the currently-deployed RPC).
 
 Also ported ✅: **user activate/deactivate** (`/admin`, admin-only `toggleActiveAction`) — a lighter-weight alternative to deleting a user; `requireSession()`/login now enforce `profiles.is_active`, signing out and blocking access immediately when a user is deactivated (previously the column existed but was never checked, so a "deactivated" user could still use the app).
+
+Also ported ✅: **dynamic OPEX default calculation** (`lib/opex.js` `computeEffectiveOpex()`) — (Added 2026-08-02) Automatically calculates default fixed OPEX items (director salary 36,000 ฿, rent 5,000 ฿, accounting 2,000 ฿, internet 319.93 ฿, trash 200 ฿, employee defaults) for any new month without requiring manual submission on `/opex`. If explicit OPEX rows are saved in DB for the month, saved values override defaults item-by-item. Integrated across Dashboard (`/dashboard`), Reports (`/reports`), and Analytics (`/analytics`).
+
+Also ported ✅: **Cloudflare HTTPS redirect & proxy headers fix** (`lib/supabase/middleware.js` & `deploy/nginx-marim69.conf`) — (Added 2026-08-02) Middleware now enforces `https:` scheme on redirects in production environments to prevent HTTP redirect loops when users navigate directly to subpaths like `/opex`. Nginx proxy headers updated to `$http_x_forwarded_proto`.
+
+Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fix_opex_upsert.sql`** — (Fixed 2026-08-02) Changed `ON CONFLICT ON CONSTRAINT uidx_expenses_opex_item` to `ON CONFLICT (month_label, item_key) WHERE item_key IS NOT NULL` because Postgres partial unique indexes are not registered as named constraints.
 
 **All SQL now lives in `sql/`** (moved out of repo root 2026-07-29 for a cleaner handover to future maintainers — `sql/supabase_migration.sql` is the base schema, everything else is a dated fix/add-on migration meant to run once against the same Supabase project). Import file templates for the Excel import feature live in `templates/`. Genuinely obsolete material (pre-Supabase Google Apps Script, old deploy batch scripts, the superseded static dashboard) lives in `archive/`, kept for reference rather than deleted outright — see that folder before assuming something no longer exists.
 
