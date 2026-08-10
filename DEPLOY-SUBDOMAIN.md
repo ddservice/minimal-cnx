@@ -16,7 +16,7 @@
 > ตั้งตัวแปรไว้ใช้ซ้ำ (แก้ค่าให้เป็นของจริงก่อน):
 > ```bash
 > DOMAIN=beta.yourdomain.com
-> APPDIR=$HOME/apps/marim69-next
+> APPDIR=$HOME/apps/minimalcnx
 > PORT=3001
 > ```
 
@@ -51,8 +51,7 @@ docker --version || {
 
 ```bash
 mkdir -p "$APPDIR" && cd "$APPDIR"
-git clone <YOUR_REPO_URL> .        # หรือ rsync เฉพาะโฟลเดอร์ marim69-next ขึ้นมา
-cd marim69-next                     # โค้ดแอปอยู่ในโฟลเดอร์นี้
+git clone <YOUR_REPO_URL> .        # repo root = แอป (flatten แล้ว ไม่มีโฟลเดอร์ย่อย)
 ```
 
 ## STEP 4 — Build + Run container (แยกอิสระ)
@@ -176,7 +175,6 @@ curl -s -o /dev/null -w "%{http_code}\n" https://$DOMAIN/admin     # คาด�
 
 ```bash
 cd "$APPDIR" && git pull
-cd marim69-next
 docker build --build-arg NEXT_PUBLIC_SUPABASE_URL="https://fkhfrylvronkmktlmmia.supabase.co" \
              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_SoNHJNrw4yfgZI_RYHHTjg_WgQ0lan-" \
              -t minimalcnx:latest .

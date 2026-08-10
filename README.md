@@ -1,19 +1,18 @@
-# Minimal Maerim (marim69) — Next.js + Supabase
+# Minimal Maerim (minimalcnx) — Next.js + Supabase
 
-Coffee-shop sales/expense/payroll tracking system. Live production app for `minimalcnx.ddserviceth.com`, replacing the original single-HTML-file dashboard (kept for reference at `../archive/minimal_marim69_dashboard.html`).
+Coffee-shop sales/expense/payroll + loyalty tracking system. Live at `minimalcnx.ddserviceth.com` (prod) and `minimal.ddserviceth.com` (staging).
 
-**For the full picture — architecture, security model, business formulas, feature status, deploy instructions — see [`../CLAUDE.md`](../CLAUDE.md) at the repo root. That file is the maintained source of truth; this README is intentionally just a quick-start.**
+**Full docs (architecture, security, formulas, features, deploy):** see [`CLAUDE.md`](./CLAUDE.md) — that file is the maintained source of truth. This README is a quick-start only.
 
 ## Local dev
 
 ```bash
-cd marim69-next
 npm install
 cp .env.local.example .env.local   # fill in NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
 npm run dev                        # http://localhost:3000
 ```
 
-Needs an existing user in the shared Supabase project to log in (`sql/admin_user_functions.sql` at repo root has the SQL to create one).
+Needs an existing user in the shared Supabase project (`sql/admin_user_functions.sql` has the SQL to create one).
 
 ## Build check
 
@@ -21,6 +20,13 @@ Needs an existing user in the shared Supabase project to log in (`sql/admin_user
 npm run build
 ```
 
-## Deploy
+## Deploy (on the VPS)
 
-Production runs on a VPS via Docker, not Vercel/Netlify — see the "Run / build / deploy" section in `../CLAUDE.md`.
+```bash
+cd ~/apps/minimalcnx && bash deploy.sh
+```
+
+## New migrations (run in Supabase SQL Editor if not already applied)
+
+- **`sql/add_loyalty_system.sql`** — required for `/loyalty` (tables, trigger, RLS, seed branches)
+- **`sql/fix_loyalty_staff_profiles_rls.sql`** — only if you already ran an older copy of `add_loyalty_system.sql` before the `staff_profiles` policies were added (idempotent)

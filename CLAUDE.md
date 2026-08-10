@@ -6,11 +6,11 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 | | Legacy | New (active) |
 |---|---|---|
-| Code | `archive/minimal_marim69_dashboard.html` (single ~1 MB file, vanilla JS) | `marim69-next/` (Next.js 15 + React 19 + `@supabase/ssr`) |
-| Status | superseded (this repo copy is archived for reference only; the actual rollback copy lives in `/var/www/minimalcnx` on the VPS, independent of this repo) | **live in production** |
+| Code | Static HTML dashboard (rollback copy only on VPS at `/var/www/minimalcnx`; removed from this repo in 2026-08-02) | **This repo root** — Next.js 15 + React 19 + `@supabase/ssr` (package name `minimalcnx`) |
+| Status | superseded | **live in production** |
 | Domain | — | `minimalcnx.ddserviceth.com` (prod) + `minimal.ddserviceth.com` (staging) — both proxy to the same Docker container |
 
-**Shared backend:** Supabase project `fkhfrylvronkmktlmmia`. Same tables (`sales_daily`, `expenses`, `profiles`, `business_config`) and RPCs (`upsert_sales_daily`, `upsert_opex_item`, `get_monthly_summary`, `admin_*`). The new app does **not** change the schema. SQL lives in `sql/*.sql` (moved from repo root 2026-07-29, see "App structure" below).
+**Shared backend:** Supabase project `fkhfrylvronkmktlmmia`. Core tables (`sales_daily`, `expenses`, `profiles`, `business_config`) and RPCs (`upsert_sales_daily`, `upsert_opex_item`, `get_monthly_summary`, `admin_*`) plus Loyalty/CDP tables from `sql/add_loyalty_system.sql` (`branches`, `staff_profiles`, `customers`, `point_transactions`, `redemption_history`, `loyalty_audit_logs`). SQL lives in `sql/*.sql`.
 
 ## Security model (do not weaken)
 
@@ -36,11 +36,11 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 ## Run / build / deploy
 
-- Local: `cd marim69-next && npm install && npm run dev`
+- Local (from repo root): `npm install && npm run dev`
 - Build check: `npm run build` (standalone output; Docker uses it)
-- **Deploy to VPS (one line, run ON the VPS):** `cd ~/apps/minimalcnx/marim69-next && bash deploy.sh`
-  - VPS authenticates to GitHub via a **read-only deploy key** (not a token). Docker image/container are named `minimalcnx` (renamed 2026-07-29 from `marim69-beta` — dropped "beta" since this has been the live production app since the 2026-07-19 cutover, and the old name was confusing for anyone new looking at `docker ps`). Container binds `127.0.0.1:3001`; nginx proxies — nginx needed no changes for the rename since the port didn't change. Cutover + rollback details in `marim69-next/CUTOVER.md` (written before the rename — mentally substitute `minimalcnx` wherever it says `marim69-beta`).
-  - **Outer VPS folder is `~/apps/minimalcnx`** (renamed from `~/apps/marim69-next` in the same pass). The inner git-tracked subfolder is still named `marim69-next/` (unchanged — that's this repo's actual folder name, not VPS-specific), so the full path is `~/apps/minimalcnx/marim69-next/`.
+- **Deploy to VPS (one line, run ON the VPS):** `cd ~/apps/minimalcnx && bash deploy.sh`
+  - Repo was flattened to root on 2026-08-02 (`218dba5`) — there is no longer a nested `marim69-next/` app folder. VPS clone should be the repo root at `~/apps/minimalcnx`.
+  - VPS authenticates to GitHub via a **read-only deploy key** (not a token). Docker image/container are named `minimalcnx` (renamed 2026-07-29 from `marim69-beta`). Container binds `127.0.0.1:3001`; nginx proxies. Cutover + rollback details in `CUTOVER.md` (written before the rename — mentally substitute `minimalcnx` wherever it says `marim69-beta`).
 
 ## Domain formulas (keep identical to legacy)
 
@@ -52,19 +52,15 @@ Maintained by Claude. **Update this file after every change** to the project.
 - Payroll (`payslip()` in `app/opex/opex-form.js`): SSO 5% of min(salary,15000) for employee AND company; commission = income × rate; commission tax 3%; gross = salary+position+commission+diligence; net transfer = salary−ssoEmp+position+diligence+(comm−commTax); **saved OPEX amount = companyCost = gross + companySSO**. **(2026-07-20) The per-employee OPEX amount is no longer a manually-typed field** — it used to require opening "คำนวณเงินเดือน" and clicking a separate "ใช้ยอดนี้" button to copy `companyCost` in, which was easy to forget (an employee's cost could silently stay at a stale/₿0 figure for a whole month). It's now computed live from `payslip(e, income).companyCost` on every render and at submit time — there is no independent `amount` state for employees anymore, so editing salary/position/commission/diligence updates the displayed and saved OPEX figure immediately with no extra step.
 - Employee defaults (`DEFAULT_EMPLOYEES`, `lib/opex.js`): emp1 13000/1500, emp2 12000/0; salary_dir default 36000. Payslip inputs persist in `localStorage` (`mm69_emp_slip`).
 
-- `minimalcnx/` — the live production app + SQL migrations + import templates
-  - `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `reports`, `admin`, `export`
-  - `components/` — UI components (`app-shell`, `sidebar`, `kpi`, `data-table`, `date-field`)
-  - `lib/` — core libraries (`supabase`, `session`, `format`, `gp`, `opex`, `config-store`)
-  - `sql/` — all Supabase SQL schema & migrations (`supabase_migration.sql`, `fix_bugs.sql`, `harden_security.sql`)
-  - `templates/` — `.xlsx` templates for Excel import feature
-- `CLAUDE.md` — this documentation file
+## App structure (repo root)
 
-## App structure (`marim69-next/`)
-
-- `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `reports`, `admin`, `export` (xlsx Route Handler)
+- `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `loyalty` (+ `loyalty/analytics`), `reports`, `analytics`, `admin`, `settings`, `export` (xlsx Route Handler)
 - `components/` — `app-shell`, `sidebar`, `sign-out-button`, `page-header`, `data-table`, `kpi`, `date-field`
-- `lib/` — `supabase/{client,server,middleware}`, `session`, `format`, `gp`, `opex`, `expense-categories`, `suppliers` (curated supplier→item catalog), `config-store`
+- `lib/` — `supabase/{client,server,middleware}`, `session`, `format`, `gp`, `opex`, `expense-categories`, `suppliers` (curated supplier→item catalog), `config-store`, `perms`, `payslip`, …
+- `sql/` — all Supabase SQL schema & migrations
+- `templates/` — `.xlsx` templates for Excel import
+- `deploy/` — nginx sample config
+- `CLAUDE.md` — this documentation file
 - Design: see "Design system" below.
 
 ## Design system (2026-07-20 redesign — soft/modern, sidebar layout)
@@ -135,14 +131,22 @@ Also ported ✅: **Cloudflare HTTPS redirect & proxy headers fix** (`lib/supabas
 
 Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fix_opex_upsert.sql`** — (Fixed 2026-08-02) Changed `ON CONFLICT ON CONSTRAINT uidx_expenses_opex_item` to `ON CONFLICT (month_label, item_key) WHERE item_key IS NOT NULL` because Postgres partial unique indexes are not registered as named constraints.
 
-**All SQL now lives in `sql/`** (moved out of repo root 2026-07-29 for a cleaner handover to future maintainers — `sql/supabase_migration.sql` is the base schema, everything else is a dated fix/add-on migration meant to run once against the same Supabase project). Import file templates for the Excel import feature live in `templates/`. Genuinely obsolete material (pre-Supabase Google Apps Script, old deploy batch scripts, the superseded static dashboard) lives in `archive/`, kept for reference rather than deleted outright — see that folder before assuming something no longer exists.
+**Added (2026-08-02): Smart Loyalty & CDP** (`app/loyalty/`, `sql/add_loyalty_system.sql`) — staff portal at `/loyalty` (search/register customer by phone or LINE user id, issue points, redeem rewards) + manager+ CDP dashboard at `/loyalty/analytics` (RFM segments, per-branch point distribution, recent audit). Nav tab `สะสมแต้ม` in `lib/perms.js`.
+  - **Schema:** `branches`, `staff_profiles` (user↔branch), `customers` (points + RFM), `point_transactions`, `redemption_history`, `loyalty_audit_logs`. Trigger `fn_on_point_transaction` keeps `points_balance` / `visit_count` / `rfm_segment` in sync after each earn/redeem (blocks negative balance).
+  - **Anti-fraud (server-side in `issuePointsAction`):** reject >100 points per issue; rate-limit ≥5 issues to the same customer by the same staff within 10 minutes — both log `FRAUD_ALERT_*` to `loyalty_audit_logs` before rejecting.
+  - **RFM auto labels:** Champions / Loyal / Potential / At-Risk / Lost / New (from visit count + days since last visit).
+  - **⚠️ Requires `sql/add_loyalty_system.sql` run in Supabase** before `/loyalty` works. Seed inserts branches `MAIN` (แม่ริม) and `CNX01` (ตัวเมืองเชียงใหม่).
+  - **⚠️ Fix (2026-08-10):** original migration enabled RLS on `staff_profiles` with no policies — staff default-branch lookup failed silently. Policies are now in `add_loyalty_system.sql`; if you already ran the older migration, also run `sql/fix_loyalty_staff_profiles_rls.sql` (idempotent).
+
+**Repo layout notes:** All SQL lives in `sql/` (`sql/supabase_migration.sql` = base schema; other files are one-shot add-ons). Import templates in `templates/`. The old `archive/` folder (legacy HTML dashboard, GAS scripts, unused deploy helpers) was **deleted from this repo on 2026-08-02** — the live VPS rollback HTML still lives at `/var/www/minimalcnx`, independent of git.
 
 **Migrations to run once (if not already applied):**
-- `sql/add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in this app works against the schema already in `sql/supabase_migration.sql`.
+- **`sql/add_loyalty_system.sql` — required for `/loyalty`.** Creates Loyalty/CDP tables, trigger, RLS, seed branches. If you already ran an older copy before 2026-08-10, also run `sql/fix_loyalty_staff_profiles_rls.sql`.
+- `sql/add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in the core app works against the schema already in `sql/supabase_migration.sql`.
 - **`sql/harden_security.sql` — security fix, recommend running regardless of which features you use.** See "Security model" above.
 - **`sql/fix_bugs.sql` — run this one too, confirmed necessary in production (2026-07-28).** Fixes 3 things together: (1) `expenses` delete policy was admin-only in the original migration, widened to admin/co-admin/manager — without this, co-admin gets a silent-looking "ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin หรือ manager" trying to delete a duplicate expense row; (2) `upsert_opex_item` wasn't setting `month_label` on insert, and the old `get_monthly_summary` filtered *all* expenses (including regular mat/bak/misc, which always had `month_label` set correctly via the `tr_expenses_month_label` trigger) by that same `month_label` string — so OPEX rows silently vanished from monthly reports; (3) backfills `month_label` on any pre-existing OPEX rows that were missing it. **Real incident this caused:** July 2026's "รายจ่ายรวม" showed 220,000+ ฿, staff's own manual count of just the material-cost category said ~70,000 ฿ — looked like duplicate/bad data entry, but `dedupMonthAction` found zero duplicates and a direct SQL sum of `ต้นทุนวัตถุดิบ` confirmed the material figure was already correct (81,926.50 ฿, matching staff's count within normal estimation slack). The inflated *total* was purely `get_monthly_summary` mis-handling OPEX under the hood — running `fix_bugs.sql` dropped the reported total from 220,000+ to 165,503.68 ฿, which now reconciles exactly against the sum of all 4 category rows in `/reports`. `sql/fix_opex_upsert.sql` is an earlier, narrower predecessor of just the `upsert_opex_item` ON CONFLICT fix — `fix_bugs.sql`'s version of that function supersedes it, no need to run both.
 - `sql/add_email_to_profiles.sql`, `sql/add_unit_column.sql`, `sql/admin_user_functions.sql`, `sql/fix_admin_email.sql`, `sql/fix_imm_login.sql`, `sql/fix_passwords.sql`, `sql/supabase_set_admin.sql` — older one-off fixes/utilities, not individually documented here; **status of whether each has already been applied to the live Supabase project is unconfirmed** — read each file's own header comment before re-running, and don't assume "present in `sql/`" means "not yet run".
 
-Feature parity with the legacy dashboard is now complete for practical purposes — no remaining tracked gaps.
-
-See memory `[[marim69-migration]]` for ongoing plan.
+Legacy feature parity is complete. Post-legacy work in flight / ops:
+- **Loyalty SQL must be applied on Supabase** (see migrations above) before production use of `/loyalty`.
+- Optional: seed/link `staff_profiles` rows so each staff user has a default `branch_id`.

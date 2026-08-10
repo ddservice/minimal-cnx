@@ -146,6 +146,16 @@ create policy "branches: read authenticated" on public.branches
 create policy "branches: admin write" on public.branches
   for all using (public.fn_my_role() in ('admin', 'co-admin'));
 
+-- Staff Profiles Policies
+-- (RLS was enabled above with no policies — without these, every SELECT returns
+--  zero rows silently, so staff default-branch lookup in issuePointsAction/redeem
+--  always fails open to branch_id=null.)
+create policy "staff_profiles: read authenticated" on public.staff_profiles
+  for select using (auth.role() = 'authenticated');
+
+create policy "staff_profiles: admin write" on public.staff_profiles
+  for all using (public.fn_my_role() in ('admin', 'co-admin'));
+
 -- Customers Policies
 create policy "customers: read authenticated" on public.customers
   for select using (auth.role() = 'authenticated');
