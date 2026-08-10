@@ -1,3 +1,4 @@
+import Icon from '../../components/icon';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { requireSession } from '../../lib/session';
@@ -17,8 +18,8 @@ export default async function AdminPage() {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-users" title="จัดการผู้ใช้งาน">
-        <Link className="link-btn" href="/admin/loyalty"><i className="ti ti-gift" /> สาขา / พนักงานสะสมแต้ม</Link>
-        <Link className="link-btn" href="/admin/audit"><i className="ti ti-history" /> ประวัติการแก้ไข</Link>
+        <Link className="link-btn" href="/admin/loyalty"><Icon name="ti-gift" /> สาขา / พนักงานสะสมแต้ม</Link>
+        <Link className="link-btn" href="/admin/audit"><Icon name="ti-history" /> ประวัติการแก้ไข</Link>
       </PageHeader>
       <UserManager initialUsers={users || []} myUsername={profile?.username} />
     </AppShell>

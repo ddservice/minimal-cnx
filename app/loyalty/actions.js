@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
-import { getReward } from '../../lib/loyalty-rewards';
+import { getRewardFromDb } from '../../lib/loyalty-rewards';
+import { PRIVACY_CONSENT_VERSION } from '../../lib/privacy';
 
 const ANALYTICS_ROLES = new Set(['admin', 'co-admin', 'manager']);
 const VOID_ROLES = new Set(['admin', 'co-admin', 'manager']);
@@ -95,29 +96,54 @@ export async function searchCustomerAction(query) {
   return { status: 'not_found', query: phoneQuery || raw };
 }
 
-// 2. ลงทะเบียนลูกค้าใหม่
-export async function registerCustomerAction({ phone, line_user_id, name }) {
+// 2. ลงทะเบียนลูกค้าใหม่ (บังคับความยินยอม PDPA)
+export async function registerCustomerAction({ phone, line_user_id, name, privacy_consent }) {
   const { supabase, user } = await requireUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+
+  if (!privacy_consent) {
+    return { status: 'error', message: 'กรุณายืนยันความยินยอมเก็บข้อมูลส่วนบุคคลก่อนสมัครสมาชิก' };
+  }
 
   const cleanPhone = String(phone || '').replace(/\D/g, '');
   if (!cleanPhone || cleanPhone.length < 9) {
     return { status: 'error', message: 'เบอร์โทรศัพท์ไม่ถูกต้อง (อย่างน้อย 9 หลัก)' };
   }
 
+  const row = {
+    phone: cleanPhone,
+    line_user_id: line_user_id ? String(line_user_id).trim() : null,
+    name: name ? String(name).trim() : `ลูกค้า (${cleanPhone.slice(-4)})`,
+    rfm_segment: 'New',
+    privacy_consent_at: new Date().toISOString(),
+    privacy_consent_version: PRIVACY_CONSENT_VERSION,
+  };
+
   const { data: customer, error } = await supabase
     .from('customers')
-    .insert({
-      phone: cleanPhone,
-      line_user_id: line_user_id ? String(line_user_id).trim() : null,
-      name: name ? String(name).trim() : `ลูกค้า (${cleanPhone.slice(-4)})`,
-      rfm_segment: 'New',
-    })
+    .insert(row)
     .select()
     .single();
 
   if (error) {
     if (error.code === '23505') return { status: 'error', message: 'เบอร์โทรศัพท์หรือ LINE ID นี้ถูกลงทะเบียนไว้แล้ว' };
+    // คอลัมน์ consent ยังไม่มี — insert ใหม่โดยไม่บันทึก consent (ยังบังคับติ๊กฝั่งแอป)
+    if (error.message?.includes('privacy_consent') || error.code === '42703') {
+      const { privacy_consent_at, privacy_consent_version, ...legacy } = row;
+      const retry = await supabase.from('customers').insert(legacy).select().single();
+      if (retry.error) {
+        if (retry.error.code === '23505') {
+          return { status: 'error', message: 'เบอร์โทรศัพท์หรือ LINE ID นี้ถูกลงทะเบียนไว้แล้ว' };
+        }
+        return { status: 'error', message: retry.error.message };
+      }
+      revalidateLoyalty();
+      return {
+        status: 'ok',
+        customer: retry.data,
+        message: 'ลงทะเบียนสำเร็จ (ยังไม่ได้รัน sql/add_customer_privacy_consent.sql — บันทึกเวลายินยอมในฐานข้อมูลไม่ได้)',
+      };
+    }
     return { status: 'error', message: error.message };
   }
 
@@ -208,8 +234,8 @@ export async function redeemRewardAction({ customer_id, reward_id, branch_id }) 
   const { supabase, user, profile } = await requireUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
 
-  const reward = getReward(reward_id);
-  if (!reward) return { status: 'error', message: 'ไม่พบรางวัลนี้ในระบบ' };
+  const reward = await getRewardFromDb(supabase, reward_id);
+  if (!reward) return { status: 'error', message: 'ไม่พบรางวัลนี้ในระบบ หรือถูกปิดใช้งาน' };
   const pts = reward.points;
   const reward_name = reward.name;
 

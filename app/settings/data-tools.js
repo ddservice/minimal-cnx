@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -36,7 +37,7 @@ export default function DataTools() {
   return (
     <div className="card" style={{ borderColor: 'var(--danger)' }}>
       <div className="card-head" style={{ background: '#fbece6' }}>
-        <i className="ti ti-alert-triangle" style={{ color: 'var(--danger)' }} />
+        <Icon name="ti-alert-triangle" style={{ color: 'var(--danger)' }} />
         <h2 style={{ color: 'var(--danger)' }}>เครื่องมือลบข้อมูล (Admin)</h2>
       </div>
       <div className="card-body">
@@ -51,8 +52,8 @@ export default function DataTools() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-danger" type="button" onClick={onDelete} disabled={isPending}><i className="ti ti-trash" /> ลบข้อมูลทั้งเดือน</button>
-          <button className="btn btn-ghost" type="button" onClick={onDedup} disabled={isPending}><i className="ti ti-copy-off" /> ลบรายจ่ายซ้ำ</button>
+          <button className="btn btn-danger" type="button" onClick={onDelete} disabled={isPending}><Icon name="ti-trash" /> ลบข้อมูลทั้งเดือน</button>
+          <button className="btn btn-ghost" type="button" onClick={onDedup} disabled={isPending}><Icon name="ti-copy-off" /> ลบรายจ่ายซ้ำ</button>
         </div>
         {msg && <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>}
         <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>⚠️ การลบเป็นการลบถาวรจาก database ตรวจเดือนให้ถูกก่อนกดยืนยัน</p>

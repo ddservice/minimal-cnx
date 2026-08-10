@@ -1,21 +1,21 @@
 'use client';
+import Icon from './icon';
 
-import { useRouter } from 'next/navigation';
-import { createClient } from '../lib/supabase/client';
+import { useTransition } from 'react';
+import { signOutAction } from '../app/login/actions';
 
 export default function SignOutButton() {
-  const router = useRouter();
-
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
-  }
+  const [pending, startTransition] = useTransition();
 
   return (
-    <button className="link-btn" onClick={signOut} title="ออกจากระบบ">
-      <i className="ti ti-logout" /> <span>ออกจากระบบ</span>
+    <button
+      className="link-btn"
+      type="button"
+      disabled={pending}
+      title="ออกจากระบบ"
+      onClick={() => startTransition(() => signOutAction())}
+    >
+      <Icon name="ti-logout" /> <span>{pending ? 'กำลังออก...' : 'ออกจากระบบ'}</span>
     </button>
   );
 }

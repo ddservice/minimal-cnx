@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -169,7 +170,7 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
             )}
             {evidenceUrl && (
               <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 6, fontSize: 12, color: 'var(--taupe-dark)' }}>
-                <i className="ti ti-paperclip" /> ดูหลักฐานที่แนบไว้
+                <Icon name="ti-paperclip" /> ดูหลักฐานที่แนบไว้
               </a>
             )}
           </div>

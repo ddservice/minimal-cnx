@@ -1,4 +1,5 @@
 'use client';
+import Icon from './icon';
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -22,9 +23,9 @@ export default function AppShell({ name, role, isAdmin, allowed, children }) {
       <div className="shell-main">
         <div className="mobile-topbar">
           <button type="button" className="mobile-topbar-btn" onClick={() => setMobileOpen(true)} aria-label="เปิดเมนู">
-            <i className="ti ti-menu-2" />
+            <Icon name="ti-menu-2" />
           </button>
-          <div className="brand-icon sidebar-brand-icon" style={{ width: 30, height: 30, fontSize: 15 }}><i className="ti ti-coffee" /></div>
+          <div className="brand-icon sidebar-brand-icon" style={{ width: 30, height: 30, fontSize: 15 }}><Icon name="ti-coffee" /></div>
           <strong style={{ fontSize: 14 }}>Minimal Maerim</strong>
         </div>
 

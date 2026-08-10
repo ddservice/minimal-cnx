@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +8,11 @@ import {
   toggleBranchAction,
   upsertStaffProfileAction,
   deleteStaffProfileAction,
+  upsertRewardAction,
+  toggleRewardAction,
 } from './actions';
+import { REWARD_ICON_OPTIONS } from '../../../lib/loyalty-rewards';
+import { sanitizeNumberString } from '../../../lib/format';
 
 function cleanStaffCode(v) {
   return String(v || '').toUpperCase().replace(/[^A-Z0-9_-]/g, '');
@@ -46,7 +51,7 @@ const stepBadge = {
   flexShrink: 0,
 };
 
-export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users = [] }) {
+export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users = [], rewards = [] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -61,6 +66,13 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
     branch_id: activeBranches[0]?.id || '',
     staff_code: '',
     role: 'staff',
+  });
+  const [rewardForm, setRewardForm] = useState({
+    id: '',
+    name: '',
+    points: '10',
+    icon: 'ti-gift',
+    sort_order: '100',
   });
 
   function flash(res) {
@@ -84,6 +96,20 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
     }
   }
 
+  async function onCreateReward(e) {
+    e.preventDefault();
+    const res = await upsertRewardAction({
+      ...rewardForm,
+      points: rewardForm.points,
+      sort_order: rewardForm.sort_order,
+      is_active: true,
+    });
+    flash(res);
+    if (res.status === 'ok') {
+      setRewardForm({ id: '', name: '', points: '10', icon: 'ti-gift', sort_order: '100' });
+    }
+  }
+
   const userLabel = (u) => {
     const nick = u.nickname ? ` (${u.nickname})` : '';
     return `${u.full_name || u.username}${nick}`;
@@ -103,7 +129,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
             border: `1px solid ${msg.type === 'ok' ? '#bbf7d0' : '#fecaca'}`,
           }}
         >
-          <i className={`ti ${msg.type === 'ok' ? 'ti-circle-check' : 'ti-alert-circle'}`} /> {msg.text}
+          <Icon name={msg.type === 'ok' ? 'ti-circle-check' : 'ti-alert-circle'} /> {msg.text}
         </div>
       )}
 
@@ -160,7 +186,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{b.name}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                    <i className="ti ti-map-pin" style={{ marginRight: 4 }} />
+                    <Icon name="ti-map-pin" style={{ marginRight: 4 }} />
                     {b.location || 'ไม่ได้ระบุที่ตั้ง'}
                   </div>
                 </div>
@@ -201,7 +227,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
             }}
           >
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>
-              <i className="ti ti-plus" style={{ marginRight: 6, color: 'var(--color-primary)' }} />
+              <Icon name="ti-plus" style={{ marginRight: 6, color: 'var(--color-primary)' }} />
               เพิ่มสาขาใหม่
             </div>
             <form onSubmit={onCreateBranch} style={{ display: 'grid', gap: 12 }}>
@@ -245,7 +271,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
               </label>
               <div>
                 <button className="btn btn-coffee" type="submit" disabled={isPending}>
-                  <i className="ti ti-plus" /> เพิ่มสาขา
+                  <Icon name="ti-plus" /> เพิ่มสาขา
                 </button>
               </div>
             </form>
@@ -283,7 +309,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
             }}
           >
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>
-              <i className="ti ti-link" style={{ marginRight: 6, color: 'var(--color-primary)' }} />
+              <Icon name="ti-link" style={{ marginRight: 6, color: 'var(--color-primary)' }} />
               ผูกพนักงานใหม่
             </div>
             <form onSubmit={onCreateStaff} style={{ display: 'grid', gap: 12 }}>
@@ -358,7 +384,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
                   type="submit"
                   disabled={isPending || !activeBranches.length || !users.length}
                 >
-                  <i className="ti ti-link" /> บันทึกการผูก
+                  <Icon name="ti-link" /> บันทึกการผูก
                 </button>
                 {!activeBranches.length && (
                   <span className="muted" style={{ marginLeft: 12, fontSize: 12 }}>
@@ -377,7 +403,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
             {staffProfiles.length === 0 ? (
               <div style={{ ...hintBox, textAlign: 'center', padding: 28 }}>
                 <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.45 }}>
-                  <i className="ti ti-user-off" />
+                  <Icon name="ti-user-off" />
                 </div>
                 <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>ยังไม่มีพนักงานที่ผูกสาขา</div>
                 <div style={{ marginTop: 4 }}>เลือกผู้ใช้ด้านบน แล้วกด “บันทึกการผูก”</div>
@@ -417,7 +443,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
                         {sp.profiles?.full_name || sp.profiles?.username || '—'}
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                        <i className="ti ti-building-store" style={{ marginRight: 4 }} />
+                        <Icon name="ti-building-store" style={{ marginRight: 4 }} />
                         {sp.branches?.name || '—'}
                         <span style={{ margin: '0 6px' }}>·</span>
                         {sp.role}
@@ -433,7 +459,7 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
                         flash(await deleteStaffProfileAction({ id: sp.id }));
                       }}
                     >
-                      <i className="ti ti-unlink" /> เลิกผูก
+                      <Icon name="ti-unlink" /> เลิกผูก
                     </button>
                   </div>
                 ))}
@@ -443,10 +469,166 @@ export default function LoyaltyAdmin({ branches = [], staffProfiles = [], users 
         </div>
       </section>
 
+      {/* ── 3. ของรางวัล ── */}
+      <section className="card">
+        <div className="card-head">
+          <span style={stepBadge}>3</span>
+          <div>
+            <h2 style={{ margin: 0 }}>ของรางวัล</h2>
+            <div className="muted" style={{ fontSize: 12, fontWeight: 400, marginTop: 2 }}>
+              แคตตาล็อกที่ใช้ตอนแลกแต้ม · ต้องรัน sql/add_loyalty_rewards.sql ก่อน
+            </div>
+          </div>
+        </div>
+        <div className="card-body" style={{ display: 'grid', gap: 16 }}>
+          <p style={hintBox}>
+            รหัสรางวัล (เช่น <code>free_coffee</code>) ใช้ในประวัติการแลก — อย่าเปลี่ยนรหัสของรายการเก่าถ้าไม่จำเป็น
+            ปิดใช้งานแทนการลบ เพื่อไม่ให้ประวัติเก่าอ้างอิงพัง
+          </p>
+
+          <form onSubmit={onCreateReward} style={{ display: 'grid', gap: 12 }}>
+            <div
+              className="loyalty-admin-reward-fields"
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 0.7fr 0.9fr 0.7fr', gap: 10 }}
+            >
+              <label style={fieldLbl}>
+                รหัส
+                <input
+                  className="input"
+                  value={rewardForm.id}
+                  onChange={(e) => setRewardForm((f) => ({ ...f, id: e.target.value }))}
+                  placeholder="free_drink"
+                  required
+                />
+              </label>
+              <label style={fieldLbl}>
+                ชื่อรางวัล
+                <input
+                  className="input"
+                  value={rewardForm.name}
+                  onChange={(e) => setRewardForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="เครื่องดื่มฟรี 1 แก้ว"
+                  required
+                />
+              </label>
+              <label style={fieldLbl}>
+                แต้ม
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  value={rewardForm.points}
+                  onChange={(e) => setRewardForm((f) => ({ ...f, points: sanitizeNumberString(e.target.value) }))}
+                  required
+                />
+              </label>
+              <label style={fieldLbl}>
+                ไอคอน
+                <select
+                  className="input"
+                  value={rewardForm.icon}
+                  onChange={(e) => setRewardForm((f) => ({ ...f, icon: e.target.value }))}
+                >
+                  {REWARD_ICON_OPTIONS.map((ic) => (
+                    <option key={ic} value={ic}>{ic}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={fieldLbl}>
+                ลำดับ
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  value={rewardForm.sort_order}
+                  onChange={(e) => setRewardForm((f) => ({ ...f, sort_order: sanitizeNumberString(e.target.value) }))}
+                />
+              </label>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={isPending} style={{ justifySelf: 'start' }}>
+              <Icon name="ti-plus" /> เพิ่ม / อัปเดตรางวัล
+            </button>
+          </form>
+
+          {rewards.length === 0 ? (
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              ยังไม่มีรางวัลในฐานข้อมูล — เพิ่มด้านบน หรือรัน seed ใน sql/add_loyalty_rewards.sql
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {rewards.map((rw) => (
+                <div
+                  key={rw.id}
+                  style={{
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    background: rw.is_active ? 'var(--color-surface)' : 'var(--color-surface-2)',
+                    opacity: rw.is_active ? 1 : 0.7,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--color-primary)',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon name={rw.icon || 'ti-gift'} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <div style={{ fontWeight: 700 }}>{rw.name}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      <code>{rw.id}</code> · {rw.points} แต้ม · ลำดับ {rw.sort_order}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ fontSize: 12 }}
+                    disabled={isPending}
+                    onClick={async () => {
+                      flash(await toggleRewardAction({ id: rw.id, is_active: !rw.is_active }));
+                    }}
+                  >
+                    {rw.is_active ? 'ปิดใช้' : 'เปิดใช้'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12 }}
+                    disabled={isPending}
+                    onClick={() => {
+                      setRewardForm({
+                        id: rw.id,
+                        name: rw.name,
+                        points: String(rw.points),
+                        icon: rw.icon || 'ti-gift',
+                        sort_order: String(rw.sort_order ?? 0),
+                      });
+                    }}
+                  >
+                    แก้ไข
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       <style>{`
         @media (max-width: 720px) {
           .loyalty-admin-branch-fields,
-          .loyalty-admin-staff-fields {
+          .loyalty-admin-staff-fields,
+          .loyalty-admin-reward-fields {
             grid-template-columns: 1fr !important;
           }
         }

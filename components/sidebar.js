@@ -1,4 +1,5 @@
 'use client';
+import Icon from './icon';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -6,7 +7,13 @@ import { usePathname } from 'next/navigation';
 import { NAV_TABS } from '../lib/perms';
 import SignOutButton from './sign-out-button';
 
-const ROLE_LABEL = { admin: 'Admin', 'co-admin': 'Co-Admin', manager: 'Manager', staff: 'Staff' };
+const ROLE_LABEL = {
+  admin: 'Admin',
+  'co-admin': 'Co-Admin',
+  manager: 'Manager',
+  staff: 'Staff',
+  loyalty_staff: 'Loyalty',
+};
 const COLLAPSE_KEY = 'mm69_sidebar_collapsed'; // แค่ UI preference (เปิด/ยุบแถบ) ไม่ใช่ข้อมูลธุรกิจ — เก็บ localStorage ได้ปลอดภัย
 
 // Sidebar เดียว ทำหน้าที่ 2 โหมด: rail ยุบ/ขยายได้บนเดสก์ท็อป, drawer เลื่อนเข้า-ออกบนมือถือ
@@ -35,7 +42,7 @@ export default function Sidebar({ name, role, isAdmin, allowed, mobileOpen, setM
 
       <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' open' : ''}`}>
         <div className="sidebar-brand">
-          <div className="brand-icon sidebar-brand-icon"><i className="ti ti-coffee" /></div>
+          <div className="brand-icon sidebar-brand-icon"><Icon name="ti-coffee" /></div>
           <div className="sidebar-brand-text">
             <h1>Minimal Maerim</h1>
             <p>{name}{role ? ` · ${ROLE_LABEL[role] || role}` : ''}</p>
@@ -47,14 +54,14 @@ export default function Sidebar({ name, role, isAdmin, allowed, mobileOpen, setM
             onClick={() => setCollapsed((c) => !c)}
             aria-label={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
           >
-            <i className={`ti ${collapsed ? 'ti-chevron-right' : 'ti-chevron-left'}`} />
+            <Icon name={collapsed ? 'ti-chevron-right' : 'ti-chevron-left'} />
           </button>
         </div>
 
         <nav className="sidebar-nav">
           {tabs.map((t) => (
             <Link key={t.href} href={t.href} className={`sidebar-link${path.startsWith(t.href) ? ' active' : ''}`} title={t.label}>
-              <i className={`ti ${t.icon}`} />
+              <Icon name={t.icon} />
               <span>{t.label}</span>
             </Link>
           ))}

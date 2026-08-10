@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -119,7 +120,7 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit =
 
   return (
     <div className="card" style={{ marginTop: 12 }}>
-      <div className="card-head"><i className="ti ti-file-invoice" /><h2>หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)</h2></div>
+      <div className="card-head"><Icon name="ti-file-invoice" /><h2>หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)</h2></div>
       <div className="card-body">
         <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 14 }}>
           ออกให้ผู้รับเงิน (เจ้าของที่เช่า / ผู้รับเหมา) — ยอดดึงจากที่บันทึกในเดือน {monthLabel}
@@ -158,17 +159,17 @@ export default function Form50({ amounts, payees, bizInfo, monthLabel, canEdit =
                 </div>
               )}
               <div style={{ marginTop: 10, textAlign: 'right' }}>
-                <button type="button" className="btn btn-gold" onClick={() => print(it)}><i className="ti ti-printer" /> พิมพ์ 50 ทวิ</button>
+                <button type="button" className="btn btn-gold" onClick={() => print(it)}><Icon name="ti-printer" /> พิมพ์ 50 ทวิ</button>
               </div>
             </div>
           );
         })}
         {canEdit ? (
           <button type="button" className="btn btn-coffee" onClick={onSave} disabled={isPending}>
-            <i className="ti ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกข้อมูลผู้รับเงิน'}
+            <Icon name="ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกข้อมูลผู้รับเงิน'}
           </button>
         ) : (
-          <p className="muted" style={{ fontSize: 12 }}><i className="ti ti-lock" /> เฉพาะ Admin หรือ Co-Admin แก้ไขข้อมูลผู้รับเงินได้ (พิมพ์เอกสารได้ตามปกติ)</p>
+          <p className="muted" style={{ fontSize: 12 }}><Icon name="ti-lock" /> เฉพาะ Admin หรือ Co-Admin แก้ไขข้อมูลผู้รับเงินได้ (พิมพ์เอกสารได้ตามปกติ)</p>
         )}
         {msg && <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>}
       </div>

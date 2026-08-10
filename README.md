@@ -34,6 +34,9 @@ cd ~/apps/minimalcnx && bash deploy.sh
 - **`sql/harden_loyalty_rls.sql`** — blocks direct points tampering on `customers`
 - **`sql/harden_loyalty_writes.sql`** — tightens earn/redeem INSERT + void via RPC (run after loyalty is live)
 - **`sql/add_loyalty_indexes.sql`** — speeds history/CDP queries
+- **`sql/harden_loyalty_reads.sql`** — only loyalty staff / manager+ can read customers & txs
+- **`sql/add_loyalty_rewards.sql`** — editable rewards catalog (admin UI)
+- **`sql/add_customer_privacy_consent.sql`** — PDPA consent columns on customers
 - **`sql/add_analytics_range_kpis.sql`** — speeds `/analytics` (one RPC for many months)
 - **`sql/fix_loyalty_staff_profiles_rls.sql`** — only if you ran an older `add_loyalty_system.sql` before staff_profiles policies existed
 

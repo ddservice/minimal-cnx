@@ -1,9 +1,11 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useEffect, useState, useTransition } from 'react';
 import { searchCustomerAction, registerCustomerAction, issuePointsAction, redeemRewardAction } from './actions';
 import { sanitizeNumberString, digitsOnly } from '../../lib/format';
-import { LOYALTY_REWARDS, suggestPointsFromSpend } from '../../lib/loyalty-rewards';
+import { suggestPointsFromSpend } from '../../lib/loyalty-rewards';
+import { PRIVACY_CONSENT_TEXT } from '../../lib/privacy';
 
 const RFM_COLOR = {
   Champions: '#16a34a',
@@ -40,6 +42,7 @@ function pushRecent(phone) {
 
 export default function LoyaltyClient({
   branches = [],
+  rewards = [],
   defaultBranchId = '',
   staffLinked = false,
   staffCode = '',
@@ -52,6 +55,7 @@ export default function LoyaltyClient({
   const [notFound, setNotFound] = useState(false);
   const [newPhone, setNewPhone] = useState('');
   const [newName, setNewName] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [spendAmount, setSpendAmount] = useState('');
   const [pointsInput, setPointsInput] = useState('');
   const [receiptNo, setReceiptNo] = useState('');
@@ -100,13 +104,22 @@ export default function LoyaltyClient({
   function handleRegister(e) {
     e.preventDefault();
     setMsg(null);
+    if (!privacyConsent) {
+      setMsg({ text: 'กรุณาติ๊กยอมรับการเก็บข้อมูลส่วนบุคคลก่อนสมัคร', type: 'err' });
+      return;
+    }
     startTransition(async () => {
-      const res = await registerCustomerAction({ phone: newPhone, name: newName });
+      const res = await registerCustomerAction({
+        phone: newPhone,
+        name: newName,
+        privacy_consent: true,
+      });
       if (res.status === 'ok') {
         setCustomer(res.customer);
         setNotFound(false);
         setQuery(res.customer.phone);
         rememberPhone(res.customer.phone);
+        setPrivacyConsent(false);
         setMsg({ text: res.message, type: 'ok' });
       } else {
         setMsg({ text: res.message, type: 'err' });
@@ -227,13 +240,13 @@ export default function LoyaltyClient({
             fontSize: 13,
           }}
         >
-          <i className="ti ti-alert-triangle" /> บัญชียังไม่ได้ผูกกับสาขา — แจก/แลกแต้มไม่ได้จนกว่า Admin จะตั้งค่าที่เมนูตั้งค่าสาขา
+          <Icon name="ti-alert-triangle" /> บัญชียังไม่ได้ผูกกับสาขา — แจก/แลกแต้มไม่ได้จนกว่า Admin จะตั้งค่าที่เมนูตั้งค่าสาขา
         </div>
       )}
 
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-search" /> <h2>ค้นหาลูกค้าสะสมแต้ม</h2>
+          <Icon name="ti-search" /> <h2>ค้นหาลูกค้าสะสมแต้ม</h2>
           {staffCode && (
             <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>รหัสพนักงาน: {staffCode}</span>
           )}
@@ -257,7 +270,7 @@ export default function LoyaltyClient({
               />
             </div>
             <button type="submit" className="btn btn-primary" disabled={isPending}>
-              <i className="ti ti-search" /> {isPending ? 'กำลังค้นหา...' : 'ค้นหา'}
+              <Icon name="ti-search" /> {isPending ? 'กำลังค้นหา...' : 'ค้นหา'}
             </button>
           </form>
 
@@ -295,7 +308,7 @@ export default function LoyaltyClient({
                 border: `1px solid ${msg.type === 'ok' ? '#bbf7d0' : '#fecaca'}`,
               }}
             >
-              <i className={`ti ${msg.type === 'ok' ? 'ti-circle-check' : 'ti-alert-circle'}`} /> {msg.text}
+              <Icon name={msg.type === 'ok' ? 'ti-circle-check' : 'ti-alert-circle'} /> {msg.text}
             </div>
           )}
         </div>
@@ -304,7 +317,7 @@ export default function LoyaltyClient({
       {notFound && (
         <div className="card" style={{ borderColor: 'var(--color-primary)' }}>
           <div className="card-head">
-            <i className="ti ti-user-plus" /> <h2>ไม่พบข้อมูล — ลงทะเบียนสมาชิกใหม่</h2>
+            <Icon name="ti-user-plus" /> <h2>ไม่พบข้อมูล — ลงทะเบียนสมาชิกใหม่</h2>
           </div>
           <div className="card-body">
             <form onSubmit={handleRegister} style={{ display: 'grid', gap: 12, maxWidth: 400 }}>
@@ -330,8 +343,28 @@ export default function LoyaltyClient({
                   placeholder="เช่น คุณสมชาย"
                 />
               </div>
-              <button type="submit" className="btn btn-primary" disabled={isPending}>
-                <i className="ti ti-check" /> สมัครสมาชิกและเริ่มสะสมแต้ม
+              <label
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                  color: 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                  style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0 }}
+                  required
+                />
+                <span>{PRIVACY_CONSENT_TEXT}</span>
+              </label>
+              <button type="submit" className="btn btn-primary" disabled={isPending || !privacyConsent} style={{ minHeight: 48 }}>
+                <Icon name="ti-check" /> สมัครสมาชิกและเริ่มสะสมแต้ม
               </button>
             </form>
           </div>
@@ -342,7 +375,7 @@ export default function LoyaltyClient({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
           <div className="card">
             <div className="card-head">
-              <i className="ti ti-id-badge" /> <h2>ข้อมูลสมาชิก</h2>
+              <Icon name="ti-id-badge" /> <h2>ข้อมูลสมาชิก</h2>
               <span
                 style={{
                   marginLeft: 'auto',
@@ -359,7 +392,7 @@ export default function LoyaltyClient({
             </div>
             <div className="card-body">
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{customer.name}</div>
-              <div className="muted" style={{ fontSize: 13 }}><i className="ti ti-phone" /> {customer.phone}</div>
+              <div className="muted" style={{ fontSize: 13 }}><Icon name="ti-phone" /> {customer.phone}</div>
               {customer.line_user_id && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>LINE: {customer.line_user_id}</div>}
 
               <div
@@ -405,7 +438,7 @@ export default function LoyaltyClient({
 
           <div className="card">
             <div className="card-head">
-              <i className="ti ti-plus" /> <h2>สะสมแต้ม</h2>
+              <Icon name="ti-plus" /> <h2>สะสมแต้ม</h2>
             </div>
             <div className="card-body">
               <form onSubmit={handleIssuePoints} style={{ display: 'grid', gap: 12 }}>
@@ -454,11 +487,11 @@ export default function LoyaltyClient({
                   disabled={isPending || !staffLinked || !suggested}
                   onClick={handleQuickIssue}
                 >
-                  <i className="ti ti-bolt" /> แจกตามยอด (+{suggested || 0} แต้ม)
+                  <Icon name="ti-bolt" /> แจกตามยอด (+{suggested || 0} แต้ม)
                 </button>
 
                 <button type="submit" className="btn btn-primary" disabled={isPending || !staffLinked || !pointsInput}>
-                  <i className="ti ti-gift" /> {isPending ? 'กำลังบันทึก...' : `บันทึกสะสม +${pointsInput || 0} แต้ม`}
+                  <Icon name="ti-gift" /> {isPending ? 'กำลังบันทึก...' : `บันทึกสะสม +${pointsInput || 0} แต้ม`}
                 </button>
               </form>
             </div>
@@ -466,11 +499,16 @@ export default function LoyaltyClient({
 
           <div className="card" style={{ gridColumn: '1 / -1' }}>
             <div className="card-head">
-              <i className="ti ti-trophy" /> <h2>แลกของรางวัล</h2>
+              <Icon name="ti-trophy" /> <h2>แลกของรางวัล</h2>
             </div>
             <div className="card-body">
+              {(rewards || []).length === 0 ? (
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                  ยังไม่มีรางวัลที่เปิดใช้ — ให้ Admin ตั้งค่าที่เมนูตั้งค่าสาขา
+                </p>
+              ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-                {LOYALTY_REWARDS.map((rw) => {
+                {(rewards || []).map((rw) => {
                   const canRedeem = staffLinked && selectedBranch && (customer.points_balance || 0) >= rw.points;
                   return (
                     <div
@@ -500,7 +538,7 @@ export default function LoyaltyClient({
                             fontSize: 18,
                           }}
                         >
-                          <i className={`ti ${rw.icon}`} />
+                          <Icon name={rw.icon} />
                         </div>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: 14 }}>{rw.name}</div>

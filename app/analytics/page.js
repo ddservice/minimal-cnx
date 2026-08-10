@@ -1,3 +1,4 @@
+import Icon from '../../components/icon';
 import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
@@ -150,7 +151,7 @@ export default async function AnalyticsPage({ searchParams }) {
       <ProfitChart data={yearResults} />
 
       <div className="card">
-        <div className="card-head"><i className="ti ti-package" /><h2>วัตถุดิบใช้จ่ายเยอะสุด (ตามยอดเงิน)</h2></div>
+        <div className="card-head"><Icon name="ti-package" /><h2>วัตถุดิบใช้จ่ายเยอะสุด (ตามยอดเงิน)</h2></div>
         <div className="card-body">
           <DataTable
             emptyText="ยังไม่มีข้อมูลวัตถุดิบในช่วงนี้"
@@ -168,7 +169,7 @@ export default async function AnalyticsPage({ searchParams }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
         <div className="card">
-          <div className="card-head"><i className="ti ti-shopping-cart" /><h2>สั่งซื้อบ่อยสุด (จำนวนครั้ง)</h2></div>
+          <div className="card-head"><Icon name="ti-shopping-cart" /><h2>สั่งซื้อบ่อยสุด (จำนวนครั้ง)</h2></div>
           <div className="card-body">
             {topOrders.length ? topOrders.map((m, i) => (
               <div key={m.n} style={rankRow}><span>{i + 1}. {m.n}</span><strong>{m.count} ครั้ง</strong></div>
@@ -176,7 +177,7 @@ export default async function AnalyticsPage({ searchParams }) {
           </div>
         </div>
         <div className="card">
-          <div className="card-head"><i className="ti ti-building-warehouse" /><h2>ซัพพลายเออร์ยอดสูงสุด</h2></div>
+          <div className="card-head"><Icon name="ti-building-warehouse" /><h2>ซัพพลายเออร์ยอดสูงสุด</h2></div>
           <div className="card-body">
             {topSup.length ? topSup.map((s, i) => (
               <div key={s.n} style={rankRow}><span>{i + 1}. {s.n}</span><strong>{fmtMoney(s.total)} ฿</strong></div>
@@ -186,7 +187,7 @@ export default async function AnalyticsPage({ searchParams }) {
       </div>
 
       <div className="card">
-        <div className="card-head"><i className="ti ti-table" /><h2>เปรียบเทียบรายเดือน</h2></div>
+        <div className="card-head"><Icon name="ti-table" /><h2>เปรียบเทียบรายเดือน</h2></div>
         <div className="card-body">
           <DataTable
             rowKey={(r) => r.label}

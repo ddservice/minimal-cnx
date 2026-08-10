@@ -1,3 +1,4 @@
+import Icon from '../../components/icon';
 import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
@@ -76,7 +77,7 @@ export default async function ReportsPage({ searchParams }) {
       <PageHeader icon="ti-chart-bar" title="สรุปรายเดือน">
         <MonthPicker value={monthInput} />
         <a className="link-btn" href={`/export?month=${monthInput}`}>
-          <i className="ti ti-download" /> Excel
+          <Icon name="ti-download" /> Excel
         </a>
       </PageHeader>
 
@@ -90,21 +91,21 @@ export default async function ReportsPage({ searchParams }) {
       <ExpenseChart mat={matTotal} bak={bakTotal} misc={miscTotal} opex={opexTotal} />
 
       <div className="card">
-        <div className="card-head"><i className="ti ti-list-details" /><h2>รายจ่ายแยกหมวด — {monthLabel}</h2></div>
+        <div className="card-head"><Icon name="ti-list-details" /><h2>รายจ่ายแยกหมวด — {monthLabel}</h2></div>
         <div className="card-body">
           <DataTable columns={expCols} rows={expRows} rowKey={(r) => r.label} />
         </div>
       </div>
 
       <div className="card">
-        <div className="card-head"><i className="ti ti-receipt-2" /><h2>รายการรายจ่ายทั้งเดือน — {monthLabel}</h2></div>
+        <div className="card-head"><Icon name="ti-receipt-2" /><h2>รายการรายจ่ายทั้งเดือน — {monthLabel}</h2></div>
         <div className="card-body">
           <DataTable columns={itemCols} rows={itemRows} rowKey={(r) => r.id} emptyText="ยังไม่มีรายจ่ายในเดือนนี้" />
         </div>
       </div>
 
       <div className="card">
-        <div className="card-head"><i className="ti ti-cup" /><h2>สถิติการขาย</h2></div>
+        <div className="card-head"><Icon name="ti-cup" /><h2>สถิติการขาย</h2></div>
         <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
           <Mini label="วันที่บันทึก" value={`${daysRecorded} วัน`} />
           <Mini label="ยอดขายรวม" value={`${fmtMoney(totalCups)} แก้ว`} />

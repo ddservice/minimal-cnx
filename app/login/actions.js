@@ -1,7 +1,27 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createClient } from '../../lib/supabase/server';
+import { homePathForRole } from '../../lib/perms';
+
+const ROLE_COOKIE = 'mm69_role';
+
+async function setRoleCookie(role) {
+  const jar = await cookies();
+  jar.set(ROLE_COOKIE, role || '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 40,
+  });
+}
+
+export async function clearRoleCookie() {
+  const jar = await cookies();
+  jar.delete(ROLE_COOKIE);
+}
 
 // Login ทำงานฝั่งเซิร์ฟเวอร์ทั้งหมด — รหัสผ่านไม่ผ่าน client-side logic ที่แก้ได้
 export async function login(prevState, formData) {
@@ -28,13 +48,22 @@ export async function login(prevState, formData) {
   // เช็กว่าบัญชียังใช้งานได้อยู่ก่อนปล่อยผ่าน — ถ้าถูกปิดใช้งาน (is_active=false) ให้เซ็นเอาต์ทันที
   const { data: profile } = await supabase
     .from('profiles')
-    .select('is_active')
+    .select('is_active, role')
     .eq('id', data.user.id)
     .maybeSingle();
   if (profile?.is_active === false) {
     await supabase.auth.signOut();
+    await clearRoleCookie();
     return { error: 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ' };
   }
 
-  redirect('/dashboard');
+  await setRoleCookie(profile?.role);
+  redirect(homePathForRole(profile?.role));
+}
+
+export async function signOutAction() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  await clearRoleCookie();
+  redirect('/login');
 }

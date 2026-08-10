@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -27,7 +28,7 @@ export default function OpexDefaults({ defaults }) {
 
   return (
     <div className="card">
-      <div className="card-head"><i className="ti ti-adjustments" /><h2>ค่าตั้งต้นค่าดำเนินการ (รายเดือน)</h2></div>
+      <div className="card-head"><Icon name="ti-adjustments" /><h2>ค่าตั้งต้นค่าดำเนินการ (รายเดือน)</h2></div>
       <div className="card-body">
         <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>
           ค่าที่เติมให้อัตโนมัติในหน้าค่าดำเนินการ (เช่น ค่าเช่า เงินเดือนกรรมการ)
@@ -42,7 +43,7 @@ export default function OpexDefaults({ defaults }) {
           ))}
         </div>
         <button className="btn btn-coffee" type="button" onClick={onSave} disabled={isPending} style={{ marginTop: 14 }}>
-          <i className="ti ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกค่าตั้งต้น'}
+          <Icon name="ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกค่าตั้งต้น'}
         </button>
         {msg && <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>}
       </div>

@@ -1,6 +1,6 @@
 import { Prompt } from 'next/font/google';
-import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import './globals.css';
+// Icons: tree-shaken via components/icon.js (@tabler/icons-react) — ไม่โหลด webfont ทั้งชุด
 
 // Prompt รองรับทั้งไทย+อังกฤษในฟอนต์เดียว — โหลดผ่าน next/font (self-host อัตโนมัติ ไม่ยิง
 // request ไป Google Fonts ตอน runtime, ไม่มี layout shift) แล้วส่งเป็น CSS variable ให้ globals.css ใช้
@@ -14,7 +14,17 @@ const prompt = Prompt({
 
 export const metadata = {
   title: 'Minimal Maerim',
-  description: 'ระบบจัดการร้าน',
+  description: 'ระบบจัดการร้านและสะสมแต้ม',
+  applicationName: 'Minimal Maerim',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'สะสมแต้ม',
+  },
+  icons: {
+    icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
 };
 
 // สำคัญ: การกำหนด viewport export เองจะ "แทนที่" ค่าเริ่มต้นของ Next.js ทั้งหมด

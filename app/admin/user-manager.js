@@ -17,6 +17,7 @@ const ROLES = [
   { value: 'co-admin', label: 'Co-Admin' },
   { value: 'manager', label: 'Manager' },
   { value: 'staff', label: 'Staff' },
+  { value: 'loyalty_staff', label: 'Loyalty only' },
 ];
 
 const ROLE_COLORS = {
@@ -24,6 +25,7 @@ const ROLE_COLORS = {
   'co-admin': '#1a5fa5',
   manager: '#c8a97e',
   staff: '#7a7a7a',
+  loyalty_staff: '#16a34a',
 };
 
 export default function UserManager({ initialUsers, myUsername }) {

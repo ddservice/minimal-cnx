@@ -129,3 +129,65 @@ export async function deleteStaffProfileAction({ id }) {
   revalidateLoyaltyAdmin();
   return { status: 'ok', message: 'ลบการผูกพนักงานแล้ว' };
 }
+
+function cleanRewardId(v) {
+  return String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+export async function upsertRewardAction(input) {
+  const { supabase, ok } = await requireLoyaltyAdmin();
+  if (!ok) return DENY;
+
+  const id = cleanRewardId(input.id);
+  const name = String(input.name || '').trim();
+  const points = Math.floor(Number(input.points) || 0);
+  const icon = String(input.icon || 'ti-gift').trim() || 'ti-gift';
+  const sort_order = Math.floor(Number(input.sort_order) || 0);
+  const is_active = input.is_active !== false && input.is_active !== 'false';
+
+  if (!id || !name) return { status: 'error', message: 'กรุณาระบุรหัสและชื่อรางวัล' };
+  if (points < 1 || points > 10000) return { status: 'error', message: 'แต้มต้องอยู่ระหว่าง 1–10000' };
+
+  const row = {
+    id,
+    name,
+    points,
+    icon: icon.startsWith('ti-') ? icon : `ti-${icon}`,
+    sort_order,
+    is_active,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from('loyalty_rewards').upsert(row, { onConflict: 'id' });
+  if (error) {
+    if (error.message?.includes('loyalty_rewards') || error.code === '42P01') {
+      return { status: 'error', message: 'ยังไม่ได้รัน sql/add_loyalty_rewards.sql บน Supabase' };
+    }
+    return { status: 'error', message: error.message };
+  }
+
+  revalidateLoyaltyAdmin();
+  revalidatePath('/loyalty');
+  return { status: 'ok', message: 'บันทึกรางวัลเรียบร้อย' };
+}
+
+export async function toggleRewardAction({ id, is_active }) {
+  const { supabase, ok } = await requireLoyaltyAdmin();
+  if (!ok) return DENY;
+  if (!id) return { status: 'error', message: 'ไม่พบรางวัล' };
+
+  const { error } = await supabase
+    .from('loyalty_rewards')
+    .update({ is_active: !!is_active, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) return { status: 'error', message: error.message };
+
+  revalidateLoyaltyAdmin();
+  revalidatePath('/loyalty');
+  return { status: 'ok', message: is_active ? 'เปิดใช้รางวัลแล้ว' : 'ปิดใช้รางวัลแล้ว' };
+}

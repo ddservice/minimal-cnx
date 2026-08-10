@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useActionState } from 'react';
 import { importData } from './actions';
@@ -8,7 +9,7 @@ export default function ImportForm() {
 
   return (
     <form action={action} className="card">
-      <div className="card-head"><i className="ti ti-file-import" /><h2>นำเข้าข้อมูลจาก Excel</h2></div>
+      <div className="card-head"><Icon name="ti-file-import" /><h2>นำเข้าข้อมูลจาก Excel</h2></div>
       <div className="card-body">
         <div className="field" style={{ marginBottom: 12 }}>
           <label>ชนิดข้อมูล</label>
@@ -22,7 +23,7 @@ export default function ImportForm() {
           <input name="file" type="file" accept=".xlsx" className="input" required />
         </div>
         <button className="btn btn-coffee" type="submit" disabled={pending}>
-          <i className="ti ti-upload" /> {pending ? 'กำลังนำเข้า...' : 'นำเข้า'}
+          <Icon name="ti-upload" /> {pending ? 'กำลังนำเข้า...' : 'นำเข้า'}
         </button>
         {state?.message && (
           <div style={{ marginTop: 12, fontSize: 14, color: state.status === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{state.message}</div>

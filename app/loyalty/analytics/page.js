@@ -1,3 +1,4 @@
+import Icon from '../../../components/icon';
 import { redirect } from 'next/navigation';
 import { requireSession } from '../../../lib/session';
 import AppShell from '../../../components/app-shell';
@@ -81,10 +82,10 @@ export default async function LoyaltyAnalyticsPage() {
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-chart-bar" title="แดชบอร์ดวิเคราะห์สถิติแต้ม & CDP">
         <Link href="/loyalty" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-          <i className="ti ti-arrow-left" /> กลับหน้าสะสมแต้ม
+          <Icon name="ti-arrow-left" /> กลับหน้าสะสมแต้ม
         </Link>
         <Link href="/loyalty/history" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-          <i className="ti ti-history" /> ประวัติธุรกรรม
+          <Icon name="ti-history" /> ประวัติธุรกรรม
         </Link>
       </PageHeader>
 
@@ -103,7 +104,7 @@ export default async function LoyaltyAnalyticsPage() {
       {/* กราฟแจก vs แลกแต้มแยกตามสาขา */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-chart-bar" /> <h2>สถิติการแจก vs แลกแต้ม แยกตามสาขา</h2>
+          <Icon name="ti-chart-bar" /> <h2>สถิติการแจก vs แลกแต้ม แยกตามสาขา</h2>
         </div>
         <div className="card-body">
           <PointDistributionChart branchMetrics={branchMetrics} />
@@ -113,7 +114,7 @@ export default async function LoyaltyAnalyticsPage() {
       {/* รายงานสาขา — ทั้งหมด vs เดือนนี้ */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-building-store" /> <h2>รายงานสาขา (ทั้งหมด / เดือนนี้)</h2>
+          <Icon name="ti-building-store" /> <h2>รายงานสาขา (ทั้งหมด / เดือนนี้)</h2>
         </div>
         <div className="card-body">
           <DataTable
@@ -134,7 +135,7 @@ export default async function LoyaltyAnalyticsPage() {
       {/* แลกข้ามสาขา */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-arrows-exchange" /> <h2>การแลกรางวัลที่อาจข้ามสาขา (ล่าสุด)</h2>
+          <Icon name="ti-arrows-exchange" /> <h2>การแลกรางวัลที่อาจข้ามสาขา (ล่าสุด)</h2>
         </div>
         <div className="card-body">
           <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
@@ -159,7 +160,7 @@ export default async function LoyaltyAnalyticsPage() {
       {/* กลุ่มพฤติกรรมลูกค้า (CDP / RFM Segmentation) */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-user-check" /> <h2>การแบ่งกลุ่มลูกค้าตามพฤติกรรม (AI CDP / RFM Segments)</h2>
+          <Icon name="ti-user-check" /> <h2>การแบ่งกลุ่มลูกค้าตามพฤติกรรม (AI CDP / RFM Segments)</h2>
         </div>
         <div className="card-body">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
@@ -176,7 +177,7 @@ export default async function LoyaltyAnalyticsPage() {
       {/* รายงานผลงานพนักงาน (Staff Performance & Fraud Audit) */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-user-star" /> <h2>รายงานการออกแต้มแยกตามบาริสต้า/พนักงาน (Staff Performance)</h2>
+          <Icon name="ti-user-star" /> <h2>รายงานการออกแต้มแยกตามบาริสต้า/พนักงาน (Staff Performance)</h2>
         </div>
         <div className="card-body">
           <DataTable
@@ -196,7 +197,7 @@ export default async function LoyaltyAnalyticsPage() {
       {/* บันทึก Audit Log ป้องกันทุจริตล่าสุด */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-shield-alert" /> <h2>บันทึกตรวจสอบย้อนหลังล่าสุด (Anti-Fraud Audit Logs)</h2>
+          <Icon name="ti-shield-alert" /> <h2>บันทึกตรวจสอบย้อนหลังล่าสุด (Anti-Fraud Audit Logs)</h2>
         </div>
         <div className="card-body">
           <DataTable

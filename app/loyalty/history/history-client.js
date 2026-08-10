@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../../components/icon';
 
 import { useEffect, useState, useTransition } from 'react';
 import { listTransactionsAction, voidTransactionAction } from '../actions';
@@ -68,7 +69,7 @@ export default function HistoryClient({
     <div style={{ display: 'grid', gap: 16 }}>
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-filter" /> <h2>กรองธุรกรรม</h2>
+          <Icon name="ti-filter" /> <h2>กรองธุรกรรม</h2>
         </div>
         <div className="card-body">
           <form
@@ -121,7 +122,7 @@ export default function HistoryClient({
               <DateField type="date" value={filters.date_to} onChange={(v) => setFilters((f) => ({ ...f, date_to: v }))} />
             </label>
             <button className="btn btn-coffee" type="submit" disabled={isPending}>
-              <i className="ti ti-search" /> {isPending ? 'กำลังโหลด...' : 'ค้นหา'}
+              <Icon name="ti-search" /> {isPending ? 'กำลังโหลด...' : 'ค้นหา'}
             </button>
           </form>
           {msg && (
@@ -134,7 +135,7 @@ export default function HistoryClient({
 
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-list" /> <h2>รายการ ({rows.length})</h2>
+          <Icon name="ti-list" /> <h2>รายการ ({rows.length})</h2>
         </div>
         <div className="card-body">
           <DataTable

@@ -1,4 +1,5 @@
 'use client';
+import Icon from './icon';
 
 import { useRef } from 'react';
 
@@ -22,7 +23,7 @@ export default function DateField({ value, onChange, type = 'date', min, max, di
   return (
     <div className={`date-field${disabled ? ' disabled' : ''}`} onClick={openPicker}>
       <span className="date-field-display">
-        <i className="ti ti-calendar-event" />
+        <Icon name="ti-calendar-event" />
         {display || <span className="muted">{placeholder}</span>}
       </span>
       <input

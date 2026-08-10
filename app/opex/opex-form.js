@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -254,11 +255,11 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                 {rv > 0 && (
                   <div style={whtBox}>
                     <div style={{ ...whtRow, background: '#f0fdf4' }}>
-                      <span><i className="ti ti-wallet" /> จ่ายเจ้าของ (95%)</span>
+                      <span><Icon name="ti-wallet" /> จ่ายเจ้าของ (95%)</span>
                       <strong style={{ color: '#16a34a' }}>{fmt(Math.round(rv * 0.95))} ฿</strong>
                     </div>
                     <div style={{ ...whtRow, background: '#fff7ed' }}>
-                      <span><i className="ti ti-receipt-tax" /> หัก ณ ที่จ่าย 5% (นำส่งสรรพากร)</span>
+                      <span><Icon name="ti-receipt-tax" /> หัก ณ ที่จ่าย 5% (นำส่งสรรพากร)</span>
                       <strong style={{ color: '#ea580c' }}>{fmt(Math.round(rv * 0.05))} ฿</strong>
                     </div>
                   </div>
@@ -284,8 +285,8 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                     ยอดโอนจริงจึงเท่ากับยอดเต็ม (100%) ไม่ใช่ 97% เหมือน WHT แบบหักจากผู้รับทั่วไป */}
                 {sv > 0 && (
                   <div style={whtBox}>
-                    <div style={{ ...whtRow, background: '#f0fdf4' }}><span><i className="ti ti-wallet" /> ยอดโอนจริง (ออกภาษีให้ ไม่หักจากยอดนี้)</span><strong style={{ color: '#16a34a' }}>{fmt(sv)} ฿</strong></div>
-                    <div style={{ ...whtRow, background: '#fff7ed' }}><span><i className="ti ti-receipt-tax" /> หัก ณ ที่จ่าย 3% (บริษัทออกให้ นำส่งสรรพากรเพิ่ม)</span><strong style={{ color: '#ea580c' }}>{fmt(w)} ฿</strong></div>
+                    <div style={{ ...whtRow, background: '#f0fdf4' }}><span><Icon name="ti-wallet" /> ยอดโอนจริง (ออกภาษีให้ ไม่หักจากยอดนี้)</span><strong style={{ color: '#16a34a' }}>{fmt(sv)} ฿</strong></div>
+                    <div style={{ ...whtRow, background: '#fff7ed' }}><span><Icon name="ti-receipt-tax" /> หัก ณ ที่จ่าย 3% (บริษัทออกให้ นำส่งสรรพากรเพิ่ม)</span><strong style={{ color: '#ea580c' }}>{fmt(w)} ฿</strong></div>
                   </div>
                 )}
               </div>
@@ -319,10 +320,10 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                   </div>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>฿</span>
                   <button type="button" onClick={() => setEmp(i, 'showSlip', !e.showSlip)} style={btnSlip}>
-                    <i className="ti ti-calculator" /> คำนวณเงินเดือน
+                    <Icon name="ti-calculator" /> คำนวณเงินเดือน
                   </button>
                   <button type="button" onClick={() => setEmp(i, 'showHistory', !e.showHistory)} style={btnSlip}>
-                    <i className="ti ti-history" /> ประวัติ{empPayHistory[`emp${i + 1}`]?.length ? ` (${empPayHistory[`emp${i + 1}`].length})` : ''}
+                    <Icon name="ti-history" /> ประวัติ{empPayHistory[`emp${i + 1}`]?.length ? ` (${empPayHistory[`emp${i + 1}`].length})` : ''}
                   </button>
                   {employees.length > 1 && (
                     <button type="button" onClick={() => removeEmp(i)} style={btnRemove}>ลบ</button>
@@ -345,7 +346,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
 
                     {/* รายละเอียดพนักงานสำหรับหนังสือรับรองเงินเดือน — เก็บลงฐานข้อมูลกลาง (ใช้ได้ทุกเครื่อง) */}
                     <div style={detailWrap}>
-                      <div style={detailHead}><i className="ti ti-id-badge-2" /> ข้อมูลส่วนตัว</div>
+                      <div style={detailHead}><Icon name="ti-id-badge-2" /> ข้อมูลส่วนตัว</div>
                       <div style={detailGrid}>
                         <SlipField text noDigits disabled={!canEditEmpDetails} label="ชื่อ" value={e.fullname} onChange={(v) => setEmp(i, 'fullname', v)} />
                         <SlipField text noDigits disabled={!canEditEmpDetails} label="นามสกุล" value={e.lastname} onChange={(v) => setEmp(i, 'lastname', v)} />
@@ -353,7 +354,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                         <SlipField text onlyDigits disabled={!canEditEmpDetails} label="เลขบัตรประชาชน" value={e.id_card} onChange={(v) => setEmp(i, 'id_card', v)} />
                       </div>
 
-                      <div style={{ ...detailHead, marginTop: 12 }}><i className="ti ti-building-bank" /> บัญชีธนาคาร (สำหรับโอนเงินเดือน)</div>
+                      <div style={{ ...detailHead, marginTop: 12 }}><Icon name="ti-building-bank" /> บัญชีธนาคาร (สำหรับโอนเงินเดือน)</div>
                       <div style={detailGrid}>
                         <SlipField text disabled={!canEditEmpDetails} label="ธนาคาร" value={e.bank_name} onChange={(v) => setEmp(i, 'bank_name', v)} />
                         <SlipField text onlyDigits disabled={!canEditEmpDetails} label="เลขที่บัญชี" value={e.account_no} onChange={(v) => setEmp(i, 'account_no', v)} />
@@ -363,15 +364,15 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       {canEditEmpDetails ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
                           <button type="button" onClick={onSaveEmpDetails} style={btnSaveDetail}>
-                            <i className="ti ti-device-floppy" /> บันทึกข้อมูลพนักงาน
+                            <Icon name="ti-device-floppy" /> บันทึกข้อมูลพนักงาน
                           </button>
                           <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                            <i className="ti ti-cloud-check" /> เก็บลงระบบกลาง ใช้ร่วมกันได้ทุกเครื่อง
+                            <Icon name="ti-cloud-check" /> เก็บลงระบบกลาง ใช้ร่วมกันได้ทุกเครื่อง
                           </span>
                         </div>
                       ) : (
                         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 12 }}>
-                          <i className="ti ti-lock" /> เฉพาะ Admin หรือ Co-Admin แก้ไขข้อมูลพนักงานได้
+                          <Icon name="ti-lock" /> เฉพาะ Admin หรือ Co-Admin แก้ไขข้อมูลพนักงานได้
                         </div>
                       )}
                       {detailMsg && (
@@ -388,7 +389,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                       <SlipRow label="รวมค่าใช้จ่ายบริษัท" value={fmt(ps.companyCost)} strong />
                     </div>
                     <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                      <i className="ti ti-refresh" /> ยอดรวมค่าใช้จ่ายบริษัทด้านบนจะถูกใช้เป็นยอดค่าดำเนินการของพนักงานคนนี้โดยอัตโนมัติเมื่อบันทึก
+                      <Icon name="ti-refresh" /> ยอดรวมค่าใช้จ่ายบริษัทด้านบนจะถูกใช้เป็นยอดค่าดำเนินการของพนักงานคนนี้โดยอัตโนมัติเมื่อบันทึก
                     </p>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                       <button type="button" onClick={() => {
@@ -398,7 +399,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
                         }
                         printSlip(e, ps, monthLabel, bizInfo);
                       }} style={btnSlip}>
-                        <i className="ti ti-printer" /> พิมพ์หนังสือรับรองเงินเดือน
+                        <Icon name="ti-printer" /> พิมพ์หนังสือรับรองเงินเดือน
                       </button>
                     </div>
                     {income <= 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>* คอมมิชชั่นคำนวณจากยอดขายเดือนนี้ (ยังไม่มีข้อมูลขาย)</div>}
@@ -442,7 +443,7 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
       {(remitSSO > 0 || remitWHT > 0 || vatAmt > 0) && (
         <div style={{ ...card, borderColor: 'var(--taupe)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <i className="ti ti-file-invoice" style={{ color: 'var(--taupe-dark)' }} />
+            <Icon name="ti-file-invoice" style={{ color: 'var(--taupe-dark)' }} />
             <h2 style={{ margin: 0, fontSize: 15 }}>สรุปยอดนำส่งหน่วยงาน (สำหรับสำนักงานบัญชี)</h2>
           </div>
           <div style={slipCalc}>
@@ -578,7 +579,7 @@ function PayHistory({ hist, employee, bizInfo, isAdmin, onMsg }) {
             <strong style={{ minWidth: 60 }}>{r.month}</strong>
             <span style={{ color: 'var(--muted)' }}>โอน {fmt(r.netTransfer)} ฿ · ต้นทุน {fmt(r.companyCost)} ฿</span>
             <button type="button" onClick={() => onReprint(r)} style={{ ...btnMini, marginLeft: 'auto' }}>
-              <i className="ti ti-printer" /> พิมพ์ซ้ำ
+              <Icon name="ti-printer" /> พิมพ์ซ้ำ
             </button>
           </div>
         ))}

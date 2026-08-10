@@ -1,3 +1,4 @@
+import Icon from '../../components/icon';
 import Link from 'next/link';
 import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
@@ -52,14 +53,14 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card-head" style={{ background: 'transparent', border: 0, padding: '4px 2px 10px' }}>
-        <i className="ti ti-bolt" /> <span>เมนูลัด</span>
+        <Icon name="ti-bolt" /> <span>เมนูลัด</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         {ACTIONS.map((a) => (
           <Link key={a.href} href={a.href} className="card" style={{ textDecoration: 'none', color: 'inherit', marginBottom: 0 }}>
             <div className="card-body" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <div className="brand-icon" style={{ width: 42, height: 42, fontSize: 21, boxShadow: 'none' }}>
-                <i className={`ti ${a.icon}`} />
+                <Icon name={a.icon} />
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{a.label}</div>

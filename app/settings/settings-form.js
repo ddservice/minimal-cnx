@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -29,7 +30,7 @@ export default function SettingsForm({ biz }) {
 
   return (
     <form onSubmit={onSubmit} className="card">
-      <div className="card-head"><i className="ti ti-building" /><h2>ข้อมูลบริษัท / ร้านค้า</h2></div>
+      <div className="card-head"><Icon name="ti-building" /><h2>ข้อมูลบริษัท / ร้านค้า</h2></div>
       <div className="card-body">
         <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 14 }}>
           ใช้ในหัวเอกสารสลิปเงินเดือนและรายงาน
@@ -46,7 +47,7 @@ export default function SettingsForm({ biz }) {
         </div>
 
         <button className="btn btn-coffee" type="submit" disabled={isPending} style={{ marginTop: 16 }}>
-          <i className="ti ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
+          <Icon name="ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
         {msg && (
           <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>

@@ -32,7 +32,7 @@ Maintained by Claude. **Update this file after every change** to the project.
 ## Performance
 
 - **`lib/session.js`'s `requireSession()` uses `getSession()`, not `getUser()` — deliberately, not an oversight.** `getUser()` makes a real network round-trip to Supabase's Auth server to re-verify the JWT; `getSession()` just reads/decodes it from cookies locally. `middleware.js` already calls `getUser()` (the network-verified, authoritative check) on every request before any page or Server Action runs, refreshing cookies if needed — by the time `requireSession()` runs, the cookies it reads via `lib/supabase/server.js` already reflect that verified session, so re-verifying with a second `getUser()` call was pure added latency (two Supabase Auth round-trips per page load instead of one) with no real security benefit. **If you ever see `requireSession()` using `getUser()` again, that's a regression — change it back to `getSession()`.** Note this optimization was deliberately *not* extended to the many standalone `supabase.auth.getUser()` calls inside individual Server Actions (`app/*/actions.js`) — those aren't on the page-load critical path (they run on form submit, not navigation) and touching auth checks across many mutation endpoints at once was judged higher-risk for lower payoff; revisit only if Server Action latency specifically becomes a complaint.
-- **Icon font is self-hosted, not loaded from a CDN.** `app/layout.js` used to `<link>` `@tabler/icons-webfont` from `cdn.jsdelivr.net` — a render-blocking external request (separate DNS + TLS + download) on every single page load, on top of whatever the VPS itself serves. Now installed as a real dependency and imported directly (`import '@tabler/icons-webfont/dist/tabler-icons.min.css'` in `app/layout.js`), so Next.js bundles and self-hosts it under `/_next/static/media/` like any other static asset — same reasoning as the Prompt font switch to `next/font/google` (self-hosted, no third-party runtime request). **Never add a `<link>` to an external CDN for a font/icon set again — install it and import it instead.**
+- **Icons are tree-shaken React SVGs (`@tabler/icons-react` via `components/icon.js`), not the full webfont.** Previously `@tabler/icons-webfont` shipped every glyph in CSS+font files on every page. Now only icons that appear in the JS graph are bundled. Use `<Icon name="ti-xxx" />` (or pass `ti-xxx` into `PageHeader`/`Kpi`). **Never add a CDN `<link>` for an icon set — and do not re-introduce the full webfont package.**
 
 ## Run / build / deploy
 
@@ -158,7 +158,9 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
   - **Counter speed:** digit-only phone entry, recent phones in `localStorage` (`mm69_loyalty_recent_phones`), one-tap **แจกตามยอด** (50฿=1pt suggestion).
   - **History + void:** `/loyalty/history` filterable by branch/staff/type/phone/date; manager+ can **void** via reverse `adjust` row (`VOID:{tx_id} | reason`) + `VOID_TRANSACTION` audit — never deletes the original.
   - **Anti-fraud (server-side in `issuePointsAction`):** reject >100 points per issue; rate-limit ≥5 earns to the same customer by the same staff within 10 minutes — both log `FRAUD_ALERT_*`.
-  - **Rewards catalog** (`lib/loyalty-rewards.js`) — server-only points on redeem. Suggest rate: 50฿ = 1 point.
+  - **Rewards catalog** — table `loyalty_rewards` (`sql/add_loyalty_rewards.sql`), editable at `/admin/loyalty`; redeem uses DB points (`getRewardFromDb`). Fallback seed in `lib/loyalty-rewards.js` if SQL not applied yet. Suggest rate: 50฿ = 1 point.
+  - **Read lockdown (2026-08-10):** `sql/harden_loyalty_reads.sql` — customers / txs / redemptions / branches readable only by linked `staff_profiles` or manager+ (`fn_can_loyalty_staff()`).
+  - **Mobile / partner branch (2026-08-10):** PWA manifest (`start_url=/loyalty`), role **`loyalty_staff`** (nav + middleware จำกัดแค่ `/loyalty*`), PDPA checkbox + `sql/add_customer_privacy_consent.sql`.
   - **Admin UI** (`/admin/loyalty`, admin+co-admin) — branches + `staff_profiles` linking.
   - **CDP analytics** (`/loyalty/analytics`, manager+) — branch totals + month-to-date, cross-branch redeem list, staff performance, fraud audit.
   - **Branch scope:** multi-branch applies to **loyalty only**. Sales/expenses/OPEX/reports remain single-shop.
@@ -174,6 +176,9 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 - **`sql/harden_loyalty_rls.sql` — run after add_loyalty_system.sql** (idempotent). Blocks client-side points tampering on `customers`.
 - **`sql/harden_loyalty_writes.sql` — run after harden_loyalty_rls.sql** (idempotent). Tightens earn/redeem INSERT policies + `loyalty_void_transaction` RPC for voids.
 - **`sql/add_loyalty_indexes.sql` — run after loyalty tables exist** (idempotent). Speeds history/CDP queries.
+- **`sql/harden_loyalty_reads.sql` — run after loyalty tables exist** (idempotent). Restricts loyalty reads to staff with `staff_profiles` or manager+.
+- **`sql/add_loyalty_rewards.sql` — catalog รางวัลใน DB** (idempotent). Run after `fn_my_role` exists; safe before/after `harden_loyalty_reads` (both define `fn_can_loyalty_staff`).
+- **`sql/add_customer_privacy_consent.sql` — คอลัมน์ PDPA** บน `customers` (`privacy_consent_at` / `privacy_consent_version`).
 - **`sql/add_analytics_range_kpis.sql` — recommended for `/analytics` speed** (idempotent). Adds `get_months_kpis(p_month_labels)` so the page makes one RPC instead of N× `get_monthly_summary`; app falls back to the old path if not applied yet.
 - `sql/add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in the core app works against the schema already in `sql/supabase_migration.sql`.
 - **`sql/harden_security.sql` — security fix, recommend running regardless of which features you use.** See "Security model" above.
@@ -183,17 +188,17 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 Legacy feature parity is complete. Loyalty staff-portal path is code-complete for shop use.
 
 **Loyalty ops checklist (2026-08-10):**
-1. Confirm Supabase has applied (in order): `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → **`harden_loyalty_writes.sql`** → **`add_loyalty_indexes.sql`**. Also recommended: **`add_analytics_range_kpis.sql`** (business `/analytics` speed).
+1. Confirm Supabase has applied (in order): `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → **`harden_loyalty_writes.sql`** → **`add_loyalty_indexes.sql`** → **`harden_loyalty_reads.sql`** → **`add_loyalty_rewards.sql`** → **`add_customer_privacy_consent.sql`**. Also recommended: **`add_analytics_range_kpis.sql`**.
 2. Deploy on VPS: `cd ~/apps/minimalcnx && bash deploy.sh`.
-3. Admin links each staff user → branch at `/admin/loyalty`.
-4. Hand staff [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md).
+3. Admin links each staff user → branch at `/admin/loyalty`. Partner-branch counters: create users with role **`loyalty_staff`** (sees only `/loyalty`, PWA start URL).
+4. Hand staff [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md) — include Add to Home Screen.
 
 **Perf / security notes (2026-08-10):**
 - CDP analytics loads txs for last **90 days** (cap 3000) — not full history.
 - Prompt font weights reduced to 400/600 (faster first paint).
 - Staff cannot spoof another branch; void goes through `loyalty_void_transaction` RPC after `harden_loyalty_writes.sql`.
-- Still open by design for any authenticated user to **read** customers/txs (shop-internal); further column-level lockdown is optional later.
+- Loyalty **reads** gated by `fn_can_loyalty_staff()` after `harden_loyalty_reads.sql` (not every logged-in user).
 - `/analytics` (business) uses **`get_months_kpis`** when `sql/add_analytics_range_kpis.sql` is applied; otherwise falls back to N× `get_monthly_summary`.
 - `sql/fix_imm_login.sql` no longer ships a usable default password — set `CHANGE_ME_BEFORE_RUN` before executing.
 
-**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), editable rewards catalog in DB, phone-change UI, customer self-serve balance (OTP), Tabler icon subset.
+**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), phone-change UI, customer self-serve balance (OTP).

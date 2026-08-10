@@ -1,13 +1,15 @@
+import Icon from '../../components/icon';
 import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import LoyaltyClient from './loyalty-client';
 import Link from 'next/link';
+import { loadActiveRewards } from '../../lib/loyalty-rewards';
 
 export default async function LoyaltyPage() {
   const { supabase, role, name, isAdmin, allowed, user } = await requireSession();
 
-  const [{ data: branches }, { data: staffProfile }] = await Promise.all([
+  const [{ data: branches }, { data: staffProfile }, rewards] = await Promise.all([
     supabase
       .from('branches')
       .select('id, code, name')
@@ -18,6 +20,7 @@ export default async function LoyaltyPage() {
       .select('branch_id, staff_code')
       .eq('user_id', user.id)
       .maybeSingle(),
+    loadActiveRewards(supabase),
   ]);
 
   const canManage = isAdmin || role === 'co-admin';
@@ -30,22 +33,23 @@ export default async function LoyaltyPage() {
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-gift" title="ระบบสะสมแต้ม (Loyalty System)">
         <Link href="/loyalty/history" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-          <i className="ti ti-history" /> ประวัติธุรกรรม
+          <Icon name="ti-history" /> ประวัติธุรกรรม
         </Link>
         {canManage && (
           <Link href="/admin/loyalty" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-            <i className="ti ti-settings" /> ตั้งค่าสาขา
+            <Icon name="ti-settings" /> ตั้งค่าสาขา
           </Link>
         )}
         {canAnalytics && (
           <Link href="/loyalty/analytics" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-            <i className="ti ti-chart-bar" /> แดชบอร์ดวิเคราะห์ (CDP)
+            <Icon name="ti-chart-bar" /> แดชบอร์ดวิเคราะห์ (CDP)
           </Link>
         )}
       </PageHeader>
 
       <LoyaltyClient
         branches={branches || []}
+        rewards={rewards}
         defaultBranchId={staffProfile?.branch_id || ''}
         staffLinked={staffLinked}
         staffCode={staffProfile?.staff_code || ''}

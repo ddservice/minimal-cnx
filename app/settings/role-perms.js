@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -31,7 +32,7 @@ export default function RolePerms({ perms }) {
 
   return (
     <div className="card">
-      <div className="card-head"><i className="ti ti-lock-access" /><h2>สิทธิ์การมองเห็นเมนู (ตามตำแหน่ง)</h2></div>
+      <div className="card-head"><Icon name="ti-lock-access" /><h2>สิทธิ์การมองเห็นเมนู (ตามตำแหน่ง)</h2></div>
       <div className="card-body" style={{ overflowX: 'auto' }}>
         <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>
           Admin เห็นทุกเมนูเสมอ · ติ๊ก = ตำแหน่งนั้นเห็นเมนูนั้น (เป็นการซ่อนเมนู ไม่ใช่ล็อกข้อมูล — ข้อมูลยังกันด้วย RLS)
@@ -46,7 +47,7 @@ export default function RolePerms({ perms }) {
           <tbody>
             {NAV_TABS.map((t) => (
               <tr key={t.href} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ padding: '7px 8px' }}><i className={`ti ${t.icon}`} style={{ marginRight: 6, color: 'var(--taupe)' }} />{t.label}</td>
+                <td style={{ padding: '7px 8px' }}><Icon name={t.icon} style={{ marginRight: 6, color: 'var(--taupe)' }} />{t.label}</td>
                 {MANAGED_ROLES.map((r) => (
                   <td key={r.value} style={{ padding: '7px 8px', textAlign: 'center' }}>
                     <input type="checkbox" checked={state[r.value][t.href]} onChange={() => toggle(r.value, t.href)} />
@@ -57,7 +58,7 @@ export default function RolePerms({ perms }) {
           </tbody>
         </table>
         <button className="btn btn-coffee" type="button" onClick={onSave} disabled={isPending} style={{ marginTop: 14 }}>
-          <i className="ti ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
+          <Icon name="ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
         </button>
         {msg && <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>}
       </div>

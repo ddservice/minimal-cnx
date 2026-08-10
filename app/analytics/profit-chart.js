@@ -1,4 +1,5 @@
 'use client';
+import Icon from '../../components/icon';
 
 import { useState } from 'react';
 import { fmtMoney } from '../../lib/format';
@@ -36,7 +37,7 @@ export default function ProfitChart({ data }) {
 
   return (
     <div className="card">
-      <div className="card-head"><i className="ti ti-chart-line" /><h2>แนวโน้มกำไร/ขาดทุนรายเดือน</h2></div>
+      <div className="card-head"><Icon name="ti-chart-line" /><h2>แนวโน้มกำไร/ขาดทุนรายเดือน</h2></div>
       <div className="card-body" style={{ overflowX: 'auto' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="กราฟกำไรขาดทุนรายเดือน" style={{ display: 'block', minWidth: 320, overflow: 'visible' }}>

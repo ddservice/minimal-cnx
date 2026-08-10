@@ -6,5 +6,5 @@
 - Person-name fields: `stripDigits()`. ID/account/taxid: `digitsOnly()`.
 - Date/month pickers: always use `components/date-field.js` — never raw `<input type="date|month">`.
 - `business_config` writes: always `lib/config-store.js` `upsertBusinessConfig()` (detect silent RLS failures).
-- Do not add CDN `<link>` for fonts/icons — install + import.
+- Icons: `<Icon name="ti-xxx" />` from `components/icon.js` (add to MAP if new). No webfont / CDN icon links.
 - Keep comments minimal; no drive-by refactors outside the task.

@@ -1,3 +1,4 @@
+import Icon from '../../../components/icon';
 import Link from 'next/link';
 import { requireSession } from '../../../lib/session';
 import AppShell from '../../../components/app-shell';
@@ -26,11 +27,11 @@ export default async function LoyaltyHistoryPage() {
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-history" title="ประวัติธุรกรรมสะสมแต้ม">
         <Link href="/loyalty" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-          <i className="ti ti-arrow-left" /> หน้าสะสมแต้ม
+          <Icon name="ti-arrow-left" /> หน้าสะสมแต้ม
         </Link>
         {(isAdmin || role === 'co-admin' || role === 'manager') && (
           <Link href="/loyalty/analytics" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-            <i className="ti ti-chart-bar" /> แดชบอร์ด CDP
+            <Icon name="ti-chart-bar" /> แดชบอร์ด CDP
           </Link>
         )}
       </PageHeader>
