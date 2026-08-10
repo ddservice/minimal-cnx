@@ -24,9 +24,9 @@ export default async function AdminLoyaltyPage() {
 
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
-      <PageHeader icon="ti-gift" title="ตั้งค่าสะสมแต้ม">
+      <PageHeader icon="ti-building-store" title="ตั้งค่าสาขาและพนักงานสะสมแต้ม">
+        <Link className="link-btn" href="/loyalty"><i className="ti ti-gift" /> หน้าสะสมแต้ม</Link>
         <Link className="link-btn" href="/admin"><i className="ti ti-users" /> ผู้ใช้งาน</Link>
-        <Link className="link-btn" href="/loyalty"><i className="ti ti-arrow-left" /> หน้าสะสมแต้ม</Link>
       </PageHeader>
       <LoyaltyAdmin
         branches={branches || []}
