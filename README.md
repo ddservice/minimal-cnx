@@ -4,6 +4,8 @@ Coffee-shop sales/expense/payroll + loyalty tracking system. Live at `minimalcnx
 
 **Full docs (architecture, security, formulas, features, deploy):** see [`CLAUDE.md`](./CLAUDE.md) — that file is the maintained source of truth. This README is a quick-start only.
 
+**คู่มือสะสมแต้มสำหรับพนักงาน/ผู้จัดการ:** [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md) (รวมเปรียบเทียบกับระบบแต้มแบบ LINE + สแกน QR)
+
 ## Local dev
 
 ```bash

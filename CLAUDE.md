@@ -54,13 +54,14 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 ## App structure (repo root)
 
-- `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `loyalty` (+ `loyalty/analytics`), `reports`, `analytics`, `admin`, `settings`, `export` (xlsx Route Handler)
+- `app/` — `login`, `dashboard`, `sales`, `expenses`, `opex`, `loyalty` (+ `loyalty/analytics`), `reports`, `analytics`, `admin` (+ `admin/loyalty`, `admin/audit`), `settings`, `export` (xlsx Route Handler)
 - `components/` — `app-shell`, `sidebar`, `sign-out-button`, `page-header`, `data-table`, `kpi`, `date-field`
-- `lib/` — `supabase/{client,server,middleware}`, `session`, `format`, `gp`, `opex`, `expense-categories`, `suppliers` (curated supplier→item catalog), `config-store`, `perms`, `payslip`, …
+- `lib/` — `supabase/{client,server,middleware}`, `session`, `format`, `gp`, `opex`, `expense-categories`, `suppliers` (curated supplier→item catalog), `config-store`, `perms`, `payslip`, `loyalty-rewards`, …
 - `sql/` — all Supabase SQL schema & migrations
 - `templates/` — `.xlsx` templates for Excel import
 - `deploy/` — nginx sample config
-- `CLAUDE.md` — this documentation file
+- `CLAUDE.md` — maintainer docs (architecture / security / formulas)
+- `LOYALTY-USER-GUIDE.md` — staff/manager loyalty how-to + LINE-QR comparison
 - Design: see "Design system" below.
 
 ## Design system (2026-07-20 redesign — soft/modern, sidebar layout)
@@ -132,12 +133,16 @@ Also ported ✅: **Cloudflare HTTPS redirect & proxy headers fix** (`lib/supabas
 Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fix_opex_upsert.sql`** — (Fixed 2026-08-02) Changed `ON CONFLICT ON CONSTRAINT uidx_expenses_opex_item` to `ON CONFLICT (month_label, item_key) WHERE item_key IS NOT NULL` because Postgres partial unique indexes are not registered as named constraints.
 
 **Added (2026-08-02): Smart Loyalty & CDP** (`app/loyalty/`, `sql/add_loyalty_system.sql`) — staff portal at `/loyalty` (search/register customer by phone or LINE user id, issue points, redeem rewards) + manager+ CDP dashboard at `/loyalty/analytics` (RFM segments, per-branch point distribution, recent audit). Nav tab `สะสมแต้ม` in `lib/perms.js`.
+  - **คู่มือพนักงาน/ผู้จัดการ:** [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md) — ขั้นตอนใช้งานรายวัน + เปรียบเทียบกับโมเดล LINE (พนักงานกดแจ้ง → ลูกค้าสแกน QR).
   - **Schema:** `branches`, `staff_profiles` (user↔branch), `customers` (points + RFM), `point_transactions`, `redemption_history`, `loyalty_audit_logs`. Trigger `fn_on_point_transaction` keeps `points_balance` / `visit_count` / `rfm_segment` in sync after each earn/redeem (blocks negative balance).
   - **Anti-fraud (server-side in `issuePointsAction`):** reject >100 points per issue; rate-limit ≥5 issues to the same customer by the same staff within 10 minutes — both log `FRAUD_ALERT_*` to `loyalty_audit_logs` before rejecting.
-  - **Rewards catalog** (`lib/loyalty-rewards.js`) — single source of truth; `redeemRewardAction` accepts only `reward_id` and looks up name/points server-side (client cannot undercut cost).
+  - **Rewards catalog** (`lib/loyalty-rewards.js`) — single source of truth; `redeemRewardAction` accepts only `reward_id` and looks up name/points server-side (client cannot undercut cost). Suggest rate: 50฿ = 1 point (UI suggestion only).
   - **Admin UI** (`/admin/loyalty`, admin+co-admin) — manage branches + link users to `staff_profiles` (default branch on `/loyalty`). Linked from `/admin` and `/loyalty`.
+  - **Branch scope:** multi-branch applies to **loyalty only** (earn/redeem/analytics). Sales / expenses / OPEX / monthly reports remain single-shop (no `branch_id` on those tables).
   - **Analytics locked** — page + `getLoyaltyAnalyticsAction` require admin/co-admin/manager (staff redirected to `/loyalty`).
   - **RFM auto labels:** Champions / Loyal / Potential / At-Risk / Lost / New (from visit count + days since last visit).
+  - **LINE today:** schema/search supports `line_user_id`, but there is **no** LINE OA / LIFF / QR earn flow yet — staff portal by phone is the live path.
+  - **LINE QR vs staff portal (product decision):** staff-portal-first is the right default for this shop (works without LINE, stronger fraud controls, lower ops cost). LINE “notify → customer scans QR” is better for customer self-serve + marketing push, but should be added later as a channel on the **same** points ledger — not a second disconnected LINE-only wallet. Full comparison in `LOYALTY-USER-GUIDE.md` §6.
   - **⚠️ Requires `sql/add_loyalty_system.sql` run in Supabase** before `/loyalty` works. Seed inserts branches `MAIN` (แม่ริม) and `CNX01` (ตัวเมืองเชียงใหม่).
   - **⚠️ Fix (2026-08-10):** original migration enabled RLS on `staff_profiles` with no policies — staff default-branch lookup failed silently. Policies are now in `add_loyalty_system.sql`; if you already ran the older migration, also run `sql/fix_loyalty_staff_profiles_rls.sql` (idempotent).
   - **⚠️ Harden (2026-08-10):** run **`sql/harden_loyalty_rls.sql`** — blocks direct `points_balance`/`rfm_segment` updates on `customers` (only nested trigger from `point_transactions` may change them); splits customers write policies; delete customers = admin/co-admin only.
@@ -152,4 +157,12 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 - **`sql/fix_bugs.sql` — run this one too, confirmed necessary in production (2026-07-28).** Fixes 3 things together: (1) `expenses` delete policy was admin-only in the original migration, widened to admin/co-admin/manager — without this, co-admin gets a silent-looking "ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin หรือ manager" trying to delete a duplicate expense row; (2) `upsert_opex_item` wasn't setting `month_label` on insert, and the old `get_monthly_summary` filtered *all* expenses (including regular mat/bak/misc, which always had `month_label` set correctly via the `tr_expenses_month_label` trigger) by that same `month_label` string — so OPEX rows silently vanished from monthly reports; (3) backfills `month_label` on any pre-existing OPEX rows that were missing it. **Real incident this caused:** July 2026's "รายจ่ายรวม" showed 220,000+ ฿, staff's own manual count of just the material-cost category said ~70,000 ฿ — looked like duplicate/bad data entry, but `dedupMonthAction` found zero duplicates and a direct SQL sum of `ต้นทุนวัตถุดิบ` confirmed the material figure was already correct (81,926.50 ฿, matching staff's count within normal estimation slack). The inflated *total* was purely `get_monthly_summary` mis-handling OPEX under the hood — running `fix_bugs.sql` dropped the reported total from 220,000+ to 165,503.68 ฿, which now reconciles exactly against the sum of all 4 category rows in `/reports`. `sql/fix_opex_upsert.sql` is an earlier, narrower predecessor of just the `upsert_opex_item` ON CONFLICT fix — `fix_bugs.sql`'s version of that function supersedes it, no need to run both.
 - `sql/add_email_to_profiles.sql`, `sql/add_unit_column.sql`, `sql/admin_user_functions.sql`, `sql/fix_admin_email.sql`, `sql/fix_imm_login.sql`, `sql/fix_passwords.sql`, `sql/supabase_set_admin.sql` — older one-off fixes/utilities, not individually documented here; **status of whether each has already been applied to the live Supabase project is unconfirmed** — read each file's own header comment before re-running, and don't assume "present in `sql/`" means "not yet run".
 
-Legacy feature parity is complete. Loyalty core path is code-complete for shop use; remaining optional: LINE OA/LIFF binding, editable rewards catalog in DB (currently code constant in `lib/loyalty-rewards.js`).
+Legacy feature parity is complete. Loyalty staff-portal path is code-complete for shop use.
+
+**Loyalty ops checklist (2026-08-10):**
+1. Confirm Supabase has `add_loyalty_system.sql` + `harden_loyalty_rls.sql` applied.
+2. Deploy on VPS: `cd ~/apps/minimalcnx && bash deploy.sh` (must run on the VPS; local machine may not have SSH deploy key).
+3. Admin links each staff user → branch at `/admin/loyalty`.
+4. Hand staff [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md).
+
+**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), editable rewards catalog in DB (today: `lib/loyalty-rewards.js`), phone-change / void-transaction UI.
