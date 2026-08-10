@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { requireSession } from '../../../lib/session';
 import AppShell from '../../../components/app-shell';
 import PageHeader from '../../../components/page-header';
@@ -7,8 +8,11 @@ import { getLoyaltyAnalyticsAction } from '../actions';
 import PointDistributionChart from './distribution-chart';
 import Link from 'next/link';
 
+const CAN_VIEW = new Set(['admin', 'co-admin', 'manager']);
+
 export default async function LoyaltyAnalyticsPage() {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { role, name, isAdmin, allowed } = await requireSession();
+  if (!CAN_VIEW.has(role)) redirect('/loyalty');
 
   const res = await getLoyaltyAnalyticsAction();
   const { transactions = [], customers = [], branches = [], auditLogs = [] } = res?.data || {};

@@ -2,6 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
+import { getReward } from '../../lib/loyalty-rewards';
+
+const ANALYTICS_ROLES = new Set(['admin', 'co-admin', 'manager']);
 
 // 1. ค้นหาลูกค้าด้วยเบอร์โทรศัพท์ หรือ LINE User ID (หากไม่พบสามารถสร้างใหม่ได้)
 export async function searchCustomerAction(query) {
@@ -143,14 +146,16 @@ export async function issuePointsAction({ customer_id, points, receipt_number, b
   return { status: 'ok', message: `สะสมแต้มสำเร็จ +${pts} แต้ม` };
 }
 
-// 4. แลกของรางวัล (หักแต้ม)
-export async function redeemRewardAction({ customer_id, reward_id, reward_name, points_used, branch_id }) {
+// 4. แลกของรางวัล (หักแต้ม) — points/name จาก catalog ฝั่ง server เท่านั้น
+export async function redeemRewardAction({ customer_id, reward_id, branch_id }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
 
-  const pts = Number(points_used);
-  if (!pts || pts <= 0) return { status: 'error', message: 'จำนวนแต้มต้องมากกว่า 0' };
+  const reward = getReward(reward_id);
+  if (!reward) return { status: 'error', message: 'ไม่พบรางวัลนี้ในระบบ' };
+  const pts = reward.points;
+  const reward_name = reward.name;
 
   // เช็คแต้มคงเหลือของลูกค้าฝั่งเซิร์ฟเวอร์
   const { data: customer } = await supabase
@@ -193,7 +198,7 @@ export async function redeemRewardAction({ customer_id, reward_id, reward_name, 
     .from('redemption_history')
     .insert({
       customer_id,
-      reward_id,
+      reward_id: reward.id,
       reward_name,
       points_used: pts,
       branch_id: targetBranch,
@@ -206,12 +211,12 @@ export async function redeemRewardAction({ customer_id, reward_id, reward_name, 
     performed_by_staff_id: user.id,
     customer_id,
     branch_id: targetBranch,
-    details: { reward_id, reward_name, points_used: pts },
+    details: { reward_id: reward.id, reward_name, points_used: pts },
   });
 
   revalidatePath('/loyalty');
   revalidatePath('/loyalty/analytics');
-  return { status: 'ok', message: `แลกของรางวัล "${reward_name}" สำเร็จ (-${pts} แต้ม)` };
+  return { status: 'ok', message: `แลกของรางวัล "${reward_name}" สำเร็จ (-${pts} แต้ม)`, points_used: pts };
 }
 
 // 5. ดึงข้อมูลสถิติมุมมองสาขา พนักงาน และ CDP/RFM
@@ -219,6 +224,15 @@ export async function getLoyaltyAnalyticsAction() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (!ANALYTICS_ROLES.has(profile?.role)) {
+    return { status: 'error', message: 'ไม่มีสิทธิ์ดูแดชบอร์ดวิเคราะห์' };
+  }
 
   const [
     { data: txs },

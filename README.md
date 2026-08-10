@@ -29,4 +29,7 @@ cd ~/apps/minimalcnx && bash deploy.sh
 ## New migrations (run in Supabase SQL Editor if not already applied)
 
 - **`sql/add_loyalty_system.sql`** — required for `/loyalty` (tables, trigger, RLS, seed branches)
+- **`sql/harden_loyalty_rls.sql`** — after loyalty schema; blocks direct points tampering on `customers`
 - **`sql/fix_loyalty_staff_profiles_rls.sql`** — only if you already ran an older copy of `add_loyalty_system.sql` before the `staff_profiles` policies were added (idempotent)
+
+After SQL: Admin → **สาขา / พนักงานสะสมแต้ม** (`/admin/loyalty`) to link each staff user to a branch.

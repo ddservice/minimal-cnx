@@ -3,12 +3,7 @@
 import { useState, useTransition } from 'react';
 import { searchCustomerAction, registerCustomerAction, issuePointsAction, redeemRewardAction } from './actions';
 import { sanitizeNumberString, digitsOnly } from '../../lib/format';
-
-const REWARDS = [
-  { id: 'free_coffee', name: 'กาแฟฟรี 1 แก้ว (เมนูร้อน/เย็น)', points: 10, icon: 'ti-coffee' },
-  { id: 'free_pastry', name: 'ขนมหน้าร้านฟรี 1 ชิ้น', points: 15, icon: 'ti-cookie' },
-  { id: 'discount_50', name: 'ส่วนลด 50 บาท', points: 20, icon: 'ti-ticket' },
-];
+import { LOYALTY_REWARDS, suggestPointsFromSpend } from '../../lib/loyalty-rewards';
 
 const RFM_COLOR = {
   Champions: '#16a34a',
@@ -19,7 +14,7 @@ const RFM_COLOR = {
   New: '#8b5cf6',
 };
 
-export default function LoyaltyClient({ branches = [] }) {
+export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
   const [query, setQuery] = useState('');
   const [customer, setCustomer] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -32,7 +27,11 @@ export default function LoyaltyClient({ branches = [] }) {
   const [spendAmount, setSpendAmount] = useState('');
   const [pointsInput, setPointsInput] = useState('');
   const [receiptNo, setReceiptNo] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState(branches[0]?.id || '');
+  const initialBranch =
+    (defaultBranchId && branches.some((b) => b.id === defaultBranchId) && defaultBranchId)
+    || branches[0]?.id
+    || '';
+  const [selectedBranch, setSelectedBranch] = useState(initialBranch);
 
   const [msg, setMsg] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -75,12 +74,11 @@ export default function LoyaltyClient({ branches = [] }) {
     });
   }
 
-  // คำนวณแต้มอัตโนมัติจากยอดซื้อ (ทุก 50 บาท = 1 แต้ม)
+  // คำนวณแต้มอัตโนมัติจากยอดซื้อ (ทุก 50 บาท = 1 แต้ม — suggestion)
   function handleSpendChange(val) {
     const s = sanitizeNumberString(val);
     setSpendAmount(s);
-    const num = Number(s) || 0;
-    const calcPts = Math.floor(num / 50);
+    const calcPts = suggestPointsFromSpend(s);
     setPointsInput(calcPts > 0 ? String(calcPts) : '');
   }
 
@@ -131,14 +129,13 @@ export default function LoyaltyClient({ branches = [] }) {
       const res = await redeemRewardAction({
         customer_id: customer.id,
         reward_id: reward.id,
-        reward_name: reward.name,
-        points_used: reward.points,
         branch_id: selectedBranch,
       });
 
       if (res.status === 'ok') {
+        const used = res.points_used || reward.points;
         setMsg({ text: res.message, type: 'ok' });
-        setCustomer((prev) => (prev ? { ...prev, points_balance: Math.max(0, (prev.points_balance || 0) - reward.points) } : null));
+        setCustomer((prev) => (prev ? { ...prev, points_balance: Math.max(0, (prev.points_balance || 0) - used) } : null));
       } else {
         setMsg({ text: res.message, type: 'err' });
       }
@@ -343,7 +340,7 @@ export default function LoyaltyClient({ branches = [] }) {
             </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-                {REWARDS.map((rw) => {
+                {LOYALTY_REWARDS.map((rw) => {
                   const canRedeem = (customer.points_balance || 0) >= rw.points;
                   return (
                     <div

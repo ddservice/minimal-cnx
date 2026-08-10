@@ -160,9 +160,21 @@ drop policy if exists "customers: read authenticated" on public.customers;
 create policy "customers: read authenticated" on public.customers
   for select using (auth.role() = 'authenticated');
 
+-- เขียนแยก insert/update (ไม่ใช้ for all) — กันลบลูกค้าโดย staff
+-- กันแก้แต้มตรงๆ: รัน sql/harden_loyalty_rls.sql (trigger fn_guard_customer_points)
 drop policy if exists "customers: write authenticated" on public.customers;
-create policy "customers: write authenticated" on public.customers
-  for all using (auth.role() = 'authenticated');
+drop policy if exists "customers: insert authenticated" on public.customers;
+create policy "customers: insert authenticated" on public.customers
+  for insert with check (auth.role() = 'authenticated');
+
+drop policy if exists "customers: update authenticated" on public.customers;
+create policy "customers: update authenticated" on public.customers
+  for update using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+drop policy if exists "customers: delete admin+" on public.customers;
+create policy "customers: delete admin+" on public.customers
+  for delete using (public.fn_my_role() in ('admin', 'co-admin'));
 
 drop policy if exists "point_transactions: read authenticated" on public.point_transactions;
 create policy "point_transactions: read authenticated" on public.point_transactions
