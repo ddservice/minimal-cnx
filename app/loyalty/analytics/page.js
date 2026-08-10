@@ -17,22 +17,46 @@ export default async function LoyaltyAnalyticsPage() {
   const res = await getLoyaltyAnalyticsAction();
   const { transactions = [], customers = [], branches = [], auditLogs = [] } = res?.data || {};
 
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
   // 1. คำนวณ KPI รวม
   const totalIssued = transactions.filter((t) => t.points > 0).reduce((a, t) => a + t.points, 0);
-  const totalRedeemed = Math.abs(transactions.filter((t) => t.points < 0).reduce((a, t) => a + t.points, 0));
+  const totalRedeemed = Math.abs(transactions.filter((t) => t.points < 0 && t.transaction_type === 'redeem').reduce((a, t) => a + t.points, 0));
   const activeCustomers = customers.length;
   const fraudAlertsCount = auditLogs.filter((l) => l.action_type?.startsWith('FRAUD_ALERT')).length;
 
-  // 2. แยกแต้มตามสาขา
+  // 2. แยกแต้มตามสาขา (ทั้งหมด + เดือนนี้)
   const branchMap = {};
-  branches.forEach((b) => { branchMap[b.id] = { name: b.name, issued: 0, redeemed: 0 }; });
+  branches.forEach((b) => {
+    branchMap[b.id] = { id: b.id, name: b.name, code: b.code, issued: 0, redeemed: 0, monthIssued: 0, monthRedeemed: 0 };
+  });
   transactions.forEach((t) => {
-    if (t.branch_id && branchMap[t.branch_id]) {
-      if (t.points > 0) branchMap[t.branch_id].issued += t.points;
-      else branchMap[t.branch_id].redeemed += Math.abs(t.points);
+    if (!t.branch_id || !branchMap[t.branch_id]) return;
+    const isMonth = t.created_at >= monthStart;
+    if (t.transaction_type === 'earn') {
+      branchMap[t.branch_id].issued += t.points;
+      if (isMonth) branchMap[t.branch_id].monthIssued += t.points;
+    } else if (t.transaction_type === 'redeem') {
+      const abs = Math.abs(t.points);
+      branchMap[t.branch_id].redeemed += abs;
+      if (isMonth) branchMap[t.branch_id].monthRedeemed += abs;
     }
   });
   const branchMetrics = Object.values(branchMap);
+
+  // แลกข้ามสาขาโดยประมาณ: ลูกค้าที่เคย earn ที่สาขา A แล้ว redeem ที่สาขา B
+  const earnBranchesByCustomer = {};
+  transactions.filter((t) => t.transaction_type === 'earn' && t.branch_id).forEach((t) => {
+    if (!earnBranchesByCustomer[t.customer_id]) earnBranchesByCustomer[t.customer_id] = new Set();
+    earnBranchesByCustomer[t.customer_id].add(t.branch_id);
+  });
+  const crossBranchRedeems = transactions.filter((t) => {
+    if (t.transaction_type !== 'redeem' || !t.branch_id) return false;
+    const earnedAt = earnBranchesByCustomer[t.customer_id];
+    if (!earnedAt || earnedAt.size === 0) return false;
+    return !earnedAt.has(t.branch_id) || earnedAt.size > 1;
+  }).slice(0, 30);
 
   // 3. ผลงานพนักงานและการตรวจสอบการแจกแต้ม (Staff Performance)
   const staffMap = {};
@@ -56,8 +80,11 @@ export default async function LoyaltyAnalyticsPage() {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-chart-bar" title="แดชบอร์ดวิเคราะห์สถิติแต้ม & CDP">
-        <Link href="/loyalty" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'gap', textDecoration: 'none' }}>
+        <Link href="/loyalty" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
           <i className="ti ti-arrow-left" /> กลับหน้าสะสมแต้ม
+        </Link>
+        <Link href="/loyalty/history" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+          <i className="ti ti-history" /> ประวัติธุรกรรม
         </Link>
       </PageHeader>
 
@@ -72,10 +99,56 @@ export default async function LoyaltyAnalyticsPage() {
       {/* กราฟแจก vs แลกแต้มแยกตามสาขา */}
       <div className="card">
         <div className="card-head">
-          <i className="ti ti-chart-bar" /> <h2>สถิติการแจก vs แลกแต้ม แยกตามสาขา (Branch Distribution)</h2>
+          <i className="ti ti-chart-bar" /> <h2>สถิติการแจก vs แลกแต้ม แยกตามสาขา</h2>
         </div>
         <div className="card-body">
           <PointDistributionChart branchMetrics={branchMetrics} />
+        </div>
+      </div>
+
+      {/* รายงานสาขา — ทั้งหมด vs เดือนนี้ */}
+      <div className="card">
+        <div className="card-head">
+          <i className="ti ti-building-store" /> <h2>รายงานสาขา (ทั้งหมด / เดือนนี้)</h2>
+        </div>
+        <div className="card-body">
+          <DataTable
+            rows={branchMetrics}
+            rowKey={(r) => r.id}
+            emptyText="ยังไม่มีข้อมูลสาขา"
+            columns={[
+              { key: 'name', label: 'สาขา', render: (r) => <span><strong>{r.code}</strong> {r.name}</span> },
+              { key: 'issued', label: 'แจกทั้งหมด', align: 'right', render: (r) => <strong style={{ color: '#16a34a' }}>+{r.issued.toLocaleString()}</strong> },
+              { key: 'redeemed', label: 'แลกทั้งหมด', align: 'right', render: (r) => <strong style={{ color: '#ea580c' }}>-{r.redeemed.toLocaleString()}</strong> },
+              { key: 'monthIssued', label: 'แจกเดือนนี้', align: 'right', render: (r) => `+${r.monthIssued.toLocaleString()}` },
+              { key: 'monthRedeemed', label: 'แลกเดือนนี้', align: 'right', render: (r) => `-${r.monthRedeemed.toLocaleString()}` },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* แลกข้ามสาขา */}
+      <div className="card">
+        <div className="card-head">
+          <i className="ti ti-arrows-exchange" /> <h2>การแลกรางวัลที่อาจข้ามสาขา (ล่าสุด)</h2>
+        </div>
+        <div className="card-body">
+          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+            แสดงรายการแลกของลูกค้าที่เคยได้รับแต้มจากสาขาอื่นด้วย — ใช้ไล่ว่า “ให้ที่ไหน / ใช้ที่ไหน”
+          </p>
+          <DataTable
+            rows={crossBranchRedeems}
+            rowKey={(r) => r.id}
+            emptyText="ยังไม่พบการแลกข้ามสาขา"
+            columns={[
+              { key: 'created_at', label: 'เวลา', render: (r) => new Date(r.created_at).toLocaleString('th-TH') },
+              { key: 'customer', label: 'ลูกค้า', render: (r) => `${r.customers?.name || '—'} (${r.customers?.phone || ''})` },
+              { key: 'branch', label: 'แลกที่สาขา', render: (r) => r.branches?.name || '—' },
+              { key: 'staff', label: 'พนักงานผู้แลก', render: (r) => r.profiles?.full_name || r.profiles?.nickname || '—' },
+              { key: 'points', label: 'แต้ม', align: 'right', render: (r) => Math.abs(r.points) },
+              { key: 'note', label: 'รายละเอียด', render: (r) => r.note || '—' },
+            ]}
+          />
         </div>
       </div>
 

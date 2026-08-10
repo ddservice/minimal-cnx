@@ -15,17 +15,22 @@ export default async function LoyaltyPage() {
       .order('name'),
     supabase
       .from('staff_profiles')
-      .select('branch_id')
+      .select('branch_id, staff_code')
       .eq('user_id', user.id)
       .maybeSingle(),
   ]);
 
   const canManage = isAdmin || role === 'co-admin';
   const canAnalytics = canManage || role === 'manager';
+  const canVoid = canAnalytics;
+  const staffLinked = !!staffProfile?.branch_id;
 
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-gift" title="ระบบสะสมแต้ม (Loyalty System)">
+        <Link href="/loyalty/history" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+          <i className="ti ti-history" /> ประวัติธุรกรรม
+        </Link>
         {canManage && (
           <Link href="/admin/loyalty" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
             <i className="ti ti-settings" /> ตั้งค่าสาขา
@@ -41,6 +46,9 @@ export default async function LoyaltyPage() {
       <LoyaltyClient
         branches={branches || []}
         defaultBranchId={staffProfile?.branch_id || ''}
+        staffLinked={staffLinked}
+        staffCode={staffProfile?.staff_code || ''}
+        canVoid={canVoid}
       />
     </AppShell>
   );

@@ -135,14 +135,15 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 **Added (2026-08-02): Smart Loyalty & CDP** (`app/loyalty/`, `sql/add_loyalty_system.sql`) — staff portal at `/loyalty` (search/register customer by phone or LINE user id, issue points, redeem rewards) + manager+ CDP dashboard at `/loyalty/analytics` (RFM segments, per-branch point distribution, recent audit). Nav tab `สะสมแต้ม` in `lib/perms.js`.
   - **คู่มือพนักงาน/ผู้จัดการ:** [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md) — ขั้นตอนใช้งานรายวัน + เปรียบเทียบกับโมเดล LINE (พนักงานกดแจ้ง → ลูกค้าสแกน QR).
   - **Schema:** `branches`, `staff_profiles` (user↔branch), `customers` (points + RFM), `point_transactions`, `redemption_history`, `loyalty_audit_logs`. Trigger `fn_on_point_transaction` keeps `points_balance` / `visit_count` / `rfm_segment` in sync after each earn/redeem (blocks negative balance).
-  - **Anti-fraud (server-side in `issuePointsAction`):** reject >100 points per issue; rate-limit ≥5 issues to the same customer by the same staff within 10 minutes — both log `FRAUD_ALERT_*` to `loyalty_audit_logs` before rejecting.
-  - **Rewards catalog** (`lib/loyalty-rewards.js`) — single source of truth; `redeemRewardAction` accepts only `reward_id` and looks up name/points server-side (client cannot undercut cost). Suggest rate: 50฿ = 1 point (UI suggestion only).
-  - **Admin UI** (`/admin/loyalty`, admin+co-admin) — manage branches + link users to `staff_profiles` (default branch on `/loyalty`). Linked from `/admin` and `/loyalty`.
-  - **Branch scope:** multi-branch applies to **loyalty only** (earn/redeem/analytics). Sales / expenses / OPEX / monthly reports remain single-shop (no `branch_id` on those tables).
-  - **Analytics locked** — page + `getLoyaltyAnalyticsAction` require admin/co-admin/manager (staff redirected to `/loyalty`).
-  - **RFM auto labels:** Champions / Loyal / Potential / At-Risk / Lost / New (from visit count + days since last visit).
-  - **LINE today:** schema/search supports `line_user_id`, but there is **no** LINE OA / LIFF / QR earn flow yet — staff portal by phone is the live path.
-  - **LINE QR vs staff portal (product decision):** staff-portal-first is the right default for this shop (works without LINE, stronger fraud controls, lower ops cost). LINE “notify → customer scans QR” is better for customer self-serve + marketing push, but should be added later as a channel on the **same** points ledger — not a second disconnected LINE-only wallet. Full comparison in `LOYALTY-USER-GUIDE.md` §6.
+  - **Hard requirements on earn/redeem (2026-08-10):** staff must have `staff_profiles` row; `branch_id` required; **receipt_number required** on earn. Prevents null-branch audit gaps.
+  - **Counter speed:** digit-only phone entry, recent phones in `localStorage` (`mm69_loyalty_recent_phones`), one-tap **แจกตามยอด** (50฿=1pt suggestion).
+  - **History + void:** `/loyalty/history` filterable by branch/staff/type/phone/date; manager+ can **void** via reverse `adjust` row (`VOID:{tx_id} | reason`) + `VOID_TRANSACTION` audit — never deletes the original.
+  - **Anti-fraud (server-side in `issuePointsAction`):** reject >100 points per issue; rate-limit ≥5 earns to the same customer by the same staff within 10 minutes — both log `FRAUD_ALERT_*`.
+  - **Rewards catalog** (`lib/loyalty-rewards.js`) — server-only points on redeem. Suggest rate: 50฿ = 1 point.
+  - **Admin UI** (`/admin/loyalty`, admin+co-admin) — branches + `staff_profiles` linking.
+  - **CDP analytics** (`/loyalty/analytics`, manager+) — branch totals + month-to-date, cross-branch redeem list, staff performance, fraud audit.
+  - **Branch scope:** multi-branch applies to **loyalty only**. Sales/expenses/OPEX/reports remain single-shop.
+  - **LINE today:** `line_user_id` search only — no OA/LIFF/QR yet. Comparison in `LOYALTY-USER-GUIDE.md` §6.
   - **⚠️ Requires `sql/add_loyalty_system.sql` run in Supabase** before `/loyalty` works. Seed inserts branches `MAIN` (แม่ริม) and `CNX01` (ตัวเมืองเชียงใหม่).
   - **⚠️ Fix (2026-08-10):** original migration enabled RLS on `staff_profiles` with no policies — staff default-branch lookup failed silently. Policies are now in `add_loyalty_system.sql`; if you already ran the older migration, also run `sql/fix_loyalty_staff_profiles_rls.sql` (idempotent).
   - **⚠️ Harden (2026-08-10):** run **`sql/harden_loyalty_rls.sql`** — blocks direct `points_balance`/`rfm_segment` updates on `customers` (only nested trigger from `point_transactions` may change them); splits customers write policies; delete customers = admin/co-admin only.
@@ -165,4 +166,4 @@ Legacy feature parity is complete. Loyalty staff-portal path is code-complete fo
 3. Admin links each staff user → branch at `/admin/loyalty`.
 4. Hand staff [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md).
 
-**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), editable rewards catalog in DB (today: `lib/loyalty-rewards.js`), phone-change / void-transaction UI.
+**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), editable rewards catalog in DB (today: `lib/loyalty-rewards.js`), phone-change UI, customer self-serve balance view (OTP).

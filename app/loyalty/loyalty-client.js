@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { searchCustomerAction, registerCustomerAction, issuePointsAction, redeemRewardAction } from './actions';
 import { sanitizeNumberString, digitsOnly } from '../../lib/format';
 import { LOYALTY_REWARDS, suggestPointsFromSpend } from '../../lib/loyalty-rewards';
@@ -14,51 +14,89 @@ const RFM_COLOR = {
   New: '#8b5cf6',
 };
 
-export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
+const RECENT_KEY = 'mm69_loyalty_recent_phones';
+const MAX_RECENT = 8;
+
+function loadRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const arr = JSON.parse(raw || '[]');
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecent(phone) {
+  const p = digitsOnly(phone);
+  if (!p || p.length < 9) return;
+  try {
+    const next = [p, ...loadRecent().filter((x) => x !== p)].slice(0, MAX_RECENT);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+export default function LoyaltyClient({
+  branches = [],
+  defaultBranchId = '',
+  staffLinked = false,
+  staffCode = '',
+  canVoid = false,
+}) {
   const [query, setQuery] = useState('');
+  const [recent, setRecent] = useState([]);
   const [customer, setCustomer] = useState(null);
   const [notFound, setNotFound] = useState(false);
-
-  // สเตตัสการลงทะเบียนใหม่
   const [newPhone, setNewPhone] = useState('');
   const [newName, setNewName] = useState('');
-
-  // สเตตัสการออกแต้ม
   const [spendAmount, setSpendAmount] = useState('');
   const [pointsInput, setPointsInput] = useState('');
   const [receiptNo, setReceiptNo] = useState('');
   const initialBranch =
     (defaultBranchId && branches.some((b) => b.id === defaultBranchId) && defaultBranchId)
-    || branches[0]?.id
     || '';
   const [selectedBranch, setSelectedBranch] = useState(initialBranch);
-
   const [msg, setMsg] = useState(null);
   const [isPending, startTransition] = useTransition();
 
-  // ค้นหาลูกค้า
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!query.trim()) return;
+  useEffect(() => {
+    setRecent(loadRecent());
+  }, []);
+
+  function rememberPhone(phone) {
+    pushRecent(phone);
+    setRecent(loadRecent());
+  }
+
+  function runSearch(q) {
+    const term = String(q || '').trim();
+    if (!term) return;
     setMsg(null);
     setNotFound(false);
-
     startTransition(async () => {
-      const res = await searchCustomerAction(query);
+      const res = await searchCustomerAction(term);
       if (res.status === 'ok') {
         setCustomer(res.customer);
+        rememberPhone(res.customer.phone);
+        setQuery(res.customer.phone);
       } else if (res.status === 'not_found') {
         setCustomer(null);
         setNotFound(true);
-        setNewPhone(digitsOnly(query));
+        setNewPhone(digitsOnly(term));
       } else {
         setMsg({ text: res.message, type: 'err' });
       }
     });
   }
 
-  // ลงทะเบียนลูกค้าใหม่
-  async function handleRegister(e) {
+  function handleSearch(e) {
+    e.preventDefault();
+    runSearch(query);
+  }
+
+  function handleRegister(e) {
     e.preventDefault();
     setMsg(null);
     startTransition(async () => {
@@ -67,6 +105,7 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
         setCustomer(res.customer);
         setNotFound(false);
         setQuery(res.customer.phone);
+        rememberPhone(res.customer.phone);
         setMsg({ text: res.message, type: 'ok' });
       } else {
         setMsg({ text: res.message, type: 'err' });
@@ -74,7 +113,6 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
     });
   }
 
-  // คำนวณแต้มอัตโนมัติจากยอดซื้อ (ทุก 50 บาท = 1 แต้ม — suggestion)
   function handleSpendChange(val) {
     const s = sanitizeNumberString(val);
     setSpendAmount(s);
@@ -82,18 +120,26 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
     setPointsInput(calcPts > 0 ? String(calcPts) : '');
   }
 
-  // แจกแต้ม
-  async function handleIssuePoints(e) {
-    e.preventDefault();
+  function issue(pts) {
     if (!customer) return;
-    setMsg(null);
-
-    const pts = Number(pointsInput);
+    if (!staffLinked) {
+      setMsg({ text: 'บัญชียังไม่ได้ผูกสาขา — ติดต่อ Admin ที่ /admin/loyalty', type: 'err' });
+      return;
+    }
+    if (!selectedBranch) {
+      setMsg({ text: 'กรุณาเลือกสาขา', type: 'err' });
+      return;
+    }
+    if (!receiptNo.trim()) {
+      setMsg({ text: 'กรุณาระบุเลขที่ใบเสร็จ', type: 'err' });
+      return;
+    }
     if (!pts || pts <= 0) {
-      setMsg({ text: 'กรุณาระบุจำนวนแต้มที่ต้องการสะสม', type: 'err' });
+      setMsg({ text: 'กรุณาระบุจำนวนแต้ม', type: 'err' });
       return;
     }
 
+    setMsg(null);
     startTransition(async () => {
       const res = await issuePointsAction({
         customer_id: customer.id,
@@ -103,9 +149,9 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
       });
 
       if (res.status === 'ok') {
+        const added = res.points || pts;
         setMsg({ text: res.message, type: 'ok' });
-        // อัปเดตแต้มหน้าจอ
-        setCustomer((prev) => (prev ? { ...prev, points_balance: (prev.points_balance || 0) + pts } : null));
+        setCustomer((prev) => (prev ? { ...prev, points_balance: (prev.points_balance || 0) + added } : null));
         setSpendAmount('');
         setPointsInput('');
         setReceiptNo('');
@@ -115,9 +161,31 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
     });
   }
 
-  // แลกของรางวัล
-  async function handleRedeem(reward) {
+  function handleIssuePoints(e) {
+    e.preventDefault();
+    issue(Number(pointsInput));
+  }
+
+  function handleQuickIssue() {
+    const pts = suggestPointsFromSpend(spendAmount);
+    if (!spendAmount || pts <= 0) {
+      setMsg({ text: 'พิมพ์ยอดซื้อก่อน แล้วกดแจกตามยอด', type: 'err' });
+      return;
+    }
+    setPointsInput(String(pts));
+    issue(pts);
+  }
+
+  function handleRedeem(reward) {
     if (!customer) return;
+    if (!staffLinked) {
+      setMsg({ text: 'บัญชียังไม่ได้ผูกสาขา — ติดต่อ Admin ที่ /admin/loyalty', type: 'err' });
+      return;
+    }
+    if (!selectedBranch) {
+      setMsg({ text: 'กรุณาเลือกสาขา', type: 'err' });
+      return;
+    }
     if ((customer.points_balance || 0) < reward.points) {
       setMsg({ text: `แต้มไม่เพียงพอ ต้องการ ${reward.points} แต้ม`, type: 'err' });
       return;
@@ -142,22 +210,49 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
     });
   }
 
+  const suggested = suggestPointsFromSpend(spendAmount);
+
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      {/* ส่วนที่ 1: ค้นหาลูกค้า */}
+      {!staffLinked && (
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-md)',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          <i className="ti ti-alert-triangle" /> บัญชียังไม่ได้ผูกกับสาขา — แจก/แลกแต้มไม่ได้จนกว่า Admin จะตั้งค่าที่เมนูตั้งค่าสาขา
+        </div>
+      )}
+
       <div className="card">
         <div className="card-head">
           <i className="ti ti-search" /> <h2>ค้นหาลูกค้าสะสมแต้ม</h2>
+          {staffCode && (
+            <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>รหัสพนักงาน: {staffCode}</span>
+          )}
         </div>
         <div className="card-body">
           <form onSubmit={handleSearch} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 220 }}>
               <input
                 type="text"
+                inputMode="tel"
                 className="input"
-                placeholder="พิมพ์เบอร์โทรศัพท์ หรือ LINE User ID..."
+                placeholder="เบอร์โทร (ตัวเลข) หรือ LINE User ID"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  // ถ้าพิมพ์ตัวเลข/ขีดเป็นหลัก → เก็บเฉพาะตัวเลขให้พิมพ์เร็ว
+                  if (/^[\d\s\-]*$/.test(v)) setQuery(digitsOnly(v));
+                  else setQuery(v);
+                }}
+                autoFocus
               />
             </div>
             <button type="submit" className="btn btn-primary" disabled={isPending}>
@@ -165,7 +260,27 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
             </button>
           </form>
 
-          {/* แจ้งเตือนข้อความ */}
+          {recent.length > 0 && (
+            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <span className="muted" style={{ fontSize: 12 }}>เบอร์ล่าสุด:</span>
+              {recent.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  onClick={() => {
+                    setQuery(p);
+                    runSearch(p);
+                  }}
+                  disabled={isPending}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
           {msg && (
             <div
               style={{
@@ -185,7 +300,6 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
         </div>
       </div>
 
-      {/* กรณีไม่พบลำดับลูกค้า -> ฟอร์มสมัครสมาชิกใหม่ */}
       {notFound && (
         <div className="card" style={{ borderColor: 'var(--color-primary)' }}>
           <div className="card-head">
@@ -197,10 +311,11 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
                 <label style={lbl}>เบอร์โทรศัพท์</label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   className="input"
                   value={newPhone}
                   onChange={(e) => setNewPhone(digitsOnly(e.target.value))}
-                  placeholder="08X-XXX-XXXX"
+                  placeholder="08XXXXXXXXX"
                   required
                 />
               </div>
@@ -222,10 +337,8 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
         </div>
       )}
 
-      {/* กรณีพบล็อกเกอร์ลูกค้า -> ข้อมูลลูกค้า + ฟอร์มแจกแต้ม/แลกของรางวัล */}
       {customer && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
-          {/* ข้อมูลลูกค้า & แต้มสะสม */}
           <div className="card">
             <div className="card-head">
               <i className="ti ti-id-badge" /> <h2>ข้อมูลสมาชิก</h2>
@@ -266,28 +379,26 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
                 </div>
               </div>
 
-              {/* เลือกสาขาการทำรายการ */}
-              {branches.length > 0 && (
-                <div>
-                  <label style={lbl}>สาขาทำรายการ</label>
-                  <select
-                    className="input"
-                    value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
-                  >
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label style={lbl}>สาขาทำรายการ *</label>
+                <select
+                  className="input"
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  required
+                >
+                  <option value="">— เลือกสาขา —</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* ฟอร์มสะสมแต้ม (Earn Points) */}
           <div className="card">
             <div className="card-head">
-              <i className="ti ti-plus" /> <h2>สะสมแต้ม (Earn Points)</h2>
+              <i className="ti ti-plus" /> <h2>สะสมแต้ม</h2>
             </div>
             <div className="card-body">
               <form onSubmit={handleIssuePoints} style={{ display: 'grid', gap: 12 }}>
@@ -295,53 +406,65 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
                   <label style={lbl}>ยอดซื้อสินค้า (บาท)</label>
                   <input
                     type="text"
+                    inputMode="decimal"
                     className="input"
                     placeholder="เช่น 150"
                     value={spendAmount}
                     onChange={(e) => handleSpendChange(e.target.value)}
                   />
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>คำนวณอัตโนมัติ: ทุก 50 บาท = 1 แต้ม</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                    ทุก 50 บาท = 1 แต้ม {suggested > 0 ? `→ แนะนำ ${suggested} แต้ม` : ''}
+                  </div>
                 </div>
 
                 <div>
-                  <label style={lbl}>จำนวนแต้มที่ได้รับ *</label>
+                  <label style={lbl}>เลขที่ใบเสร็จ *</label>
                   <input
                     type="text"
                     className="input"
-                    placeholder="ระบุจำนวนแต้ม..."
-                    value={pointsInput}
-                    onChange={(e) => setPointsInput(sanitizeNumberString(e.target.value))}
+                    placeholder="บังคับใส่เพื่อไล่ย้อนบิล"
+                    value={receiptNo}
+                    onChange={(e) => setReceiptNo(e.target.value)}
                     required
                   />
                 </div>
 
                 <div>
-                  <label style={lbl}>เลขที่ใบเสร็จ (ถ้ามี)</label>
+                  <label style={lbl}>จำนวนแต้ม (แก้ได้)</label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     className="input"
-                    placeholder="เช่น REC-20260802-001"
-                    value={receiptNo}
-                    onChange={(e) => setReceiptNo(e.target.value)}
+                    placeholder="ระบุจำนวนแต้ม..."
+                    value={pointsInput}
+                    onChange={(e) => setPointsInput(sanitizeNumberString(e.target.value))}
                   />
                 </div>
 
-                <button type="submit" className="btn btn-primary" disabled={isPending || !pointsInput}>
+                <button
+                  type="button"
+                  className="btn btn-coffee"
+                  disabled={isPending || !staffLinked || !suggested}
+                  onClick={handleQuickIssue}
+                >
+                  <i className="ti ti-bolt" /> แจกตามยอด (+{suggested || 0} แต้ม)
+                </button>
+
+                <button type="submit" className="btn btn-primary" disabled={isPending || !staffLinked || !pointsInput}>
                   <i className="ti ti-gift" /> {isPending ? 'กำลังบันทึก...' : `บันทึกสะสม +${pointsInput || 0} แต้ม`}
                 </button>
               </form>
             </div>
           </div>
 
-          {/* การแลกของรางวัล (Redeem Rewards) */}
           <div className="card" style={{ gridColumn: '1 / -1' }}>
             <div className="card-head">
-              <i className="ti ti-trophy" /> <h2>แลกของรางวัล (Redeem Rewards)</h2>
+              <i className="ti ti-trophy" /> <h2>แลกของรางวัล</h2>
             </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
                 {LOYALTY_REWARDS.map((rw) => {
-                  const canRedeem = (customer.points_balance || 0) >= rw.points;
+                  const canRedeem = staffLinked && selectedBranch && (customer.points_balance || 0) >= rw.points;
                   return (
                     <div
                       key={rw.id}
@@ -353,7 +476,6 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
                         opacity: canRedeem ? 1 : 0.6,
                         display: 'flex',
                         flexDirection: 'column',
-                        justify: 'space-between',
                         gap: 10,
                       }}
                     >
@@ -388,12 +510,17 @@ export default function LoyaltyClient({ branches = [], defaultBranchId = '' }) {
                         disabled={!canRedeem || isPending}
                         style={{ width: '100%', fontSize: 12, padding: '6px 12px' }}
                       >
-                        {canRedeem ? 'กดแลกรางวัล' : `แต้มไม่พอ (ขาด ${rw.points - (customer.points_balance || 0)} แต้ม)`}
+                        {canRedeem ? 'กดแลกรางวัล' : `แต้มไม่พอ (ขาด ${Math.max(0, rw.points - (customer.points_balance || 0))} แต้ม)`}
                       </button>
                     </div>
                   );
                 })}
               </div>
+              {canVoid && (
+                <p className="muted" style={{ marginTop: 12, fontSize: 12, marginBottom: 0 }}>
+                  ต้องการยกเลิกรายการผิดพลาด → ไปที่เมนูประวัติธุรกรรม
+                </p>
+              )}
             </div>
           </div>
         </div>
