@@ -44,6 +44,7 @@ export default function LoyaltyClient({
   staffLinked = false,
   staffCode = '',
   canVoid = false,
+  canPickBranch = false,
 }) {
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState([]);
@@ -386,12 +387,18 @@ export default function LoyaltyClient({
                   value={selectedBranch}
                   onChange={(e) => setSelectedBranch(e.target.value)}
                   required
+                  disabled={!canPickBranch}
                 >
                   <option value="">— เลือกสาขา —</option>
                   {branches.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
                 </select>
+                {!canPickBranch && (
+                  <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                    พนักงานใช้สาขาที่ผูกไว้เท่านั้น (เปลี่ยนได้เฉพาะ manager+)
+                  </div>
+                )}
               </div>
             </div>
           </div>

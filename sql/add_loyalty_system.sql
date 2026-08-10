@@ -180,25 +180,57 @@ drop policy if exists "point_transactions: read authenticated" on public.point_t
 create policy "point_transactions: read authenticated" on public.point_transactions
   for select using (auth.role() = 'authenticated');
 
+-- เขียน earn/redeem แบบจำกัด — รายละเอียดเต็มใน sql/harden_loyalty_writes.sql
 drop policy if exists "point_transactions: insert authenticated" on public.point_transactions;
-create policy "point_transactions: insert authenticated" on public.point_transactions
-  for insert with check (auth.role() = 'authenticated');
+drop policy if exists "point_transactions: insert own earn/redeem" on public.point_transactions;
+create policy "point_transactions: insert own earn/redeem" on public.point_transactions
+  for insert with check (
+    auth.uid() is not null
+    and staff_id = auth.uid()
+    and transaction_type in ('earn', 'redeem')
+    and exists (
+      select 1 from public.staff_profiles sp
+      where sp.user_id = auth.uid()
+        and (
+          sp.branch_id = branch_id
+          or public.fn_my_role() in ('admin', 'co-admin', 'manager')
+        )
+    )
+    and (
+      transaction_type <> 'earn'
+      or (
+        receipt_number is not null
+        and length(trim(receipt_number)) > 0
+        and points > 0 and points <= 100
+      )
+    )
+    and (transaction_type <> 'redeem' or points < 0)
+  );
 
 drop policy if exists "redemption_history: read authenticated" on public.redemption_history;
 create policy "redemption_history: read authenticated" on public.redemption_history
   for select using (auth.role() = 'authenticated');
 
 drop policy if exists "redemption_history: insert authenticated" on public.redemption_history;
-create policy "redemption_history: insert authenticated" on public.redemption_history
-  for insert with check (auth.role() = 'authenticated');
+drop policy if exists "redemption_history: insert own" on public.redemption_history;
+create policy "redemption_history: insert own" on public.redemption_history
+  for insert with check (
+    auth.uid() is not null
+    and staff_id = auth.uid()
+    and exists (select 1 from public.staff_profiles sp where sp.user_id = auth.uid())
+  );
 
 drop policy if exists "loyalty_audit_logs: read manager+" on public.loyalty_audit_logs;
 create policy "loyalty_audit_logs: read manager+" on public.loyalty_audit_logs
   for select using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
 
 drop policy if exists "loyalty_audit_logs: insert authenticated" on public.loyalty_audit_logs;
-create policy "loyalty_audit_logs: insert authenticated" on public.loyalty_audit_logs
-  for insert with check (auth.role() = 'authenticated');
+drop policy if exists "loyalty_audit_logs: insert self" on public.loyalty_audit_logs;
+create policy "loyalty_audit_logs: insert self" on public.loyalty_audit_logs
+  for insert with check (
+    auth.uid() is not null
+    and performed_by_staff_id = auth.uid()
+  );
 
 -- ── Initial Seed Data (สาขาหลัก) ──
 insert into public.branches (code, name, location)

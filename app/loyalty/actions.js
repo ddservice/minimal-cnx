@@ -27,8 +27,8 @@ async function requireUser() {
   return { supabase, user, profile };
 }
 
-/** บังคับมี staff_profiles + สาขาที่เลือก (กัน branch_id ว่าง) */
-async function resolveStaffContext(supabase, userId, branchId) {
+/** บังคับมี staff_profiles — staff ใช้ได้แค่สาขาที่ผูก; manager+ เลือกสาขาอื่นที่เปิดใช้ได้ */
+async function resolveStaffContext(supabase, userId, branchId, role) {
   const { data: staffProfile } = await supabase
     .from('staff_profiles')
     .select('id, branch_id, staff_code, branches(id, code, name)')
@@ -42,12 +42,16 @@ async function resolveStaffContext(supabase, userId, branchId) {
     };
   }
 
-  const targetBranch = branchId || staffProfile.branch_id;
+  const canPickBranch = role === 'admin' || role === 'co-admin' || role === 'manager';
+  // staff บังคับสาขาที่ผูก — กัน spoof สาขาอื่นผ่าน client
+  const targetBranch = canPickBranch
+    ? (branchId || staffProfile.branch_id)
+    : staffProfile.branch_id;
+
   if (!targetBranch) {
     return { ok: false, message: 'กรุณาเลือกสาขาที่ทำรายการ' };
   }
 
-  // ยืนยันว่าสาขาที่เลือกยังใช้งานอยู่
   const { data: branch } = await supabase
     .from('branches')
     .select('id, code, name, is_active')
@@ -123,7 +127,7 @@ export async function registerCustomerAction({ phone, line_user_id, name }) {
 
 // 3. แจกแต้มสะสม (บังคับสาขา + ใบเสร็จ + Anti-Fraud)
 export async function issuePointsAction({ customer_id, points, receipt_number, branch_id }) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, profile } = await requireUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
 
   const pts = Number(points);
@@ -136,7 +140,7 @@ export async function issuePointsAction({ customer_id, points, receipt_number, b
     return { status: 'error', message: 'กรุณาระบุเลขที่ใบเสร็จ — ใช้ไล่ย้อนบิลเมื่อมีข้อสงสัย' };
   }
 
-  const ctx = await resolveStaffContext(supabase, user.id, branch_id);
+  const ctx = await resolveStaffContext(supabase, user.id, branch_id, profile?.role);
   if (!ctx.ok) return { status: 'error', message: ctx.message };
 
   // Anti-fraud: max 100 pts / issue
@@ -201,7 +205,7 @@ export async function issuePointsAction({ customer_id, points, receipt_number, b
 
 // 4. แลกของรางวัล
 export async function redeemRewardAction({ customer_id, reward_id, branch_id }) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, profile } = await requireUser();
   if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
 
   const reward = getReward(reward_id);
@@ -209,7 +213,7 @@ export async function redeemRewardAction({ customer_id, reward_id, branch_id }) 
   const pts = reward.points;
   const reward_name = reward.name;
 
-  const ctx = await resolveStaffContext(supabase, user.id, branch_id);
+  const ctx = await resolveStaffContext(supabase, user.id, branch_id, profile?.role);
   if (!ctx.ok) return { status: 'error', message: ctx.message };
 
   const { data: customer } = await supabase
@@ -281,61 +285,26 @@ export async function voidTransactionAction({ tx_id, reason }) {
     return { status: 'error', message: 'กรุณาระบุเหตุผลการยกเลิก (อย่างน้อย 3 ตัวอักษร)' };
   }
 
-  const { data: original, error: findErr } = await supabase
-    .from('point_transactions')
-    .select('id, customer_id, staff_id, branch_id, points, transaction_type, note, receipt_number')
-    .eq('id', tx_id)
-    .maybeSingle();
-
-  if (findErr || !original) return { status: 'error', message: 'ไม่พบธุรกรรม' };
-  if (original.transaction_type === 'adjust' && String(original.note || '').startsWith('VOID:')) {
-    return { status: 'error', message: 'รายการนี้เป็นรายการยกเลิกอยู่แล้ว' };
-  }
-
-  // กัน void ซ้ำ: ถ้ามี adjust ที่อ้าง tx เดิมแล้ว
-  const { data: existingVoid } = await supabase
-    .from('point_transactions')
-    .select('id')
-    .eq('transaction_type', 'adjust')
-    .ilike('note', `VOID:${original.id}%`)
-    .limit(1);
-  if (existingVoid?.length) {
-    return { status: 'error', message: 'ธุรกรรมนี้ถูกยกเลิกไปแล้ว' };
-  }
-
-  const reversePts = -Number(original.points);
-  const { data: voidTx, error: voidErr } = await supabase
-    .from('point_transactions')
-    .insert({
-      customer_id: original.customer_id,
-      staff_id: user.id,
-      branch_id: original.branch_id,
-      points: reversePts,
-      transaction_type: 'adjust',
-      receipt_number: original.receipt_number,
-      note: `VOID:${original.id} | ${why}`,
-    })
-    .select('id')
-    .single();
-
-  if (voidErr) return { status: 'error', message: voidErr.message };
-
-  await supabase.from('loyalty_audit_logs').insert({
-    action_type: 'VOID_TRANSACTION',
-    performed_by_staff_id: user.id,
-    customer_id: original.customer_id,
-    branch_id: original.branch_id,
-    details: {
-      original_tx_id: original.id,
-      void_tx_id: voidTx.id,
-      original_points: original.points,
-      reverse_points: reversePts,
-      reason: why,
-    },
+  // ใช้ SECURITY DEFINER RPC — กัน client แทรก transaction_type=adjust ตรงๆ
+  const { data, error } = await supabase.rpc('loyalty_void_transaction', {
+    p_tx_id: tx_id,
+    p_reason: why,
   });
 
+  if (error) {
+    // ถ้ายังไม่ได้รัน harden_loyalty_writes.sql → fallback แบบเดิม (จะพังเมื่อ RLS ปิด insert adjust)
+    if (error.message?.includes('loyalty_void_transaction') || error.code === '42883') {
+      return {
+        status: 'error',
+        message: 'ยังไม่ได้รัน sql/harden_loyalty_writes.sql บน Supabase — ยกเลิกธุรกรรมผ่าน RPC ไม่ได้',
+      };
+    }
+    return { status: 'error', message: error.message };
+  }
+  if (data?.status === 'error') return { status: 'error', message: data.message };
+
   revalidateLoyalty();
-  return { status: 'ok', message: 'ยกเลิกธุรกรรมสำเร็จ (สร้างรายการย้อนกลับแล้ว)' };
+  return { status: 'ok', message: data?.message || 'ยกเลิกธุรกรรมสำเร็จ (สร้างรายการย้อนกลับแล้ว)' };
 }
 
 // 6. ประวัติธุรกรรมแบบกรองได้ (ทุก role ที่ล็อกอิน — staff เห็นได้เพื่อไล่บิล)
@@ -378,6 +347,11 @@ export async function getLoyaltyAnalyticsAction() {
     return { status: 'error', message: 'ไม่มีสิทธิ์ดูแดชบอร์ดวิเคราะห์' };
   }
 
+  // จำกัดช่วงเวลา — เดิมดึงทั้งตารางทำให้หน้า CDP ช้าเมื่อข้อมูลโต
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  const sinceIso = since.toISOString();
+
   const [
     { data: txs },
     { data: customers },
@@ -385,12 +359,19 @@ export async function getLoyaltyAnalyticsAction() {
     { data: auditLogs },
     { data: staffProfiles },
   ] = await Promise.all([
-    supabase.from('point_transactions').select('*, branches(name, code), profiles(full_name, nickname), customers(name, phone)'),
-    supabase.from('customers').select('*'),
-    supabase.from('branches').select('*'),
+    supabase
+      .from('point_transactions')
+      .select('id, customer_id, staff_id, branch_id, points, transaction_type, note, receipt_number, created_at, branches(name, code), profiles(full_name, nickname), customers(name, phone)')
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: false })
+      .limit(3000),
+    supabase
+      .from('customers')
+      .select('id, name, phone, points_balance, visit_count, rfm_segment, last_visited_at, favorite_branch_id'),
+    supabase.from('branches').select('id, code, name, is_active'),
     supabase
       .from('loyalty_audit_logs')
-      .select('*, profiles(full_name, nickname), branches(name)')
+      .select('id, action_type, details, created_at, profiles(full_name, nickname), branches(name)')
       .order('created_at', { ascending: false })
       .limit(50),
     supabase.from('staff_profiles').select('user_id, staff_code, branch_id, profiles(full_name, nickname), branches(name)'),

@@ -1,0 +1,7 @@
+# CLAUDE.local.md — local-only notes (do not commit)
+
+Copy to `CLAUDE.local.md` for machine-specific notes:
+
+- VPS SSH host / user
+- Whether each SQL migration has been applied on the live Supabase project
+- Personal smoke-test accounts (never real passwords)

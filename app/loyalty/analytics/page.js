@@ -88,10 +88,14 @@ export default async function LoyaltyAnalyticsPage() {
         </Link>
       </PageHeader>
 
+      <p className="muted" style={{ fontSize: 13, margin: '0 0 12px' }}>
+        สถิติธุรกรรมแสดงย้อนหลัง 90 วัน (เพื่อความเร็ว) · สมาชิก/RFM เป็นข้อมูลปัจจุบันทั้งระบบ
+      </p>
+
       {/* KPI Tiles */}
       <div className="kpis">
-        <Kpi icon="ti-gift" label="แต้มสะสมทั้งหมดที่แจก" value={totalIssued.toLocaleString()} sub="แต้ม" cls="green" />
-        <Kpi icon="ti-trophy" label="แต้มที่ถูกแลกใช้งาน" value={totalRedeemed.toLocaleString()} sub="แต้ม" cls="blue" />
+        <Kpi icon="ti-gift" label="แต้มที่แจก (90 วัน)" value={totalIssued.toLocaleString()} sub="แต้ม" cls="green" />
+        <Kpi icon="ti-trophy" label="แต้มที่แลก (90 วัน)" value={totalRedeemed.toLocaleString()} sub="แต้ม" cls="blue" />
         <Kpi icon="ti-users" label="สมาชิกทั้งหมด" value={activeCustomers.toLocaleString()} sub="คน" plain />
         <Kpi icon="ti-alert-triangle" label="การแจ้งเตือนสุ่มเสี่ยง (Anti-Fraud)" value={fraudAlertsCount.toLocaleString()} sub="ครั้ง" cls={fraudAlertsCount > 0 ? 'red' : 'green'} />
       </div>

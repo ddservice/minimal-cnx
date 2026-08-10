@@ -2,13 +2,12 @@ import { requireSession } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { fmtMoney } from '../../lib/format';
-import { OPEX_ALL_CATEGORIES, computeEffectiveOpex } from '../../lib/opex';
+import { computeEffectiveOpex } from '../../lib/opex';
 import ProfitChart from './profit-chart';
 import RangePicker from './range-picker';
 import DataTable from '../../components/data-table';
 import Kpi from '../../components/kpi';
 
-const MATERIAL_CATEGORY = 'ต้นทุนวัตถุดิบ';
 const isMonth = (s) => /^\d{4}-\d{2}$/.test(s || '');
 
 function monthsBetween(from, to) {
@@ -24,14 +23,17 @@ function monthsBetween(from, to) {
   return out;
 }
 
-function summarize(summary, opexDefaults = {}) {
-  const sales = summary?.sales || [];
-  const expenses = summary?.expenses || [];
-  const income = sales.reduce((a, s) => a + Number(s.net_revenue || 0), 0);
-  const reg = expenses.filter((e) => !e.item_key).reduce((a, e) => a + Number(e.total_amount || 0), 0);
-  const opex = computeEffectiveOpex(expenses, opexDefaults);
+function fromKpi(row, opexDefaults = {}) {
+  if (!row) {
+    return { income: 0, exp: 0, profit: 0, hasData: false, materials: [] };
+  }
+  const income = Number(row.income || 0);
+  const reg = Number(row.expenses_reg || 0);
+  // computeEffectiveOpex คาดหวังแถว expenses ที่มี item_key + total_amount
+  const opex = computeEffectiveOpex(row.opex_items || [], opexDefaults);
   const exp = reg + opex;
-  return { income, exp, profit: income - exp, hasData: sales.length > 0 || expenses.length > 0 };
+  const hasData = !!(row.has_data || income > 0 || exp > 0);
+  return { income, exp, profit: income - exp, hasData, materials: row.materials || [] };
 }
 
 const pct = (cur, prev) => (prev ? ((cur - prev) / Math.abs(prev)) * 100 : null);
@@ -45,47 +47,82 @@ export default async function AnalyticsPage({ searchParams }) {
 
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
   const curInput = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  let from = isMonth(sp?.from) ? sp.from : `${now.getFullYear()}-01`; // ค่าเริ่มต้น = ปีปัจจุบัน
+  let from = isMonth(sp?.from) ? sp.from : `${now.getFullYear()}-01`;
   let to = isMonth(sp?.to) ? sp.to : curInput;
   if (from > to) [from, to] = [to, from];
 
   const months = monthsBetween(from, to);
-  const results = await Promise.all(
-    months.map(async (mo) => {
-      const { data } = await supabase.rpc('get_monthly_summary', { p_month_label: mo.label });
-      return { label: mo.label, data, ...summarize(data, opexDefaults) };
-    })
-  );
-
-  // แนวโน้มกำไร/ขาดทุนรายเดือน (กราฟ) ตรึงไว้ที่ปีปัจจุบันเสมอ ม.ค.–ธ.ค. ไม่ผูกกับ RangePicker
-  // ด้านบน (ซึ่งควบคุมแค่ KPI/ตาราง/วัตถุดิบ) เพื่อให้เห็นภาพรวมทั้งปีตลอด แม้ผู้ใช้จะเลือกช่วงอื่นดูก็ตาม
   const curYear = now.getFullYear();
   const yearMonths = monthsBetween(`${curYear}-01`, `${curYear}-12`);
-  const yearResults = await Promise.all(
-    yearMonths.map(async (mo) => {
-      const cached = results.find((r) => r.label === mo.label); // เลี่ยงยิง RPC ซ้ำถ้าเดือนนี้โหลดไปแล้ว
-      if (cached) return cached;
-      const { data } = await supabase.rpc('get_monthly_summary', { p_month_label: mo.label });
-      return { label: mo.label, data, ...summarize(data, opexDefaults) };
-    })
-  );
 
-  // ── รวมข้อมูลวัตถุดิบทั้งช่วง ──
-  const matAgg = {};   // ชื่อ → { total, count }
-  const supAgg = {};   // ซัพพลายเออร์ → total
+  // รวมเดือนในช่วง + ปีปัจจุบัน แล้วเรียก RPC ครั้งเดียว (fallback เป็นรายเดือนถ้ายังไม่รัน SQL)
+  const labelSet = new Map();
+  [...months, ...yearMonths].forEach((m) => labelSet.set(m.label, m));
+  const allLabels = [...labelSet.keys()];
+
+  let byLabel = {};
+  const { data: batch, error: batchErr } = await supabase.rpc('get_months_kpis', {
+    p_month_labels: allLabels,
+  });
+
+  if (!batchErr && batch?.months) {
+    (batch.months || []).forEach((row) => {
+      byLabel[row.month] = fromKpi(row, opexDefaults);
+    });
+  } else {
+    // fallback: get_monthly_summary ทีละเดือน (ช้ากว่า — ใช้เมื่อยังไม่รัน add_analytics_range_kpis.sql)
+    await Promise.all(
+      allLabels.map(async (label) => {
+        const { data } = await supabase.rpc('get_monthly_summary', { p_month_label: label });
+        const sales = data?.sales || [];
+        const expenses = data?.expenses || [];
+        const income = sales.reduce((a, s) => a + Number(s.net_revenue || 0), 0);
+        const reg = expenses.filter((e) => !e.item_key).reduce((a, e) => a + Number(e.total_amount || 0), 0);
+        const opex = computeEffectiveOpex(expenses, opexDefaults);
+        const exp = reg + opex;
+        const matMap = {};
+        expenses
+          .filter((e) => !e.item_key && e.category === 'ต้นทุนวัตถุดิบ')
+          .forEach((e) => {
+            const nm = (e.item_name || '').trim();
+            if (!nm) return;
+            matMap[nm] = matMap[nm] || { item_name: nm, subcategory: (e.subcategory || '').trim(), total: 0, count: 0 };
+            matMap[nm].total += Number(e.total_amount || 0);
+            matMap[nm].count += 1;
+          });
+        byLabel[label] = {
+          income,
+          exp,
+          profit: income - exp,
+          hasData: sales.length > 0 || expenses.length > 0,
+          materials: Object.values(matMap),
+        };
+      })
+    );
+  }
+
+  const results = months.map((mo) => ({
+    label: mo.label,
+    ...(byLabel[mo.label] || { income: 0, exp: 0, profit: 0, hasData: false, materials: [] }),
+  }));
+  const yearResults = yearMonths.map((mo) => ({
+    label: mo.label,
+    ...(byLabel[mo.label] || { income: 0, exp: 0, profit: 0, hasData: false, materials: [] }),
+  }));
+
+  const matAgg = {};
+  const supAgg = {};
   results.forEach((r) => {
-    (r.data?.expenses || [])
-      .filter((e) => !e.item_key && e.category === MATERIAL_CATEGORY)
-      .forEach((e) => {
-        const nm = (e.item_name || '').trim();
-        if (nm) {
-          matAgg[nm] = matAgg[nm] || { total: 0, count: 0 };
-          matAgg[nm].total += Number(e.total_amount || 0);
-          matAgg[nm].count += 1;
-        }
-        const sup = (e.subcategory || '').trim();
-        if (sup) supAgg[sup] = (supAgg[sup] || 0) + Number(e.total_amount || 0);
-      });
+    (r.materials || []).forEach((m) => {
+      const nm = (m.item_name || '').trim();
+      if (nm) {
+        matAgg[nm] = matAgg[nm] || { total: 0, count: 0 };
+        matAgg[nm].total += Number(m.total || 0);
+        matAgg[nm].count += Number(m.count || 0);
+      }
+      const sup = (m.subcategory || '').trim();
+      if (sup) supAgg[sup] = (supAgg[sup] || 0) + Number(m.total || 0);
+    });
   });
   const topSpend = Object.entries(matAgg).map(([n, v]) => ({ n, ...v })).sort((a, b) => b.total - a.total).slice(0, 8);
   const topOrders = Object.entries(matAgg).map(([n, v]) => ({ n, ...v })).sort((a, b) => b.count - a.count).slice(0, 8);
@@ -112,7 +149,6 @@ export default async function AnalyticsPage({ searchParams }) {
 
       <ProfitChart data={yearResults} />
 
-      {/* วัตถุดิบใช้เยอะสุด */}
       <div className="card">
         <div className="card-head"><i className="ti ti-package" /><h2>วัตถุดิบใช้จ่ายเยอะสุด (ตามยอดเงิน)</h2></div>
         <div className="card-body">
@@ -130,7 +166,6 @@ export default async function AnalyticsPage({ searchParams }) {
         </div>
       </div>
 
-      {/* สั่งบ่อยสุด + ซัพพลายเออร์ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
         <div className="card">
           <div className="card-head"><i className="ti ti-shopping-cart" /><h2>สั่งซื้อบ่อยสุด (จำนวนครั้ง)</h2></div>
@@ -150,7 +185,6 @@ export default async function AnalyticsPage({ searchParams }) {
         </div>
       </div>
 
-      {/* ตารางรายเดือน */}
       <div className="card">
         <div className="card-head"><i className="ti ti-table" /><h2>เปรียบเทียบรายเดือน</h2></div>
         <div className="card-body">

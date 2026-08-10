@@ -4,4 +4,7 @@ out
 .env
 .env*.local
 npm-debug.log*
-node_modules
+
+# Claude Code — local-only overrides (keep shared .claude/settings.json + rules committed)
+CLAUDE.local.md
+.claude/settings.local.json

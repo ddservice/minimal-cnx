@@ -27,7 +27,7 @@ WHERE p.username = 'imm';
 DO $$
 DECLARE
   v_username text := 'imm';
-  v_password text := 'imm2026';                    -- ← แก้รหัสผ่านตรงนี้ถ้าต้องการ
+  v_password text := 'CHANGE_ME_BEFORE_RUN';       -- ← ต้องเปลี่ยนก่อนรัน (ห้ามใช้ค่า default ใน production)
   v_email    text := 'imm@marim69.internal';
   v_uid      uuid;
 BEGIN

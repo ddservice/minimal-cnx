@@ -60,9 +60,28 @@ Maintained by Claude. **Update this file after every change** to the project.
 - `sql/` — all Supabase SQL schema & migrations
 - `templates/` — `.xlsx` templates for Excel import
 - `deploy/` — nginx sample config
-- `CLAUDE.md` — maintainer docs (architecture / security / formulas)
+- `CLAUDE.md` — loaded every session: architecture / security / formulas (override locally via `CLAUDE.local.md`, gitignored)
 - `LOYALTY-USER-GUIDE.md` — staff/manager loyalty how-to + LINE-QR comparison
+- `.mcp.json` — shared MCP server stubs (team-safe; no secrets)
+- `.claude/` — Claude Code project config (see below)
 - Design: see "Design system" below.
+
+## Claude Code layout (`.claude/`)
+
+Matches the standard Claude Code project structure:
+
+| Path | Role |
+|---|---|
+| `CLAUDE.md` | Primary project brief (this file) |
+| `CLAUDE.local.md` | Local-only notes — copy from `CLAUDE.local.md.example`, **do not commit** |
+| `.mcp.json` | MCP connection stubs (GitHub/Jira/etc. when needed) |
+| `.claude/settings.json` | Shared permissions / allow-deny for tools |
+| `.claude/settings.local.json` | Local permission overrides (gitignored) |
+| `.claude/rules/` | Topic rules (`code-style.md`, `testing.md`, `api-conventions.md`, `security.md`, `loyalty.md`) |
+| `.claude/commands/` | Slash commands (`review`, `fix-issue`, `deploy`) |
+| `.claude/skills/` | On-demand skills (e.g. `deploy/SKILL.md`) |
+| `.claude/agents/` | Specialized reviewers (`code-reviewer`, `security-auditor`) |
+| `.claude/hooks/validate-bash.sh` | Optional PreToolUse script (force-push / hard-reset / pipe-to-shell). Wire via `settings.local.json` — see `.claude/settings.local.json.example` (not enabled in shared `settings.json` so Cursor shell is unaffected) |
 
 ## Design system (2026-07-20 redesign — soft/modern, sidebar layout)
 
@@ -153,6 +172,9 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 **Migrations to run once (if not already applied):**
 - **`sql/add_loyalty_system.sql` — required for `/loyalty`.** Creates Loyalty/CDP tables, trigger, RLS, seed branches. Policies are idempotent (`drop policy if exists`). If you already ran an older copy before staff_profiles policies existed, also run `sql/fix_loyalty_staff_profiles_rls.sql`.
 - **`sql/harden_loyalty_rls.sql` — run after add_loyalty_system.sql** (idempotent). Blocks client-side points tampering on `customers`.
+- **`sql/harden_loyalty_writes.sql` — run after harden_loyalty_rls.sql** (idempotent). Tightens earn/redeem INSERT policies + `loyalty_void_transaction` RPC for voids.
+- **`sql/add_loyalty_indexes.sql` — run after loyalty tables exist** (idempotent). Speeds history/CDP queries.
+- **`sql/add_analytics_range_kpis.sql` — recommended for `/analytics` speed** (idempotent). Adds `get_months_kpis(p_month_labels)` so the page makes one RPC instead of N× `get_monthly_summary`; app falls back to the old path if not applied yet.
 - `sql/add_free_cup_actual_cost.sql` — needed only for the free-cup evidence upload above; everything else in the core app works against the schema already in `sql/supabase_migration.sql`.
 - **`sql/harden_security.sql` — security fix, recommend running regardless of which features you use.** See "Security model" above.
 - **`sql/fix_bugs.sql` — run this one too, confirmed necessary in production (2026-07-28).** Fixes 3 things together: (1) `expenses` delete policy was admin-only in the original migration, widened to admin/co-admin/manager — without this, co-admin gets a silent-looking "ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin หรือ manager" trying to delete a duplicate expense row; (2) `upsert_opex_item` wasn't setting `month_label` on insert, and the old `get_monthly_summary` filtered *all* expenses (including regular mat/bak/misc, which always had `month_label` set correctly via the `tr_expenses_month_label` trigger) by that same `month_label` string — so OPEX rows silently vanished from monthly reports; (3) backfills `month_label` on any pre-existing OPEX rows that were missing it. **Real incident this caused:** July 2026's "รายจ่ายรวม" showed 220,000+ ฿, staff's own manual count of just the material-cost category said ~70,000 ฿ — looked like duplicate/bad data entry, but `dedupMonthAction` found zero duplicates and a direct SQL sum of `ต้นทุนวัตถุดิบ` confirmed the material figure was already correct (81,926.50 ฿, matching staff's count within normal estimation slack). The inflated *total* was purely `get_monthly_summary` mis-handling OPEX under the hood — running `fix_bugs.sql` dropped the reported total from 220,000+ to 165,503.68 ฿, which now reconciles exactly against the sum of all 4 category rows in `/reports`. `sql/fix_opex_upsert.sql` is an earlier, narrower predecessor of just the `upsert_opex_item` ON CONFLICT fix — `fix_bugs.sql`'s version of that function supersedes it, no need to run both.
@@ -161,9 +183,17 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 Legacy feature parity is complete. Loyalty staff-portal path is code-complete for shop use.
 
 **Loyalty ops checklist (2026-08-10):**
-1. Confirm Supabase has `add_loyalty_system.sql` + `harden_loyalty_rls.sql` applied.
-2. Deploy on VPS: `cd ~/apps/minimalcnx && bash deploy.sh` (must run on the VPS; local machine may not have SSH deploy key).
+1. Confirm Supabase has applied (in order): `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → **`harden_loyalty_writes.sql`** → **`add_loyalty_indexes.sql`**. Also recommended: **`add_analytics_range_kpis.sql`** (business `/analytics` speed).
+2. Deploy on VPS: `cd ~/apps/minimalcnx && bash deploy.sh`.
 3. Admin links each staff user → branch at `/admin/loyalty`.
 4. Hand staff [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md).
 
-**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), editable rewards catalog in DB (today: `lib/loyalty-rewards.js`), phone-change UI, customer self-serve balance view (OTP).
+**Perf / security notes (2026-08-10):**
+- CDP analytics loads txs for last **90 days** (cap 3000) — not full history.
+- Prompt font weights reduced to 400/600 (faster first paint).
+- Staff cannot spoof another branch; void goes through `loyalty_void_transaction` RPC after `harden_loyalty_writes.sql`.
+- Still open by design for any authenticated user to **read** customers/txs (shop-internal); further column-level lockdown is optional later.
+- `/analytics` (business) uses **`get_months_kpis`** when `sql/add_analytics_range_kpis.sql` is applied; otherwise falls back to N× `get_monthly_summary`.
+- `sql/fix_imm_login.sql` no longer ships a usable default password — set `CHANGE_ME_BEFORE_RUN` before executing.
+
+**Optional later:** LINE OA/LIFF + one-time QR earn (same DB), editable rewards catalog in DB, phone-change UI, customer self-serve balance (OTP), Tabler icon subset.

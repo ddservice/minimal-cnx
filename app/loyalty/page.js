@@ -23,6 +23,7 @@ export default async function LoyaltyPage() {
   const canManage = isAdmin || role === 'co-admin';
   const canAnalytics = canManage || role === 'manager';
   const canVoid = canAnalytics;
+  const canPickBranch = canAnalytics; // staff ใช้ได้แค่สาขาที่ผูก
   const staffLinked = !!staffProfile?.branch_id;
 
   return (
@@ -49,6 +50,7 @@ export default async function LoyaltyPage() {
         staffLinked={staffLinked}
         staffCode={staffProfile?.staff_code || ''}
         canVoid={canVoid}
+        canPickBranch={canPickBranch}
       />
     </AppShell>
   );

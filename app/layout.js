@@ -6,7 +6,8 @@ import './globals.css';
 // request ไป Google Fonts ตอน runtime, ไม่มี layout shift) แล้วส่งเป็น CSS variable ให้ globals.css ใช้
 const prompt = Prompt({
   subsets: ['thai', 'latin'],
-  weight: ['400', '500', '600', '700'],
+  // ลดน้ำหนักฟอนต์เหลือที่ใช้จริง — เดิม 4 ไฟล์ทำให้ first load หนักโดยไม่จำเป็น
+  weight: ['400', '600'],
   display: 'swap',
   variable: '--font-prompt',
 });
