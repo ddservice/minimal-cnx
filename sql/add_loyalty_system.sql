@@ -131,7 +131,7 @@ create trigger tr_point_transaction_update
   after insert on public.point_transactions
   for each row execute function public.fn_on_point_transaction();
 
--- ── RLS Policies ──
+-- ── RLS Policies (idempotent: drop + recreate so re-runs are safe) ──
 alter table public.branches enable row level security;
 alter table public.staff_profiles enable row level security;
 alter table public.customers enable row level security;
@@ -139,48 +139,52 @@ alter table public.point_transactions enable row level security;
 alter table public.redemption_history enable row level security;
 alter table public.loyalty_audit_logs enable row level security;
 
--- Branches Policies
+drop policy if exists "branches: read authenticated" on public.branches;
 create policy "branches: read authenticated" on public.branches
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "branches: admin write" on public.branches;
 create policy "branches: admin write" on public.branches
   for all using (public.fn_my_role() in ('admin', 'co-admin'));
 
--- Staff Profiles Policies
--- (RLS was enabled above with no policies — without these, every SELECT returns
---  zero rows silently, so staff default-branch lookup in issuePointsAction/redeem
---  always fails open to branch_id=null.)
+-- Staff Profiles: RLS without policies = silent empty SELECTs (branch lookup breaks)
+drop policy if exists "staff_profiles: read authenticated" on public.staff_profiles;
 create policy "staff_profiles: read authenticated" on public.staff_profiles
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "staff_profiles: admin write" on public.staff_profiles;
 create policy "staff_profiles: admin write" on public.staff_profiles
   for all using (public.fn_my_role() in ('admin', 'co-admin'));
 
--- Customers Policies
+drop policy if exists "customers: read authenticated" on public.customers;
 create policy "customers: read authenticated" on public.customers
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "customers: write authenticated" on public.customers;
 create policy "customers: write authenticated" on public.customers
   for all using (auth.role() = 'authenticated');
 
--- Point Transactions Policies
+drop policy if exists "point_transactions: read authenticated" on public.point_transactions;
 create policy "point_transactions: read authenticated" on public.point_transactions
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "point_transactions: insert authenticated" on public.point_transactions;
 create policy "point_transactions: insert authenticated" on public.point_transactions
   for insert with check (auth.role() = 'authenticated');
 
--- Redemption History Policies
+drop policy if exists "redemption_history: read authenticated" on public.redemption_history;
 create policy "redemption_history: read authenticated" on public.redemption_history
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "redemption_history: insert authenticated" on public.redemption_history;
 create policy "redemption_history: insert authenticated" on public.redemption_history
   for insert with check (auth.role() = 'authenticated');
 
--- Loyalty Audit Logs Policies
+drop policy if exists "loyalty_audit_logs: read manager+" on public.loyalty_audit_logs;
 create policy "loyalty_audit_logs: read manager+" on public.loyalty_audit_logs
   for select using (public.fn_my_role() in ('admin', 'co-admin', 'manager'));
 
+drop policy if exists "loyalty_audit_logs: insert authenticated" on public.loyalty_audit_logs;
 create policy "loyalty_audit_logs: insert authenticated" on public.loyalty_audit_logs
   for insert with check (auth.role() = 'authenticated');
 
