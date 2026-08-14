@@ -1,5 +1,5 @@
 import Icon from '../../components/icon';
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { fmtMoney } from '../../lib/format';
@@ -40,7 +40,7 @@ function fromKpi(row, opexDefaults = {}) {
 const pct = (cur, prev) => (prev ? ((cur - prev) / Math.abs(prev)) * 100 : null);
 
 export default async function AnalyticsPage({ searchParams }) {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requirePage('/analytics');
   const sp = await searchParams;
 
   const { data: opexCfg } = await supabase.from('business_config').select('value').eq('key', 'opex_defaults').maybeSingle();

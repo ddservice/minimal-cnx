@@ -1,6 +1,6 @@
 import Icon from '../../../components/icon';
 import { redirect } from 'next/navigation';
-import { requireSession } from '../../../lib/session';
+import { requirePage } from '../../../lib/session';
 import AppShell from '../../../components/app-shell';
 import PageHeader from '../../../components/page-header';
 import Kpi from '../../../components/kpi';
@@ -12,7 +12,7 @@ import Link from 'next/link';
 const CAN_VIEW = new Set(['admin', 'co-admin', 'manager']);
 
 export default async function LoyaltyAnalyticsPage() {
-  const { role, name, isAdmin, allowed } = await requireSession();
+  const { role, name, isAdmin, allowed } = await requirePage('/loyalty');
   if (!CAN_VIEW.has(role)) redirect('/loyalty');
 
   const res = await getLoyaltyAnalyticsAction();

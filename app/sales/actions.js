@@ -1,8 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '../../lib/supabase/server';
 import { computeNetRevenue } from '../../lib/gp';
+import { requireCap } from '../../lib/access';
+import { canAccess, canDeleteOnPage } from '../../lib/perms';
 
 const num = (v) => {
   const n = Number(v);
@@ -12,15 +13,18 @@ const int = (v) => Math.trunc(num(v));
 
 // บันทึกยอดขายรายวัน — คำนวณ net ฝั่งเซิร์ฟเวอร์ (ไม่เชื่อค่าจาก client)
 export async function saveSalesAction(input) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/sales', 'create');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase } = acc;
 
   const date = String(input.date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { status: 'error', message: 'วันที่ไม่ถูกต้อง' };
+  }
+
+  const { data: existing } = await supabase.from('sales_daily').select('id').eq('date', date).maybeSingle();
+  if (existing && !canAccess(acc.role, '/sales', 'edit', acc.perms)) {
+    return { status: 'error', message: 'มีข้อมูลวันนี้แล้ว — สิทธิ์ของคุณกรอกวันใหม่ได้เท่านั้น ไม่สามารถแก้ไขของเดิม' };
   }
 
   const payload = {
@@ -58,11 +62,12 @@ export async function saveSalesAction(input) {
 
 // ── ลบยอดขายทั้งวัน (RLS delete = admin เท่านั้น) ──
 export async function deleteSalesAction(date) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/sales', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  if (!canDeleteOnPage(acc.role, '/sales', acc.perms)) {
+    return { status: 'error', message: 'ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin' };
+  }
+  const { supabase } = acc;
 
   const d = String(date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { status: 'error', message: 'วันที่ไม่ถูกต้อง' };

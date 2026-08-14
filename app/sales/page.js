@@ -1,7 +1,8 @@
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import SalesForm from './sales-form';
+import { canDeleteOnPage } from '../../lib/perms';
 
 function todayISO() {
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -9,7 +10,7 @@ function todayISO() {
 }
 
 export default async function SalesPage({ searchParams }) {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed, caps, perms } = await requirePage('/sales');
 
   const sp = await searchParams;
   const date = sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
@@ -25,7 +26,14 @@ export default async function SalesPage({ searchParams }) {
       <PageHeader icon="ti-cash" title="บันทึกยอดขายรายวัน" />
       {/* key={date} → บังคับ remount ตอนเปลี่ยนวันที่ ไม่งั้น useState ที่ initialize จาก existing
           จะรันแค่ครั้งแรกตอน mount เท่านั้น เปลี่ยนวันที่แล้ว props เปลี่ยนแต่ state ค้างของวันเก่า */}
-      <SalesForm key={date} date={date} existing={existing || null} defaultCoffeePrice={defaultCoffeePrice} />
+      <SalesForm
+        key={date}
+        date={date}
+        existing={existing || null}
+        defaultCoffeePrice={defaultCoffeePrice}
+        access={caps['/sales']}
+        canDelete={canDeleteOnPage(role, '/sales', perms)}
+      />
     </AppShell>
   );
 }

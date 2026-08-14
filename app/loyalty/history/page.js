@@ -1,13 +1,13 @@
 import Icon from '../../../components/icon';
 import Link from 'next/link';
-import { requireSession } from '../../../lib/session';
+import { requirePage } from '../../../lib/session';
 import AppShell from '../../../components/app-shell';
 import PageHeader from '../../../components/page-header';
 import HistoryClient from './history-client';
 
 export default async function LoyaltyHistoryPage() {
-  const { supabase, role, name, isAdmin, allowed, user } = await requireSession();
-  const canVoid = role === 'admin' || role === 'co-admin' || role === 'manager';
+  const { supabase, role, name, isAdmin, allowed, user, caps } = await requirePage('/loyalty');
+  const canVoid = !!caps['/loyalty']?.edit && (role === 'admin' || role === 'co-admin' || role === 'manager');
 
   const [{ data: branches }, { data: staffProfiles }, { data: myStaff }] = await Promise.all([
     supabase.from('branches').select('id, code, name').eq('is_active', true).order('name'),

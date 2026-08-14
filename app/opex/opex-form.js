@@ -7,6 +7,8 @@ import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX, DEFAULT_EMPLOYEES } from '../../l
 import { computePayslip } from '../../lib/payslip';
 import { sanitizeNumberString, stripDigits, digitsOnly } from '../../lib/format';
 import DateField from '../../components/date-field';
+import AccessBanner from '../../components/access-banner';
+import { ACCESS_HINT } from '../../lib/perms';
 import { saveOpexAction, saveEmpDetails } from './actions';
 
 const EMP_DETAIL_FIELDS = ['fullname', 'lastname', 'title', 'id_card', 'bank_name', 'account_no', 'account_holder'];
@@ -107,7 +109,11 @@ function monthsAgo(monthLabel) {
   return (now.getFullYear() - yy) * 12 + (now.getMonth() + 1 - mm);
 }
 
-export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {}, empDetails = {}, canEditEmpDetails = false }) {
+export default function OpexForm({ monthInput, monthLabel, existing, income = 0, bizInfo = {}, isAdmin = false, opexDefaults = {}, empPayHistory = {}, empDetails = {}, canEditEmpDetails = false, access = {}, hasSaved = false }) {
+  const canCreate = !!access.create;
+  const canEdit = !!access.edit;
+  const readOnly = !canCreate || (hasSaved && !canEdit);
+  const canSave = canCreate && (!hasSaved || canEdit);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -237,11 +243,19 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
 
   return (
     <form onSubmit={onSubmit}>
+      {readOnly && (
+        <AccessBanner
+          level={access.level || 'view'}
+          extra={hasSaved && canCreate && !canEdit ? ACCESS_HINT.create : undefined}
+        />
+      )}
       <div style={card}>
         <label style={lbl}>เดือน</label>
         <div style={{ maxWidth: 200 }}><DateField type="month" value={monthInput} onChange={onMonthChange} /></div>
         <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>({monthLabel})</span>
       </div>
+
+      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {/* หมวด 1: ค่าใช้จ่ายดำเนินการ */}
       <Section title="ค่าใช้จ่ายดำเนินการ" total={sumObj(operating)}>
@@ -466,18 +480,23 @@ export default function OpexForm({ monthInput, monthLabel, existing, income = 0,
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>ยอดรวมค่าดำเนินการทั้งหมด</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--coffee)' }}>{fmt(grand)} ฿</div>
         </div>
-        <button type="submit" style={btnSave} disabled={isPending}>
-          {isPending ? 'กำลังบันทึก...' : 'บันทึกค่าดำเนินการ'}
-        </button>
+        {canSave && (
+          <button type="submit" style={btnSave} disabled={isPending}>
+            {isPending ? 'กำลังบันทึก...' : 'บันทึกค่าดำเนินการ'}
+          </button>
+        )}
       </div>
 
+      {canSave && (
       <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
         เว้นว่าง = ไม่บันทึกช่องนั้น · บันทึกซ้ำเดือนเดิม = อัปเดตทับ
       </p>
+      )}
 
       {msg && (
         <div style={{ marginTop: 8, color: msg.type === 'ok' ? '#1e7e34' : '#c0392b', fontSize: 14 }}>{msg.text}</div>
       )}
+      </fieldset>
     </form>
   );
 }

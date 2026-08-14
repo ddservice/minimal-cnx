@@ -324,6 +324,22 @@ input[type="checkbox"] { accent-color: var(--color-primary); width: 16px; height
 .link-btn:hover { background: var(--color-surface-2); box-shadow: var(--shadow-sm); }
 .muted { color: var(--color-text-muted); }
 
+/* Role permission level pills (settings matrix) */
+.perm-pills {
+  display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+}
+.perm-pill {
+  border: 1px solid var(--color-border); background: var(--color-surface);
+  color: var(--color-text-muted); border-radius: var(--radius-full);
+  padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; line-height: 1.2;
+}
+.perm-pill:hover { background: var(--color-surface-2); color: var(--color-text); }
+.perm-pill.on-none { background: var(--color-surface-2); color: var(--color-text-muted); border-color: var(--color-border); }
+.perm-pill.on-view { background: var(--color-info-bg); color: var(--color-info); border-color: transparent; }
+.perm-pill.on-create { background: #f5ede3; color: var(--color-primary); border-color: transparent; }
+.perm-pill.on-edit { background: var(--color-success-bg); color: var(--color-success); border-color: transparent; }
+.perm-pill:disabled { opacity: .45; cursor: not-allowed; }
+
 /* Login */
 .center { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-5); background: var(--color-bg); }
 .login-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-8) var(--space-6); width: 100%; max-width: 380px; box-shadow: var(--shadow-lg); }

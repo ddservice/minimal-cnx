@@ -9,7 +9,7 @@ import { updateExpenseAction, deleteExpenseAction } from './actions';
 const CATEGORY_LABEL = {};
 EXPENSE_CATEGORIES.forEach((c) => { CATEGORY_LABEL[c.value] = c.label; });
 
-export default function ExpenseList({ rows, date }) {
+export default function ExpenseList({ rows, date, canEdit = false, canDelete = false }) {
   const [msg, setMsg] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
@@ -32,7 +32,7 @@ export default function ExpenseList({ rows, date }) {
               editingId === r.id ? (
                 <EditRow key={r.id} row={r} onDone={() => setEditingId(null)} onMsg={setMsg} />
               ) : (
-                <ViewRow key={r.id} row={r} onEdit={() => setEditingId(r.id)} onMsg={setMsg} />
+                <ViewRow key={r.id} row={r} onEdit={canEdit ? () => setEditingId(r.id) : null} onMsg={setMsg} canDelete={canDelete} />
               )
             )}
           </div>
@@ -45,7 +45,7 @@ export default function ExpenseList({ rows, date }) {
   );
 }
 
-function ViewRow({ row, onEdit, onMsg }) {
+function ViewRow({ row, onEdit, onMsg, canDelete }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -70,8 +70,8 @@ function ViewRow({ row, onEdit, onMsg }) {
       </div>
       <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(row.total_amount)} ฿</div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" style={btnGhost} onClick={onEdit}>แก้ไข</button>
-        <button type="button" style={btnDanger} onClick={onDelete} disabled={isPending}>ลบ</button>
+        {onEdit && <button type="button" style={btnGhost} onClick={onEdit}>แก้ไข</button>}
+        {canDelete && <button type="button" style={btnDanger} onClick={onDelete} disabled={isPending}>ลบ</button>}
       </div>
     </div>
   );

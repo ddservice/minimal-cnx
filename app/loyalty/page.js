@@ -1,5 +1,5 @@
 import Icon from '../../components/icon';
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import LoyaltyClient from './loyalty-client';
@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { loadActiveRewards } from '../../lib/loyalty-rewards';
 
 export default async function LoyaltyPage() {
-  const { supabase, role, name, isAdmin, allowed, user } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed, user, caps } = await requirePage('/loyalty');
 
   const [{ data: branches }, { data: staffProfile }, rewards] = await Promise.all([
     supabase
@@ -25,7 +25,8 @@ export default async function LoyaltyPage() {
 
   const canManage = isAdmin || role === 'co-admin';
   const canAnalytics = canManage || role === 'manager';
-  const canVoid = canAnalytics;
+  const access = caps['/loyalty'] || {};
+  const canVoid = !!access.edit && canAnalytics;
   const canPickBranch = canAnalytics; // staff ใช้ได้แค่สาขาที่ผูก
   const staffLinked = !!staffProfile?.branch_id;
 
@@ -55,6 +56,7 @@ export default async function LoyaltyPage() {
         staffCode={staffProfile?.staff_code || ''}
         canVoid={canVoid}
         canPickBranch={canPickBranch}
+        canCreate={!!access.create}
       />
     </AppShell>
   );

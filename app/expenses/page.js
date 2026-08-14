@@ -1,7 +1,8 @@
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { EXPENSE_CATEGORY_VALUES } from '../../lib/expense-categories';
+import { canDeleteOnPage } from '../../lib/perms';
 import ExpensesClient from './expenses-client';
 
 function todayISO() {
@@ -10,7 +11,7 @@ function todayISO() {
 }
 
 export default async function ExpensesPage({ searchParams }) {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed, caps, perms } = await requirePage('/expenses');
 
   const sp = await searchParams;
   const date = sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
@@ -60,7 +61,14 @@ export default async function ExpensesPage({ searchParams }) {
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
       <PageHeader icon="ti-receipt" title="บันทึกรายจ่าย" />
-      <ExpensesClient date={date} initialCategory={initialCategory} allExisting={existing || []} catalog={catalog} />
+      <ExpensesClient
+        date={date}
+        initialCategory={initialCategory}
+        allExisting={existing || []}
+        catalog={catalog}
+        access={caps['/expenses']}
+        canDelete={canDeleteOnPage(role, '/expenses', perms)}
+      />
     </AppShell>
   );
 }

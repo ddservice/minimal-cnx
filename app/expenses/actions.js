@@ -1,8 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '../../lib/supabase/server';
 import { EXPENSE_CATEGORY_VALUES } from '../../lib/expense-categories';
+import { requireCap } from '../../lib/access';
+import { canDeleteOnPage } from '../../lib/perms';
 
 const num = (v) => {
   const n = Number(v);
@@ -12,16 +13,6 @@ const num = (v) => {
 // total รวม VAT 7% (ตรงกับ dashboard เดิม: pEff = price * 1.07)
 const lineTotal = (price, qty, vat) =>
   Math.round((vat ? price * 1.07 : price) * qty * 100) / 100;
-
-async function auth() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
-
-const DENY = { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
 
 function refresh() {
   revalidatePath('/expenses');
@@ -46,8 +37,9 @@ function toRecord(r) {
 
 // ── เพิ่มรายจ่ายหลายรายการ (append) ──
 export async function saveExpensesAction(input) {
-  const { supabase, user } = await auth();
-  if (!user) return DENY;
+  const acc = await requireCap('/expenses', 'create');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase, user } = acc;
 
   const date = String(input.date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { status: 'error', message: 'วันที่ไม่ถูกต้อง' };
@@ -92,8 +84,9 @@ export async function saveExpensesAction(input) {
 
 // ── แก้ไขรายการเดียว (RLS update = authenticated) ──
 export async function updateExpenseAction(input) {
-  const { supabase, user } = await auth();
-  if (!user) return DENY;
+  const acc = await requireCap('/expenses', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase } = acc;
 
   const id = String(input.id || '');
   if (!id) return { status: 'error', message: 'ไม่พบรายการ' };
@@ -110,8 +103,12 @@ export async function updateExpenseAction(input) {
 
 // ── ลบรายการเดียว (RLS delete = admin/manager+ เท่านั้น) ──
 export async function deleteExpenseAction(id) {
-  const { supabase, user } = await auth();
-  if (!user) return DENY;
+  const acc = await requireCap('/expenses', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  if (!canDeleteOnPage(acc.role, '/expenses', acc.perms)) {
+    return { status: 'error', message: 'ลบไม่สำเร็จ — ต้องมีสิทธิ์ admin หรือ manager' };
+  }
+  const { supabase } = acc;
   if (!id) return { status: 'error', message: 'ไม่พบรายการ' };
 
   // .select() เพื่อเช็คว่าลบได้จริง — RLS ที่บล็อกจะคืน 0 แถว (ไม่ error)

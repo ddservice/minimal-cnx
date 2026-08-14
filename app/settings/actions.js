@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { computeNetRevenue } from '../../lib/gp';
 import { upsertBusinessConfig } from '../../lib/config-store';
+import { requireCap } from '../../lib/access';
+import { normalizeRolePerms } from '../../lib/perms';
 
 const FIELDS = ['name', 'phone', 'tax_id', 'address', 'logo_url', 'free_cup_cost'];
 
@@ -197,7 +199,7 @@ export async function saveOpexDefaults(defaults) {
 export async function saveRolePerms(perms) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
-  const res = await upsertBusinessConfig(supabase, 'role_perms', perms || {});
+  const res = await upsertBusinessConfig(supabase, 'role_perms', normalizeRolePerms(perms || {}));
   if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/', 'layout');
   return { status: 'ok', message: 'บันทึกสิทธิ์การเข้าถึงเรียบร้อย' };
@@ -205,11 +207,9 @@ export async function saveRolePerms(perms) {
 
 // บันทึกข้อมูลบริษัทลง business_config (key = biz_info) — ใช้ร่วมทุกเครื่อง
 export async function saveBizInfo(input) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/settings', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase, user } = acc;
 
   const value = {};
   FIELDS.forEach((k) => { value[k] = String(input[k] || '').trim(); });

@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '../../lib/supabase/server';
 import { OPEX_OPERATING, OPEX_STAFF, OPEX_TAX } from '../../lib/opex';
 import { computePayslip } from '../../lib/payslip';
 import { upsertBusinessConfig } from '../../lib/config-store';
+import { requireCap } from '../../lib/access';
+import { canAccess } from '../../lib/perms';
 
 // ยอดขายสุทธิของเดือน — คำนวณฝั่งเซิร์ฟเวอร์เอง (ไม่เชื่อค่า income จาก client)
 async function monthIncome(supabase, monthLabel) {
@@ -19,9 +20,12 @@ async function monthIncome(supabase, monthLabel) {
 // บันทึกรายละเอียดพนักงาน (ชื่อ/บัตร ปชช./ธนาคาร) ลง business_config — ใช้ร่วมทุกเครื่อง/ทุกอุปกรณ์
 // (เดิมเก็บใน localStorage ของเบราว์เซอร์เท่านั้น → ข้อมูลหายถ้าเปลี่ยนเครื่อง/เบราว์เซอร์ล้าง cache)
 export async function saveEmpDetails(details) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/opex', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  if (acc.role !== 'admin' && acc.role !== 'co-admin') {
+    return { status: 'error', message: 'เฉพาะ Admin / Co-Admin ที่แก้ไขข้อมูลพนักงานได้' };
+  }
+  const { supabase } = acc;
   const res = await upsertBusinessConfig(supabase, 'emp_details', details || {});
   if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/opex');
@@ -30,9 +34,12 @@ export async function saveEmpDetails(details) {
 
 // บันทึกข้อมูลผู้รับเงิน (ฟอร์ม 50 ทวิ) ลง business_config — ใช้ร่วมทุกเครื่อง
 export async function saveForm50Payees(payees) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/opex', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  if (acc.role !== 'admin' && acc.role !== 'co-admin') {
+    return { status: 'error', message: 'เฉพาะ Admin / Co-Admin ที่แก้ไขผู้รับเงิน 50 ทวิ ได้' };
+  }
+  const { supabase } = acc;
   const res = await upsertBusinessConfig(supabase, 'form50_payees', payees || {});
   if (!res.ok) return { status: 'error', message: res.message };
   revalidatePath('/opex');
@@ -48,15 +55,22 @@ const TAX_KEYS = new Set(OPEX_TAX.items.map((i) => i.key));
 
 // บันทึกค่า OPEX ทั้ง 3 หมวด — upsert ทีละ item (dedup ตาม item_key+month)
 export async function saveOpexAction(input) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/opex', 'create');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase, user } = acc;
 
   const month = String(input.month_label || '');
   if (!/^\d{2}\/\d{4}$/.test(month)) {
     return { status: 'error', message: 'เดือนไม่ถูกต้อง' };
+  }
+
+  const { count } = await supabase
+    .from('expenses')
+    .select('id', { count: 'exact', head: true })
+    .eq('month_label', month)
+    .not('item_key', 'is', null);
+  if (count > 0 && !canAccess(acc.role, '/opex', 'edit', acc.perms)) {
+    return { status: 'error', message: 'เดือนนี้มีข้อมูลแล้ว — สิทธิ์ของคุณกรอกเดือนใหม่ได้เท่านั้น ไม่สามารถแก้ไขของเดิม' };
   }
 
   // สร้างรายการ upsert: [{ item_key, item_name, category, amount }]

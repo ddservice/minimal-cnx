@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './sidebar';
 
-const ROLE_LABEL = { admin: 'Admin', 'co-admin': 'Co-Admin', manager: 'Manager', staff: 'Staff' };
+const ROLE_LABEL = { admin: 'Admin', 'co-admin': 'Co-Admin', manager: 'Manager', staff: 'Staff', loyalty_staff: 'Loyalty' };
 
 // เปลือกหน้าจอมาตรฐาน: sidebar (rail ยุบได้บนเดสก์ท็อป / drawer บนมือถือ) + เนื้อหาหลัก
 // .mobile-topbar อยู่ "ข้างใน" .shell-main (ไม่ใช่ sibling ของ .sidebar) เพื่อให้ column-flex

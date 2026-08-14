@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { getRewardFromDb } from '../../lib/loyalty-rewards';
 import { PRIVACY_CONSENT_VERSION } from '../../lib/privacy';
+import { requireCap } from '../../lib/access';
 
 const ANALYTICS_ROLES = new Set(['admin', 'co-admin', 'manager']);
 const VOID_ROLES = new Set(['admin', 'co-admin', 'manager']);
@@ -68,8 +69,9 @@ async function resolveStaffContext(supabase, userId, branchId, role) {
 
 // 1. ค้นหาลูกค้าด้วยเบอร์โทรศัพท์ หรือ LINE User ID
 export async function searchCustomerAction(query) {
-  const { supabase, user } = await requireUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/loyalty', 'view');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase } = acc;
 
   const raw = String(query || '').trim();
   if (!raw) return { status: 'error', message: 'กรุณากรอกเบอร์โทรศัพท์หรือ LINE User ID' };
@@ -98,8 +100,9 @@ export async function searchCustomerAction(query) {
 
 // 2. ลงทะเบียนลูกค้าใหม่ (บังคับความยินยอม PDPA)
 export async function registerCustomerAction({ phone, line_user_id, name, privacy_consent }) {
-  const { supabase, user } = await requireUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/loyalty', 'create');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase } = acc;
 
   if (!privacy_consent) {
     return { status: 'error', message: 'กรุณายืนยันความยินยอมเก็บข้อมูลส่วนบุคคลก่อนสมัครสมาชิก' };
@@ -153,8 +156,9 @@ export async function registerCustomerAction({ phone, line_user_id, name, privac
 
 // 3. แจกแต้มสะสม (บังคับสาขา + ใบเสร็จ + Anti-Fraud)
 export async function issuePointsAction({ customer_id, points, receipt_number, branch_id }) {
-  const { supabase, user, profile } = await requireUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/loyalty', 'create');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase, user, profile } = acc;
 
   const pts = Number(points);
   if (!pts || pts <= 0 || !Number.isFinite(pts)) {
@@ -231,8 +235,9 @@ export async function issuePointsAction({ customer_id, points, receipt_number, b
 
 // 4. แลกของรางวัล
 export async function redeemRewardAction({ customer_id, reward_id, branch_id }) {
-  const { supabase, user, profile } = await requireUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/loyalty', 'create');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase, user, profile } = acc;
 
   const reward = await getRewardFromDb(supabase, reward_id);
   if (!reward) return { status: 'error', message: 'ไม่พบรางวัลนี้ในระบบ หรือถูกปิดใช้งาน' };
@@ -300,8 +305,9 @@ export async function redeemRewardAction({ customer_id, reward_id, branch_id }) 
 
 // 5. ยกเลิกธุรกรรม (สร้างแถว reverse — ไม่ลบของเดิม) manager+
 export async function voidTransactionAction({ tx_id, reason }) {
-  const { supabase, user, profile } = await requireUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/loyalty', 'edit');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase, user, profile } = acc;
   if (!VOID_ROLES.has(profile?.role)) {
     return { status: 'error', message: 'เฉพาะ Manager / Co-Admin / Admin เท่านั้นที่ยกเลิกได้' };
   }
@@ -335,8 +341,9 @@ export async function voidTransactionAction({ tx_id, reason }) {
 
 // 6. ประวัติธุรกรรมแบบกรองได้ (ทุก role ที่ล็อกอิน — staff เห็นได้เพื่อไล่บิล)
 export async function listTransactionsAction(filters = {}) {
-  const { supabase, user } = await requireUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const acc = await requireCap('/loyalty', 'view');
+  if (!acc.allowed) return { status: 'error', message: acc.message };
+  const { supabase } = acc;
 
   const limit = Math.min(Number(filters.limit) || 100, 300);
   let q = supabase

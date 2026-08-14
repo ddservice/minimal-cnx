@@ -7,6 +7,8 @@ import { gpNet, computeNetRevenue } from '../../lib/gp';
 import { sanitizeNumberString } from '../../lib/format';
 import { createClient } from '../../lib/supabase/client';
 import DateField from '../../components/date-field';
+import AccessBanner from '../../components/access-banner';
+import { ACCESS_HINT } from '../../lib/perms';
 import { saveSalesAction, deleteSalesAction } from './actions';
 
 const EVIDENCE_BUCKET = 'evidence';
@@ -15,7 +17,12 @@ const MAX_EVIDENCE_MB = 5;
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
-export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
+export default function SalesForm({ date, existing, defaultCoffeePrice = 55, access = {}, canDelete = false }) {
+  const canCreate = !!access.create;
+  const canEdit = !!access.edit;
+  const hasExisting = !!existing;
+  const readOnly = !canCreate || (hasExisting && !canEdit);
+  const canSave = canCreate && (!hasExisting || canEdit);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null); // { text, type }
@@ -115,16 +122,24 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
 
   return (
     <form onSubmit={onSubmit}>
+      {readOnly && (
+        <AccessBanner
+          level={access.level || 'view'}
+          extra={hasExisting && canCreate && !canEdit ? ACCESS_HINT.create : undefined}
+        />
+      )}
       {/* วันที่ */}
       <div style={card}>
         <label style={lbl}>วันที่</label>
         <DateField value={date} onChange={onDateChange} />
-        {existing && (
+        {existing && canEdit && (
           <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
             (มีข้อมูลแล้ว — บันทึกจะทับของเดิม)
           </span>
         )}
       </div>
+
+      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {/* ยอดขายหน้าร้าน */}
       <div style={card}>
@@ -186,17 +201,20 @@ export default function SalesForm({ date, existing, defaultCoffeePrice = 55 }) {
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>= K-Shop + เงินสด + Delivery(หลัง GP)</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {existing && (
+            {existing && canDelete && (
               <button type="button" onClick={onDelete} style={btnDelete} disabled={isPending}>
                 ลบวันนี้
               </button>
             )}
-            <button type="submit" style={btn} disabled={isPending}>
-              {isPending ? 'กำลังบันทึก...' : existing ? 'อัปเดตยอดขาย' : 'บันทึกยอดขาย'}
-            </button>
+            {canSave && (
+              <button type="submit" style={btn} disabled={isPending}>
+                {isPending ? 'กำลังบันทึก...' : existing ? 'อัปเดตยอดขาย' : 'บันทึกยอดขาย'}
+              </button>
+            )}
           </div>
         </div>
       </div>
+      </fieldset>
 
       {msg && (
         <div style={{ marginTop: 14, color: msg.type === 'ok' ? '#1e7e34' : '#c0392b', fontSize: 14 }}>

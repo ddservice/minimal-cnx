@@ -1,5 +1,5 @@
 import Icon from '../../components/icon';
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import { fmtMoney } from '../../lib/format';
@@ -12,7 +12,7 @@ import DataTable from '../../components/data-table';
 import Kpi from '../../components/kpi';
 
 export default async function ReportsPage({ searchParams }) {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requirePage('/reports');
 
   const sp = await searchParams;
   const monthInput = /^\d{4}-\d{2}$/.test(sp?.month || '') ? sp.month : currentMonthInput();

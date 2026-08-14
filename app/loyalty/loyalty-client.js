@@ -6,6 +6,7 @@ import { searchCustomerAction, registerCustomerAction, issuePointsAction, redeem
 import { sanitizeNumberString, digitsOnly } from '../../lib/format';
 import { suggestPointsFromSpend } from '../../lib/loyalty-rewards';
 import { PRIVACY_CONSENT_TEXT } from '../../lib/privacy';
+import AccessBanner from '../../components/access-banner';
 
 const RFM_COLOR = {
   Champions: '#16a34a',
@@ -48,6 +49,7 @@ export default function LoyaltyClient({
   staffCode = '',
   canVoid = false,
   canPickBranch = false,
+  canCreate = true,
 }) {
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState([]);
@@ -314,7 +316,12 @@ export default function LoyaltyClient({
         </div>
       </div>
 
-      {notFound && (
+      {!canCreate && <AccessBanner level="view" extra="ค้นหาและดูยอดแต้มได้ — ไม่มีสิทธิ์สมัคร / แจก / แลก" />}
+
+      {notFound && !canCreate && (
+        <p className="muted" style={{ fontSize: 13 }}>ไม่พบลูกค้านี้ — ไม่มีสิทธิ์สมัครสมาชิกใหม่</p>
+      )}
+      {notFound && canCreate && (
         <div className="card" style={{ borderColor: 'var(--color-primary)' }}>
           <div className="card-head">
             <Icon name="ti-user-plus" /> <h2>ไม่พบข้อมูล — ลงทะเบียนสมาชิกใหม่</h2>
@@ -436,6 +443,8 @@ export default function LoyaltyClient({
             </div>
           </div>
 
+          {canCreate && (
+          <>
           <div className="card">
             <div className="card-head">
               <Icon name="ti-plus" /> <h2>สะสมแต้ม</h2>
@@ -568,6 +577,8 @@ export default function LoyaltyClient({
               )}
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
     </div>

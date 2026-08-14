@@ -3,41 +3,70 @@ import Icon from '../../components/icon';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { NAV_TABS, MANAGED_ROLES } from '../../lib/perms';
+import {
+  NAV_TABS,
+  MANAGED_ROLES,
+  PAGE_LEVELS,
+  ACCESS_LABEL,
+  ACCESS_HINT,
+  parseStoredLevel,
+  recommendedPerms,
+  isLoyaltyOnlyRole,
+} from '../../lib/perms';
 import { saveRolePerms } from './actions';
 
 export default function RolePerms({ perms }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
-  // state[role][href] = boolean (default true)
   const [state, setState] = useState(() => {
     const s = {};
     MANAGED_ROLES.forEach((r) => {
       s[r.value] = {};
-      NAV_TABS.forEach((t) => { s[r.value][t.href] = perms?.[r.value]?.[t.href] !== false; });
+      NAV_TABS.forEach((t) => {
+        s[r.value][t.href] = parseStoredLevel(perms?.[r.value]?.[t.href], t.href, r.value);
+      });
     });
     return s;
   });
 
-  const toggle = (role, href) =>
-    setState((s) => ({ ...s, [role]: { ...s[role], [href]: !s[role][href] } }));
+  const setLevel = (role, href, level) =>
+    setState((s) => ({ ...s, [role]: { ...s[role], [href]: level } }));
 
-  async function onSave() {
+  async function persist(next) {
     setMsg(null);
-    const res = await saveRolePerms(state);
+    const res = await saveRolePerms(next);
     setMsg({ text: res.message, type: res.status === 'ok' ? 'ok' : 'err' });
     if (res.status === 'ok') startTransition(() => router.refresh());
   }
 
+  function applyRecommended() {
+    const next = recommendedPerms();
+    setState(next);
+    persist(next);
+  }
+
   return (
     <div className="card">
-      <div className="card-head"><Icon name="ti-lock-access" /><h2>สิทธิ์การมองเห็นเมนู (ตามตำแหน่ง)</h2></div>
+      <div className="card-head"><Icon name="ti-lock-access" /><h2>สิทธิ์ตามตำแหน่ง</h2></div>
       <div className="card-body" style={{ overflowX: 'auto' }}>
-        <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>
-          Admin เห็นทุกเมนูเสมอ · ติ๊ก = ตำแหน่งนั้นเห็นเมนูนั้น (เป็นการซ่อนเมนู ไม่ใช่ล็อกข้อมูล — ข้อมูลยังกันด้วย RLS)
+        <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
+          Admin เต็มสิทธิ์เสมอ · ระดับสูงรวมระดับล่าง (แก้ไข = กรอก + ดู) · ปุ่มกรอก/แก้ไขในหน้าถูกปิดตามนี้ และ Server Action กันด้วย
         </p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 420 }}>
+        <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+          เพดานฐานข้อมูล (RLS) ที่เมทริกซ์ขยายเกินไม่ได้: Staff เพิ่มยอดขาย/รายจ่ายได้ แต่แก้ของเดิมและลบรายจ่ายต้องเป็น Manager+ · ลบยอดขายทั้งวันได้เฉพาะ Admin · ยกเลิกธุรกรรมแต้มได้เฉพาะ Manager+
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, fontSize: 11, color: 'var(--muted)' }}>
+          {['none', 'view', 'create', 'edit'].map((lv) => (
+            <span key={lv}><strong>{ACCESS_LABEL[lv]}</strong> = {ACCESS_HINT[lv]}</span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          <button type="button" className="btn btn-ghost" onClick={applyRecommended} disabled={isPending} style={{ padding: '8px 12px', fontSize: 13 }}>
+            ใช้ค่าแนะนำ (Staff กรอก / Manager แก้ไข)
+          </button>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
           <thead>
             <tr>
               <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>เมนู</th>
@@ -47,17 +76,37 @@ export default function RolePerms({ perms }) {
           <tbody>
             {NAV_TABS.map((t) => (
               <tr key={t.href} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ padding: '7px 8px' }}><Icon name={t.icon} style={{ marginRight: 6, color: 'var(--taupe)' }} />{t.label}</td>
-                {MANAGED_ROLES.map((r) => (
-                  <td key={r.value} style={{ padding: '7px 8px', textAlign: 'center' }}>
-                    <input type="checkbox" checked={state[r.value][t.href]} onChange={() => toggle(r.value, t.href)} />
-                  </td>
-                ))}
+                <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>
+                  <Icon name={t.icon} style={{ marginRight: 6, color: 'var(--taupe)' }} />{t.label}
+                </td>
+                {MANAGED_ROLES.map((r) => {
+                  const locked = isLoyaltyOnlyRole(r.value) && t.href !== '/loyalty';
+                  const levels = PAGE_LEVELS[t.href] || ['none', 'view'];
+                  const current = state[r.value][t.href];
+                  return (
+                    <td key={r.value} style={{ padding: '8px', textAlign: 'center' }}>
+                      <div className="perm-pills">
+                        {levels.map((lv) => (
+                          <button
+                            key={lv}
+                            type="button"
+                            className={`perm-pill${current === lv ? ` on-${lv}` : ''}`}
+                            disabled={locked && lv !== 'none'}
+                            onClick={() => setLevel(r.value, t.href, locked ? 'none' : lv)}
+                            title={ACCESS_HINT[lv]}
+                          >
+                            {ACCESS_LABEL[lv]}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
-        <button className="btn btn-coffee" type="button" onClick={onSave} disabled={isPending} style={{ marginTop: 14 }}>
+        <button className="btn btn-coffee" type="button" onClick={() => persist(state)} disabled={isPending} style={{ marginTop: 14 }}>
           <Icon name="ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
         </button>
         {msg && <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>}

@@ -1,21 +1,40 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ExpenseForm from './expense-form';
 import ExpenseList from './expense-list';
+import AccessBanner from '../../components/access-banner';
+import DateField from '../../components/date-field';
 
-// ควบคุมหมวดหมู่ฝั่ง client → สลับหมวดได้ทันที (ไม่ต้องโหลด server ใหม่)
-export default function ExpensesClient({ date, initialCategory, allExisting, catalog }) {
+export default function ExpensesClient({ date, initialCategory, allExisting, catalog, access = {}, canDelete = false }) {
+  const router = useRouter();
   const [category, setCategory] = useState(initialCategory);
 
   const catForCat = catalog.filter((c) => c.category === category);
 
+  function navDate(nextDate) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
+      router.push(`/expenses?date=${nextDate}&category=${encodeURIComponent(category)}`);
+    }
+  }
+
   return (
     <>
-      {/* key={category} → เปลี่ยนหมวดแล้วฟอร์มรีเซ็ตใหม่ (ไม่ค้างชื่อรายการเดิม) */}
-      <ExpenseForm key={category} date={date} category={category} onCategory={setCategory} catalog={catForCat} />
-      {/* แสดงทุกหมวดของวันนั้น ไม่กรองตามแท็บที่เลือกอยู่ — กันพนักงานเข้าใจผิดว่า "ไม่มีรายการ" ทั้งที่บันทึกไว้ในอีกหมวด */}
-      <ExpenseList rows={allExisting} date={date} />
+      {access.create ? (
+        <ExpenseForm key={category} date={date} category={category} onCategory={setCategory} catalog={catForCat} />
+      ) : (
+        <>
+          <AccessBanner level={access.level || 'view'} />
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="card-body">
+              <label className="muted" style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>วันที่</label>
+              <DateField value={date} onChange={navDate} />
+            </div>
+          </div>
+        </>
+      )}
+      <ExpenseList rows={allExisting} date={date} canEdit={!!access.edit} canDelete={canDelete} />
     </>
   );
 }

@@ -5,8 +5,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { sanitizeNumberString } from '../../lib/format';
 import { saveBizInfo } from './actions';
+import AccessBanner from '../../components/access-banner';
 
-export default function SettingsForm({ biz }) {
+export default function SettingsForm({ biz, canEdit = true }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null);
@@ -32,9 +33,11 @@ export default function SettingsForm({ biz }) {
     <form onSubmit={onSubmit} className="card">
       <div className="card-head"><Icon name="ti-building" /><h2>ข้อมูลบริษัท / ร้านค้า</h2></div>
       <div className="card-body">
+        {!canEdit && <AccessBanner level="view" />}
         <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 14 }}>
           ใช้ในหัวเอกสารสลิปเงินเดือนและรายงาน
         </p>
+        <fieldset disabled={!canEdit} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
         <div style={{ display: 'grid', gap: 12 }}>
           <div className="field"><label>ชื่อบริษัท / ร้านค้า</label><input className="input" value={f.name} onChange={set('name')} placeholder="เช่น ห้างหุ้นส่วนจำกัด มินิมอลคอฟฟี่" /></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -46,12 +49,15 @@ export default function SettingsForm({ biz }) {
           <div className="field"><label>ต้นทุนแก้วฟรี/แก้ว (บาท) — ค่าตั้งต้นหน้ายอดขาย</label><input className="input" type="number" min="0" step="any" value={f.free_cup_cost} onChange={(e) => setF({ ...f, free_cup_cost: sanitizeNumberString(e.target.value) })} placeholder="55" /></div>
         </div>
 
+        {canEdit && (
         <button className="btn btn-coffee" type="submit" disabled={isPending} style={{ marginTop: 16 }}>
           <Icon name="ti-device-floppy" /> {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
+        )}
         {msg && (
           <div style={{ marginTop: 12, fontSize: 14, color: msg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{msg.text}</div>
         )}
+        </fieldset>
       </div>
     </form>
   );

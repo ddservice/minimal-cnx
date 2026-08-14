@@ -1,4 +1,4 @@
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import PageHeader from '../../components/page-header';
 import {
@@ -13,7 +13,7 @@ import OpexForm from './opex-form';
 import Form50 from './form50';
 
 export default async function OpexPage({ searchParams }) {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed, caps } = await requirePage('/opex');
 
   const sp = await searchParams;
   const monthInput = /^\d{4}-\d{2}$/.test(sp?.month || '') ? sp.month : currentMonthInput();
@@ -83,7 +83,9 @@ export default async function OpexPage({ searchParams }) {
         opexDefaults={opexDefaults}
         empPayHistory={empPayHistory}
         empDetails={empDetails}
-        canEditEmpDetails={role === 'admin' || role === 'co-admin'}
+        canEditEmpDetails={(role === 'admin' || role === 'co-admin') && caps['/opex']?.edit}
+        access={caps['/opex']}
+        hasSaved={(rows || []).length > 0}
         existing={{ operating, staff, tax, employees: employees.filter(Boolean) }}
       />
       <Form50
@@ -91,7 +93,7 @@ export default async function OpexPage({ searchParams }) {
         payees={form50Payees}
         bizInfo={bizInfo}
         monthLabel={monthLabel}
-        canEdit={role === 'admin' || role === 'co-admin'}
+        canEdit={(role === 'admin' || role === 'co-admin') && caps['/opex']?.edit}
         isAdmin={isAdmin}
       />
     </AppShell>

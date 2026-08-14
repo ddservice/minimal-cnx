@@ -1,6 +1,6 @@
 import Icon from '../../components/icon';
 import Link from 'next/link';
-import { requireSession } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 import AppShell from '../../components/app-shell';
 import Kpi from '../../components/kpi';
 import { fmtMoney } from '../../lib/format';
@@ -19,7 +19,7 @@ const ACTIONS = [
 ];
 
 export default async function DashboardPage() {
-  const { supabase, role, name, isAdmin, allowed } = await requireSession();
+  const { supabase, role, name, isAdmin, allowed } = await requirePage('/dashboard');
   const ml = monthLabel();
 
   const [{ data: summary }, { data: opexCfg }] = await Promise.all([
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
         <Icon name="ti-bolt" /> <span>เมนูลัด</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-        {ACTIONS.map((a) => (
+        {ACTIONS.filter((a) => !allowed || allowed.includes(a.href)).map((a) => (
           <Link key={a.href} href={a.href} className="card" style={{ textDecoration: 'none', color: 'inherit', marginBottom: 0 }}>
             <div className="card-body" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <div className="brand-icon" style={{ width: 42, height: 42, fontSize: 21, boxShadow: 'none' }}>
