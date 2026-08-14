@@ -1,12 +1,52 @@
 import { fmtMoney } from '../../../lib/format';
 
-const ACTION_LABEL = { INSERT: 'เพิ่ม', UPDATE: 'แก้ไข', DELETE: 'ลบ' };
-const ACTION_COLOR = { INSERT: 'var(--success)', UPDATE: 'var(--taupe-dark)', DELETE: 'var(--danger)' };
-const TABLE_LABEL = { sales_daily: 'ยอดขาย', expenses: 'รายจ่าย', business_config: 'ตั้งค่าระบบ' };
-const HIDE_FIELDS = new Set(['id', 'created_at', 'updated_at', 'key']); // key ของ business_config โชว์ใน summary แล้ว
+const ACTION_LABEL = {
+  INSERT: 'เพิ่ม',
+  UPDATE: 'แก้ไข',
+  DELETE: 'ลบ',
+  LOGIN: 'ล็อกอิน',
+  LOGIN_FAIL: 'ล็อกอินไม่สำเร็จ',
+  LOGOUT: 'ออกจากระบบ',
+  DENY: 'ถูกปฏิเสธสิทธิ์',
+  EXPORT: 'ส่งออกไฟล์',
+  IMPORT: 'นำเข้าไฟล์',
+  CREATE_USER: 'สร้างผู้ใช้',
+  UPDATE_USER: 'แก้ผู้ใช้',
+  RESET_PASSWORD: 'รีเซ็ตรหัส',
+  TOGGLE_USER: 'เปิด/ปิดบัญชี',
+  DELETE_USER: 'ลบผู้ใช้',
+};
+const ACTION_COLOR = {
+  INSERT: 'var(--success)',
+  UPDATE: 'var(--taupe-dark)',
+  DELETE: 'var(--danger)',
+  LOGIN: 'var(--success)',
+  LOGIN_FAIL: 'var(--danger)',
+  LOGOUT: 'var(--muted)',
+  DENY: 'var(--danger)',
+  EXPORT: 'var(--info)',
+  IMPORT: 'var(--info)',
+  CREATE_USER: 'var(--success)',
+  UPDATE_USER: 'var(--taupe-dark)',
+  RESET_PASSWORD: 'var(--taupe-dark)',
+  TOGGLE_USER: 'var(--taupe-dark)',
+  DELETE_USER: 'var(--danger)',
+};
+const TABLE_LABEL = {
+  sales_daily: 'ยอดขาย',
+  expenses: 'รายจ่าย',
+  business_config: 'ตั้งค่าระบบ',
+  profiles: 'บัญชีผู้ใช้',
+  auth: 'การเข้าสู่ระบบ',
+  access: 'สิทธิ์',
+  admin: 'จัดการผู้ใช้',
+  reports: 'รายงาน',
+  customers: 'ลูกค้าสะสมแต้ม',
+  point_transactions: 'ธุรกรรมแต้ม',
+  redemption_history: 'แลกรางวัล',
+};
+const HIDE_FIELDS = new Set(['id', 'created_at', 'updated_at', 'key', 'password', 'hashed_password']);
 
-// ค่าตัวเลข (มักลงท้ายด้วย _amount/_cost/_revenue/total) แสดงแบบมีจุลภาค, object (เช่น business_config.value
-// ที่เป็น jsonb) แสดงเป็น JSON ดิบ, อย่างอื่นแสดงดิบ
 function fmtVal(field, v) {
   if (v == null || v === '') return '—';
   if (typeof v === 'number' && /amount|cost|revenue|total|price/i.test(field)) return fmtMoney(v);
@@ -26,39 +66,67 @@ function diffRows(oldData, newData) {
   return out;
 }
 
+const DATA_ACTIONS = new Set(['INSERT', 'UPDATE', 'DELETE']);
+
 export default function AuditRow({ row, performer }) {
   const label = ACTION_LABEL[row.action] || row.action;
   const color = ACTION_COLOR[row.action] || 'var(--muted)';
   const when = new Date(row.performed_at).toLocaleString('th-TH', {
     dateStyle: 'medium',
-    timeStyle: 'short',
+    timeStyle: 'medium',
+    timeZone: 'Asia/Bangkok',
   });
-  const who = performer?.full_name || performer?.username || 'ไม่ทราบผู้ใช้';
+  const who = row.actor_username
+    || performer?.username
+    || performer?.full_name
+    || 'ไม่ทราบผู้ใช้';
+  const whoRole = row.actor_role || performer?.role;
   const configKey = row.table_name === 'business_config' ? (row.new_data?.key || row.old_data?.key) : null;
+  const failed = row.outcome === 'failure';
 
-  const changes =
-    row.action === 'UPDATE'
+  const changes = DATA_ACTIONS.has(row.action)
+    ? row.action === 'UPDATE'
       ? diffRows(row.old_data, row.new_data)
       : row.action === 'INSERT'
         ? diffRows(null, row.new_data)
-        : diffRows(row.old_data, null);
+        : diffRows(row.old_data, null)
+    : [];
+
+  const eventDetails = !DATA_ACTIONS.has(row.action) && row.new_data && typeof row.new_data === 'object'
+    ? row.new_data
+    : null;
 
   return (
     <details style={rowBox}>
       <summary style={summaryStyle}>
-        <span style={{ ...badge, background: color }}>{label}</span>
+        <span style={{ ...badge, background: failed ? 'var(--danger)' : color }}>{label}</span>
         <span style={{ fontWeight: 600 }}>
           {TABLE_LABEL[row.table_name] || row.table_name}
           {configKey ? ` — ${configKey}` : ''}
         </span>
         <span className="muted" style={{ fontSize: 12 }}>{when}</span>
-        <span className="muted" style={{ fontSize: 12, marginLeft: 'auto' }}>โดย {who}</span>
+        <span style={{ fontSize: 12, marginLeft: 'auto', textAlign: 'right' }}>
+          <strong>{who}</strong>
+          {whoRole ? <span className="muted"> ({whoRole})</span> : null}
+          {row.ip_address ? <div className="muted" style={{ fontSize: 11 }}>IP {row.ip_address}{row.country ? ` · ${row.country}` : ''}</div> : null}
+          {row.device_summary ? <div className="muted" style={{ fontSize: 11 }}>{row.device_summary}</div> : null}
+        </span>
       </summary>
-      <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-        {changes.length === 0 ? (
-          <p className="muted" style={{ fontSize: 12, margin: 0 }}>ไม่มีการเปลี่ยนแปลงค่า</p>
+      <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10, fontSize: 12 }}>
+        <div style={{ display: 'grid', gap: 4, marginBottom: 10, color: 'var(--muted)' }}>
+          {row.request_path ? <div>หน้า: <code>{row.request_path}</code></div> : null}
+          {row.user_agent ? <div style={{ wordBreak: 'break-all' }}>User-Agent: {row.user_agent}</div> : null}
+          {row.record_id ? <div>รหัสรายการ: {row.record_id}</div> : null}
+          {failed ? <div style={{ color: 'var(--danger)' }}>ผลลัพธ์: ไม่สำเร็จ</div> : null}
+        </div>
+        {eventDetails ? (
+          <pre style={{ margin: 0, background: 'var(--surface-2)', padding: 10, borderRadius: 'var(--radius-sm)', overflowX: 'auto' }}>
+            {JSON.stringify(eventDetails, null, 2)}
+          </pre>
+        ) : changes.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>ไม่มีรายละเอียดเพิ่มเติม</p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ textAlign: 'left', color: 'var(--muted)' }}>
                 <th style={th}>ฟิลด์</th>
@@ -87,7 +155,7 @@ export default function AuditRow({ row, performer }) {
 }
 
 const rowBox = { border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 12px', background: 'var(--surface)' };
-const summaryStyle = { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer', listStyle: 'none' };
-const badge = { color: '#fff', padding: '3px 11px', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 700 };
+const summaryStyle = { display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap', cursor: 'pointer', listStyle: 'none' };
+const badge = { color: '#fff', padding: '3px 11px', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 700, flexShrink: 0 };
 const th = { padding: '5px 8px', fontWeight: 600 };
-const td = { padding: '5px 8px', fontVariantNumeric: 'tabular-nums' };
+const td = { padding: '5px 8px', fontVariantNumeric: 'tabular-nums', wordBreak: 'break-word' };

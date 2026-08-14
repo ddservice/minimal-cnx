@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { createClient } from '../../lib/supabase/server';
 import { monthInputToLabel, currentMonthInput, OPEX_ALL_CATEGORIES } from '../../lib/opex';
+import { logAuditEvent } from '../../lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -131,6 +132,12 @@ export async function GET(request) {
 
   const buf = await wb.xlsx.writeBuffer();
   const filename = `marim69-${monthLabel.replace('/', '-')}.xlsx`;
+  await logAuditEvent(supabase, {
+    action: 'EXPORT',
+    table: 'reports',
+    details: { month: monthLabel, filename },
+    pathHint: '/export',
+  });
   return new Response(buf, {
     status: 200,
     headers: {

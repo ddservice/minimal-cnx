@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { MIN_PASSWORD_LENGTH } from '../../lib/auth-policy';
+import { stampAuditContext, logAuditEvent } from '../../lib/audit';
 
 // ตรวจว่าผู้เรียกเป็น admin จริง (ฝั่งเซิร์ฟเวอร์)
 // เป็น defense-in-depth — RPC admin_* ก็เช็ค role ซ้ำใน Postgres อีกชั้น
@@ -17,6 +18,7 @@ async function requireAdmin() {
     .select('role')
     .eq('id', user.id)
     .maybeSingle();
+  if (profile?.role === 'admin') await stampAuditContext(supabase, '/admin');
   return { supabase, ok: profile?.role === 'admin' };
 }
 
@@ -43,6 +45,12 @@ export async function createUserAction(input) {
   if (data?.status === 'error') return { status: 'error', message: data.message };
 
   revalidatePath('/admin');
+  await logAuditEvent(supabase, {
+    action: 'CREATE_USER',
+    table: 'admin',
+    details: { username, role: String(input.role || 'staff') },
+    pathHint: '/admin',
+  });
   return { status: 'ok', message: `สร้างผู้ใช้ "${username}" เรียบร้อย` };
 }
 
@@ -65,6 +73,12 @@ export async function updateUserAction(input) {
   if (error) return { status: 'error', message: error.message };
 
   revalidatePath('/admin');
+  await logAuditEvent(supabase, {
+    action: 'UPDATE_USER',
+    table: 'admin',
+    details: { username, fields: Object.keys(upd) },
+    pathHint: '/admin',
+  });
   return { status: 'ok', message: 'บันทึกการแก้ไขเรียบร้อย' };
 }
 
@@ -84,6 +98,12 @@ export async function resetPasswordAction(input) {
   if (error) return { status: 'error', message: error.message };
   if (data?.status === 'error') return { status: 'error', message: data.message };
 
+  await logAuditEvent(supabase, {
+    action: 'RESET_PASSWORD',
+    table: 'admin',
+    details: { username },
+    pathHint: '/admin',
+  });
   return { status: 'ok', message: `รีเซ็ตรหัสผ่าน "${username}" เรียบร้อย` };
 }
 
@@ -103,6 +123,12 @@ export async function toggleActiveAction(input) {
   if (error) return { status: 'error', message: error.message };
 
   revalidatePath('/admin');
+  await logAuditEvent(supabase, {
+    action: 'TOGGLE_USER',
+    table: 'admin',
+    details: { username, is_active: isActive },
+    pathHint: '/admin',
+  });
   return { status: 'ok', message: isActive ? `เปิดใช้งาน "${username}" แล้ว` : `ปิดใช้งาน "${username}" แล้ว` };
 }
 
@@ -118,5 +144,11 @@ export async function deleteUserAction(input) {
   if (data?.status === 'error') return { status: 'error', message: data.message };
 
   revalidatePath('/admin');
+  await logAuditEvent(supabase, {
+    action: 'DELETE_USER',
+    table: 'admin',
+    details: { username },
+    pathHint: '/admin',
+  });
   return { status: 'ok', message: `ลบผู้ใช้ "${username}" เรียบร้อย` };
 }

@@ -17,7 +17,8 @@ If the clone is still nested (pre-flatten):
 cd ~/apps/minimalcnx/marim69-next && bash deploy.sh
 ```
 
-`deploy.sh` will `git pull`, `docker build`, recreate container `minimalcnx` on `127.0.0.1:3001`.
+`deploy.sh` will `git pull`, `docker build`, recreate container `minimalcnx` on `127.0.0.1:3011`.
+Never bind 3001 (MikroTik), 3002 (haircut), or 3005 (forensics).
 
 ## Before deploy
 
@@ -27,7 +28,7 @@ cd ~/apps/minimalcnx/marim69-next && bash deploy.sh
 ## After deploy
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3001/login
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3011/login
 curl -sk -o /dev/null -w "%{http_code}\n" https://minimalcnx.ddserviceth.com/login
 ```
 

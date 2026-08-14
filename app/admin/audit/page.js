@@ -6,9 +6,18 @@ import PageHeader from '../../../components/page-header';
 import AuditFilters from './audit-filters';
 import AuditRow from './audit-row';
 
-const VALID_TABLES = new Set(['sales_daily', 'expenses', 'business_config']);
-const VALID_ACTIONS = new Set(['INSERT', 'UPDATE', 'DELETE']);
-const LIMIT = 150;
+const VALID_TABLES = new Set([
+  'sales_daily', 'expenses', 'business_config', 'profiles',
+  'auth', 'access', 'admin', 'reports',
+  'customers', 'point_transactions', 'redemption_history',
+]);
+const VALID_ACTIONS = new Set([
+  'INSERT', 'UPDATE', 'DELETE',
+  'LOGIN', 'LOGIN_FAIL', 'LOGOUT', 'DENY', 'EXPORT', 'IMPORT',
+  'CREATE_USER', 'UPDATE_USER', 'RESET_PASSWORD', 'TOGGLE_USER', 'DELETE_USER',
+]);
+const LIMIT = 200;
+const SELECT_COLS = 'id, table_name, record_id, action, old_data, new_data, performed_by, performed_at, ip_address, user_agent, device_summary, request_path, actor_username, actor_role, outcome, country';
 
 export default async function AuditPage({ searchParams }) {
   const { supabase, role, name, isAdmin, allowed } = await requireSession();
@@ -17,38 +26,62 @@ export default async function AuditPage({ searchParams }) {
   const sp = await searchParams;
   const table = VALID_TABLES.has(sp?.table) ? sp.table : '';
   const action = VALID_ACTIONS.has(sp?.action) ? sp.action : '';
+  const ip = String(sp?.ip || '').trim();
+  const q = String(sp?.q || '').trim();
 
-  let q = supabase
+  let query = supabase
     .from('audit_log')
-    .select('id, table_name, record_id, action, old_data, new_data, performed_by, performed_at')
+    .select(SELECT_COLS)
     .order('performed_at', { ascending: false })
     .limit(LIMIT);
-  if (table) q = q.eq('table_name', table);
-  if (action) q = q.eq('action', action);
-  const { data: rows, error } = await q;
+  if (table) query = query.eq('table_name', table);
+  if (action) query = query.eq('action', action);
+  if (ip) query = query.ilike('ip_address', `%${ip}%`);
+  if (q) query = query.or(`actor_username.ilike.%${q}%,actor_role.ilike.%${q}%`);
 
-  // ดึงชื่อผู้ทำรายการแยก (ไม่พึ่ง embed join เพื่อความชัวร์)
+  let { data: rows, error } = await query;
+  let sqlHint = '';
+  if (error && /column|does not exist/i.test(error.message || '')) {
+    sqlHint = 'ยังไม่ได้รัน sql/add_audit_context.sql ใน Supabase — ตอนนี้เห็นแค่ใคร/ทำอะไร/เมื่อไหร่ ยังไม่มี IP และเครื่อง';
+    const fallback = await supabase
+      .from('audit_log')
+      .select('id, table_name, record_id, action, old_data, new_data, performed_by, performed_at')
+      .order('performed_at', { ascending: false })
+      .limit(LIMIT);
+    rows = fallback.data;
+    error = fallback.error;
+  }
+
   const userIds = [...new Set((rows || []).map((r) => r.performed_by).filter(Boolean))];
   let profileMap = {};
   if (userIds.length) {
-    const { data: profs } = await supabase.from('profiles').select('id, username, full_name').in('id', userIds);
+    const { data: profs } = await supabase.from('profiles').select('id, username, full_name, role').in('id', userIds);
     (profs || []).forEach((p) => { profileMap[p.id] = p; });
   }
 
   return (
     <AppShell role={role} name={name} isAdmin={isAdmin} allowed={allowed}>
-      <PageHeader icon="ti-history" title="ประวัติการแก้ไขข้อมูล (Audit Log)">
+      <PageHeader icon="ti-history" title="บันทึกตรวจสอบ (Super Admin)">
         <Link className="link-btn" href="/admin">← กลับหน้าผู้ใช้</Link>
       </PageHeader>
 
+      <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 12 }}>
+        เห็นได้เฉพาะ Super Admin (ตำแหน่ง admin) · เก็บผู้ใช้, การกระทำ, เวลา, IP, ประเทศ, ชนิดเครื่อง และ User-Agent
+      </p>
+
       <div style={{ marginBottom: 12 }}>
-        <AuditFilters table={table} action={action} />
+        <AuditFilters table={table} action={action} ip={ip} q={q} />
       </div>
 
+      {sqlHint && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-body" style={{ color: 'var(--taupe-dark)', fontSize: 13 }}>{sqlHint}</div>
+        </div>
+      )}
       {error && (
-        <div className="card" style={{ borderColor: 'var(--danger)' }}>
+        <div className="card" style={{ borderColor: 'var(--danger)', marginBottom: 12 }}>
           <div className="card-body" style={{ color: 'var(--danger)', fontSize: 13 }}>
-            โหลดข้อมูลไม่สำเร็จ: {error.message}
+            {error.message}
           </div>
         </div>
       )}

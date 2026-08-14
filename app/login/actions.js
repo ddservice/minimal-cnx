@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '../../lib/supabase/server';
 import { homePathForRole } from '../../lib/perms';
+import { logAuditEvent } from '../../lib/audit';
 
 const ROLE_COOKIE = 'mm69_role';
 
@@ -42,6 +43,14 @@ export async function login(prevState, formData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    await logAuditEvent(supabase, {
+      action: 'LOGIN_FAIL',
+      table: 'auth',
+      details: { username: usernameRaw, reason: 'invalid_credentials' },
+      outcome: 'failure',
+      pathHint: '/login',
+      username: usernameRaw,
+    });
     return { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' };
   }
 
@@ -52,10 +61,26 @@ export async function login(prevState, formData) {
     .eq('id', data.user.id)
     .maybeSingle();
   if (profile?.is_active === false) {
+    await logAuditEvent(supabase, {
+      action: 'LOGIN_FAIL',
+      table: 'auth',
+      details: { username: usernameRaw, reason: 'disabled' },
+      outcome: 'failure',
+      pathHint: '/login',
+      username: usernameRaw,
+    });
     await supabase.auth.signOut();
     await clearRoleCookie();
     return { error: 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ' };
   }
+
+  await logAuditEvent(supabase, {
+    action: 'LOGIN',
+    table: 'auth',
+    details: { username: usernameRaw, role: profile?.role },
+    pathHint: '/login',
+    username: usernameRaw,
+  });
 
   await setRoleCookie(profile?.role);
   redirect(homePathForRole(profile?.role));
@@ -63,6 +88,7 @@ export async function login(prevState, formData) {
 
 export async function signOutAction() {
   const supabase = await createClient();
+  await logAuditEvent(supabase, { action: 'LOGOUT', table: 'auth', pathHint: '/logout' });
   await supabase.auth.signOut();
   await clearRoleCookie();
   redirect('/login');

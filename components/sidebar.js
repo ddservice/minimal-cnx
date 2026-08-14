@@ -34,7 +34,13 @@ export default function Sidebar({ name, role, isAdmin, allowed, mobileOpen, setM
 
   const allowSet = new Set(allowed || NAV_TABS.map((t) => t.href));
   const visible = NAV_TABS.filter((t) => allowSet.has(t.href));
-  const tabs = isAdmin ? [...visible, { href: '/admin', label: 'ผู้ใช้งาน', icon: 'ti-users' }] : visible;
+  const tabs = isAdmin
+    ? [
+        ...visible,
+        { href: '/admin', label: 'ผู้ใช้งาน', icon: 'ti-users' },
+        { href: '/admin/audit', label: 'บันทึกตรวจสอบ', icon: 'ti-history' },
+      ]
+    : visible;
 
   return (
     <>
@@ -59,12 +65,17 @@ export default function Sidebar({ name, role, isAdmin, allowed, mobileOpen, setM
         </div>
 
         <nav className="sidebar-nav">
-          {tabs.map((t) => (
-            <Link key={t.href} href={t.href} className={`sidebar-link${path.startsWith(t.href) ? ' active' : ''}`} title={t.label}>
+          {tabs.map((t) => {
+            const active = t.href === '/admin'
+              ? path === '/admin' || path.startsWith('/admin/loyalty')
+              : path === t.href || path.startsWith(`${t.href}/`);
+            return (
+            <Link key={t.href} href={t.href} className={`sidebar-link${active ? ' active' : ''}`} title={t.label}>
               <Icon name={t.icon} />
               <span>{t.label}</span>
             </Link>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

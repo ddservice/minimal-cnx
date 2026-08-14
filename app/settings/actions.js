@@ -7,6 +7,7 @@ import { computeNetRevenue } from '../../lib/gp';
 import { upsertBusinessConfig } from '../../lib/config-store';
 import { requireCap } from '../../lib/access';
 import { normalizeRolePerms } from '../../lib/perms';
+import { stampAuditContext, logAuditEvent } from '../../lib/audit';
 
 const FIELDS = ['name', 'phone', 'tax_id', 'address', 'logo_url', 'free_cup_cost'];
 
@@ -47,9 +48,8 @@ function sheetToObjects(ws) {
 
 // นำเข้าข้อมูลจาก .xlsx (type: 'sales' | 'expense')
 export async function importData(prevState, formData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'กรุณาเข้าสู่ระบบ' };
+  const { supabase, ok: isAdmin, user } = await requireAdmin();
+  if (!isAdmin) return { status: 'error', message: 'เฉพาะ Admin เท่านั้น' };
 
   const type = String(formData.get('type') || '');
   const file = formData.get('file');
@@ -124,6 +124,12 @@ export async function importData(prevState, formData) {
 
   revalidatePath('/reports');
   revalidatePath('/dashboard');
+  await logAuditEvent(supabase, {
+    action: 'IMPORT',
+    table: 'reports',
+    details: { type, rows: ok, skipped },
+    pathHint: '/settings',
+  });
   return { status: 'ok', message: `นำเข้าสำเร็จ ${ok} แถว${skipped ? ` (ข้าม ${skipped} แถวที่ข้อมูลไม่ครบ)` : ''}` };
 }
 
@@ -132,6 +138,7 @@ async function requireAdmin() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { supabase, ok: false };
   const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if (p?.role === 'admin') await stampAuditContext(supabase, '/settings');
   return { supabase, user, ok: p?.role === 'admin' };
 }
 

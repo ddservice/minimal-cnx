@@ -48,10 +48,11 @@ export default function RolePerms({ perms }) {
 
   return (
     <div className="card">
-      <div className="card-head"><Icon name="ti-lock-access" /><h2>สิทธิ์ตามตำแหน่ง</h2></div>
+      <div className="card-head"><Icon name="ti-lock-access" /><h2>สิทธิ์ตามตำแหน่ง — ดู / กรอก / แก้ได้</h2></div>
       <div className="card-body" style={{ overflowX: 'auto' }}>
         <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
-          Admin เต็มสิทธิ์เสมอ · ระดับสูงรวมระดับล่าง (แก้ไข = กรอก + ดู) · ปุ่มกรอก/แก้ไขในหน้าถูกปิดตามนี้ และ Server Action กันด้วย
+          Super Admin (admin) เต็มสิทธิ์เสมอ · กดปุ่ม <strong>แก้ได้</strong> เมื่อต้องการให้แก้ของเดิมได้ ·
+          <strong> กรอกอย่างเดียว</strong> = เพิ่มใหม่ได้แต่ห้ามแก้/ลบ · ระดับสูงรวมระดับล่าง
         </p>
         <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
           เพดานฐานข้อมูล (RLS) ที่เมทริกซ์ขยายเกินไม่ได้: Staff เพิ่มยอดขาย/รายจ่ายได้ แต่แก้ของเดิมและลบรายจ่ายต้องเป็น Manager+ · ลบยอดขายทั้งวันได้เฉพาะ Admin · ยกเลิกธุรกรรมแต้มได้เฉพาะ Manager+
