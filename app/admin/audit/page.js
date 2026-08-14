@@ -16,7 +16,8 @@ const VALID_ACTIONS = new Set([
   'LOGIN', 'LOGIN_FAIL', 'LOGOUT', 'DENY', 'EXPORT', 'IMPORT',
   'CREATE_USER', 'UPDATE_USER', 'RESET_PASSWORD', 'TOGGLE_USER', 'DELETE_USER',
 ]);
-const LIMIT = 200;
+const PAGE_SIZES = [10, 20, 50, 100];
+const DEFAULT_LIMIT = 20;
 const SELECT_COLS = 'id, table_name, record_id, action, old_data, new_data, performed_by, performed_at, ip_address, user_agent, device_summary, request_path, actor_username, actor_role, outcome, country';
 
 export default async function AuditPage({ searchParams }) {
@@ -28,12 +29,14 @@ export default async function AuditPage({ searchParams }) {
   const action = VALID_ACTIONS.has(sp?.action) ? sp.action : '';
   const ip = String(sp?.ip || '').trim();
   const q = String(sp?.q || '').trim();
+  const parsed = Number(sp?.limit);
+  const limit = PAGE_SIZES.includes(parsed) ? parsed : DEFAULT_LIMIT;
 
   let query = supabase
     .from('audit_log')
     .select(SELECT_COLS)
     .order('performed_at', { ascending: false })
-    .limit(LIMIT);
+    .limit(limit);
   if (table) query = query.eq('table_name', table);
   if (action) query = query.eq('action', action);
   if (ip) query = query.ilike('ip_address', `%${ip}%`);
@@ -47,7 +50,7 @@ export default async function AuditPage({ searchParams }) {
       .from('audit_log')
       .select('id, table_name, record_id, action, old_data, new_data, performed_by, performed_at')
       .order('performed_at', { ascending: false })
-      .limit(LIMIT);
+      .limit(limit);
     rows = fallback.data;
     error = fallback.error;
   }
@@ -70,7 +73,7 @@ export default async function AuditPage({ searchParams }) {
       </p>
 
       <div style={{ marginBottom: 12 }}>
-        <AuditFilters table={table} action={action} ip={ip} q={q} />
+        <AuditFilters table={table} action={action} ip={ip} q={q} limit={limit} />
       </div>
 
       {sqlHint && (
@@ -96,9 +99,9 @@ export default async function AuditPage({ searchParams }) {
         ))}
       </div>
 
-      {rows?.length === LIMIT && (
+      {rows?.length === limit && (
         <p className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-          แสดง {LIMIT} รายการล่าสุด — ใช้ตัวกรองด้านบนเพื่อจำกัดผลลัพธ์
+          แสดง {limit} รายการล่าสุด — เลือกจำนวนด้านบนหรือใช้ตัวกรองเพื่อดูเพิ่ม
         </p>
       )}
     </AppShell>

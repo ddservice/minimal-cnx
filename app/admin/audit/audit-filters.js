@@ -32,7 +32,9 @@ const ACTIONS = [
   { value: 'RESET_PASSWORD', label: 'รีเซ็ตรหัส' },
 ];
 
-export default function AuditFilters({ table, action, ip, q }) {
+const PAGE_SIZES = [10, 20, 50, 100];
+
+export default function AuditFilters({ table, action, ip, q, limit = 20 }) {
   const router = useRouter();
   const [ipDraft, setIpDraft] = useState(ip || '');
   const [qDraft, setQDraft] = useState(q || '');
@@ -43,6 +45,8 @@ export default function AuditFilters({ table, action, ip, q }) {
     if (next.action) p.set('action', next.action);
     if (next.ip) p.set('ip', next.ip);
     if (next.q) p.set('q', next.q);
+    const lim = PAGE_SIZES.includes(Number(next.limit)) ? Number(next.limit) : 20;
+    if (lim !== 20) p.set('limit', String(lim));
     router.push(`/admin/audit${p.toString() ? `?${p}` : ''}`);
   }
 
@@ -51,18 +55,30 @@ export default function AuditFilters({ table, action, ip, q }) {
       className="card"
       onSubmit={(e) => {
         e.preventDefault();
-        go({ table, action, ip: ipDraft.trim(), q: qDraft.trim() });
+        go({ table, action, ip: ipDraft.trim(), q: qDraft.trim(), limit });
       }}
     >
       <div className="card-body" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="input" style={{ maxWidth: 180 }} value={table} onChange={(e) => go({ table: e.target.value, action, ip, q })}>
+        <select className="input" style={{ maxWidth: 180 }} value={table} onChange={(e) => go({ table: e.target.value, action, ip, q, limit })}>
           {TABLES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
-        <select className="input" style={{ maxWidth: 180 }} value={action} onChange={(e) => go({ table, action: e.target.value, ip, q })}>
+        <select className="input" style={{ maxWidth: 180 }} value={action} onChange={(e) => go({ table, action: e.target.value, ip, q, limit })}>
           {ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
         <input className="input" style={{ maxWidth: 160 }} placeholder="กรอง IP" value={ipDraft} onChange={(e) => setIpDraft(e.target.value)} />
         <input className="input" style={{ maxWidth: 180 }} placeholder="ชื่อผู้ใช้" value={qDraft} onChange={(e) => setQDraft(e.target.value)} />
+        <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginLeft: 'auto' }}>
+          แสดง
+          <select
+            className="input"
+            style={{ maxWidth: 88, fontWeight: 700 }}
+            value={limit}
+            onChange={(e) => go({ table, action, ip, q, limit: Number(e.target.value) })}
+            aria-label="จำนวนรายการต่อหน้า"
+          >
+            {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
         <button className="btn btn-coffee" type="submit" style={{ padding: '8px 14px' }}>ค้นหา</button>
       </div>
     </form>

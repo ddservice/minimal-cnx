@@ -203,6 +203,6 @@ Legacy feature parity is complete. Loyalty staff-portal path is code-complete fo
 - `/analytics` (business) uses **`get_months_kpis`** when `sql/add_analytics_range_kpis.sql` is applied; otherwise falls back to N× `get_monthly_summary`.
 - `sql/fix_imm_login.sql` no longer ships a usable default password — set `CHANGE_ME_BEFORE_RUN` before executing.
 
-**Audit (Super Admin only, 2026-08-14):** After `sql/add_audit_context.sql`, `/admin/audit` shows who / what / when / IP / country / device / User-Agent / path. Live nginx must forward `CF-Connecting-IP` and `CF-IPCountry` (see `deploy/nginx-marim69.conf`). Re-run this SQL if you re-run `harden_security.sql` afterwards.
+**Audit (Super Admin only, 2026-08-14):** After `sql/add_audit_context.sql`, `/admin/audit` shows who / what / when / IP / country / device / User-Agent / path. Page size 10/20/50/100 (default 20). Live nginx must forward `CF-Connecting-IP` and `CF-IPCountry` (see `deploy/nginx-marim69.conf`). Re-run this SQL if you re-run `harden_security.sql` afterwards.
 
 **Optional later:** LINE OA/LIFF + one-time QR earn (same DB), phone-change UI, customer self-serve balance (OTP), audit retention/purge job (keep ≥ 1 year), session-id on audit rows.
