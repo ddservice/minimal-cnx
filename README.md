@@ -1,8 +1,8 @@
-# Minimal Maerim (minimalcnx) — Next.js + Supabase
+# minimalcnx — Next.js + Supabase
 
 Coffee-shop sales/expense/payroll + loyalty tracking system. Live at `minimalcnx.ddserviceth.com` (prod) and `minimal.ddserviceth.com` (staging).
 
-**Canonical folder (portable):** `Z:\independentz\Web\files` — open the project from here on every machine. Remote: `ddservice/minimal-cnx` (`main`).
+**One name:** `minimalcnx` — local folder `Z:\independentz\Web\minimalcnx`, npm package, Docker/VPS `~/apps/minimalcnx`, GitHub `ddservice/minimalcnx` (`main`).
 
 **Full docs (architecture, security, formulas, features, deploy):** see [`CLAUDE.md`](./CLAUDE.md) — that file is the maintained source of truth. This README is a quick-start only.
 

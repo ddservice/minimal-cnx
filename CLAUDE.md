@@ -1,12 +1,14 @@
-# CLAUDE.md — Minimal Maerim (marim69) coffee-shop system
+# CLAUDE.md — minimalcnx coffee-shop system
 
 Maintained by Claude. **Update this file after every change** to the project.
+
+**Product name (one name everywhere):** `minimalcnx` — local folder, npm package, Docker image/container, VPS path `~/apps/minimalcnx`, GitHub `ddservice/minimalcnx`, prod domain `minimalcnx.ddserviceth.com`. The only intentional legacy string left is the auth email realm `@marim69.internal` (changing it would break existing logins).
 
 ## Two apps, one database
 
 | | Legacy | New (active) |
 |---|---|---|
-| Code | Static HTML dashboard (rollback copy only on VPS at `/var/www/minimalcnx`; removed from this repo in 2026-08-02) | **This repo root** — Next.js 15 + React 19 + `@supabase/ssr` (package name `minimalcnx`) |
+| Code | Static HTML dashboard (rollback copy only on VPS at `/var/www/minimalcnx`; removed from this repo in 2026-08-02) | **This repo root** — Next.js 15 + React 19 + `@supabase/ssr` (package `minimalcnx`) |
 | Status | superseded | **live in production** |
 | Domain | — | `minimalcnx.ddserviceth.com` (prod) + `minimal.ddserviceth.com` (staging) — both proxy to the same Docker container |
 
@@ -37,13 +39,15 @@ Maintained by Claude. **Update this file after every change** to the project.
 
 ## Canonical working copy (portable)
 
-**Source of truth on disk for this team:** `Z:\independentz\Web\files`  
-(Git remote: `https://github.com/ddservice/minimal-cnx.git` → branch `main`)
+**Source of truth on disk for this team:** `Z:\independentz\Web\minimalcnx`  
+(Git remote: `https://github.com/ddservice/minimalcnx.git` → branch `main`)
 
-- Open Cursor / Claude from **that path** on every machine that has the `Z:` drive (or the same independentz sync).
-- Do **not** keep a second divergent clone (e.g. under `Downloads\files`) as a separate edit location — either work only on `Z:\…\files`, or make `Downloads\files` a **junction** to `Z:\independentz\Web\files` so both paths are one folder.
+- Open Cursor / Claude from **that path** on every machine that has the `Z:` drive (or the same independentz sync). Do not use the old generic folder name `files`.
+- Do **not** keep a second divergent clone (e.g. under `Downloads\files`) — either work only on `Z:\…\minimalcnx`, or make any shortcut path a **junction** to `Z:\independentz\Web\minimalcnx`.
 - Before coding on a new machine: `git pull --ff-only origin main` then `npm install` if `package-lock.json` changed.
 - After every change: update **`CLAUDE.md`**, then **commit → push → deploy** (VPS). Prefer small, stable diffs; no drive-by refactors.
+
+**(2026-08-15)** Product name unified to `minimalcnx` (GitHub renamed `minimal-cnx` → `minimalcnx`; sample nginx `deploy/nginx-minimalcnx.conf`). Local folder must be `Z:\independentz\Web\minimalcnx` — if this machine still has `Web\files`, close Cursor and `Rename-Item Z:\independentz\Web\files minimalcnx`, then reopen from the new path.
 
 ## Run / build / deploy
 
@@ -159,7 +163,7 @@ Also ported ✅: **user activate/deactivate** (`/admin`, admin-only `toggleActiv
 
 Also ported ✅: **dynamic OPEX default calculation** (`lib/opex.js` `computeEffectiveOpex()`) — (Added 2026-08-02) Automatically calculates default fixed OPEX items (director salary 36,000 ฿, rent 5,000 ฿, accounting 2,000 ฿, internet 319.93 ฿, trash 200 ฿, employee defaults) for any new month without requiring manual submission on `/opex`. If explicit OPEX rows are saved in DB for the month, saved values override defaults item-by-item. Integrated across Dashboard (`/dashboard`), Reports (`/reports`), and Analytics (`/analytics`).
 
-Also ported ✅: **Cloudflare HTTPS redirect & proxy headers fix** (`lib/supabase/middleware.js` & `deploy/nginx-marim69.conf`) — (Added 2026-08-02) Middleware now enforces `https:` scheme on redirects in production environments to prevent HTTP redirect loops when users navigate directly to subpaths like `/opex`. Nginx proxy headers updated to `$http_x_forwarded_proto`. **(2026-08-14)** sample nginx also forwards `CF-Connecting-IP` and `CF-IPCountry` so `/admin/audit` records the visitor IP, not Cloudflare’s edge. Check live `minimal.conf` / `minimalcnx.conf` with `grep CF-Connecting-IP`; if missing, add those two `proxy_set_header` lines and `nginx -t && reload` (do not restart Docker).
+Also ported ✅: **Cloudflare HTTPS redirect & proxy headers fix** (`lib/supabase/middleware.js` & `deploy/nginx-minimalcnx.conf`) — (Added 2026-08-02) Middleware now enforces `https:` scheme on redirects in production environments to prevent HTTP redirect loops when users navigate directly to subpaths like `/opex`. Nginx proxy headers updated to `$http_x_forwarded_proto`. **(2026-08-14)** sample nginx also forwards `CF-Connecting-IP` and `CF-IPCountry` so `/admin/audit` records the visitor IP, not Cloudflare’s edge. Check live `minimal.conf` / `minimalcnx.conf` with `grep CF-Connecting-IP`; if missing, add those two `proxy_set_header` lines and `nginx -t && reload` (do not restart Docker).
 
 Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fix_opex_upsert.sql`** — (Fixed 2026-08-02) Changed `ON CONFLICT ON CONSTRAINT uidx_expenses_opex_item` to `ON CONFLICT (month_label, item_key) WHERE item_key IS NOT NULL` because Postgres partial unique indexes are not registered as named constraints.
 
@@ -225,6 +229,6 @@ Legacy feature parity is complete. Loyalty staff-portal path is code-complete fo
 - `/analytics` (business) uses **`get_months_kpis`** when `sql/add_analytics_range_kpis.sql` is applied; otherwise falls back to N× `get_monthly_summary`.
 - `sql/fix_imm_login.sql` no longer ships a usable default password — set `CHANGE_ME_BEFORE_RUN` before executing.
 
-**Audit (Super Admin only, 2026-08-14):** After `sql/add_audit_context.sql`, `/admin/audit` shows who / what / when / IP / country / device / User-Agent / path. Page size 10/20/50/100 (default 20). IP appears under the username; expand the row for User-Agent. Live nginx must forward `CF-Connecting-IP` and `CF-IPCountry` (see `deploy/nginx-marim69.conf`). Re-run this SQL if you re-run `harden_security.sql` afterwards (that file still ships the older `fn_audit_log_config` without IP). If the UI shows only ใคร/ทำอะไร/เมื่อไหร่, the SQL has not been applied yet (page falls back and shows a hint).
+**Audit (Super Admin only, 2026-08-14):** After `sql/add_audit_context.sql`, `/admin/audit` shows who / what / when / IP / country / device / User-Agent / path. Page size 10/20/50/100 (default 20). IP appears under the username; expand the row for User-Agent. Live nginx must forward `CF-Connecting-IP` and `CF-IPCountry` (see `deploy/nginx-minimalcnx.conf`). Re-run this SQL if you re-run `harden_security.sql` afterwards (that file still ships the older `fn_audit_log_config` without IP). If the UI shows only ใคร/ทำอะไร/เมื่อไหร่, the SQL has not been applied yet (page falls back and shows a hint).
 
 **Optional later:** LINE OA/LIFF + one-time QR earn (same DB), phone-change UI, customer self-serve balance (OTP), audit retention/purge job (keep ≥ 1 year), session-id on audit rows.

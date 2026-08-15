@@ -42,7 +42,7 @@ docker build \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
   -t "$IMAGE" .
 
-echo "==> restart container (แตะเฉพาะชื่อ minimalcnx / marim69-beta และพอร์ต ${HOST_PORT})"
+echo "==> restart container (ชื่อ ${NAME} / พอร์ต ${HOST_PORT})"
 echo "    ห้ามยุ่ง 3001(mikrotik) 3002(haircut) 3005(forensics) 4000 5000"
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
 ss -tlnp | grep -E "127\\.0\\.0\\.1:30|127\\.0\\.0\\.1:4000|127\\.0\\.0\\.1:5000" || true

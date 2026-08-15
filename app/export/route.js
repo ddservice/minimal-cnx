@@ -131,7 +131,7 @@ export async function GET(request) {
     });
 
   const buf = await wb.xlsx.writeBuffer();
-  const filename = `marim69-${monthLabel.replace('/', '-')}.xlsx`;
+  const filename = `minimalcnx-${monthLabel.replace('/', '-')}.xlsx`;
   await logAuditEvent(supabase, {
     action: 'EXPORT',
     table: 'reports',

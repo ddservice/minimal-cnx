@@ -11,11 +11,13 @@ description: Deploy minimalcnx to the VPS Docker container and verify health. Us
 cd ~/apps/minimalcnx && bash deploy.sh
 ```
 
-If the clone is still nested (pre-flatten):
+If the clone is still nested (pre-flatten, rare):
 
 ```bash
-cd ~/apps/minimalcnx/marim69-next && bash deploy.sh
+cd ~/apps/minimalcnx && bash deploy.sh
 ```
+
+(There is no longer a `marim69-next/` subfolder — repo root is the app.)
 
 `deploy.sh` will `git pull`, `docker build`, recreate container `minimalcnx` on `127.0.0.1:3011`.
 Never bind 3001 (MikroTik), 3002 (haircut), or 3005 (forensics).

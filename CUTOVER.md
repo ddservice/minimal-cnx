@@ -27,7 +27,7 @@ sudo cp /etc/nginx/sites-available/minimalcnx.conf ~/minimalcnx.conf.bak
 `location ~* \.(sql|...)` / `location /` เดิม แล้วใส่แทนด้วย:
 ```nginx
     location / {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:3011;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -61,5 +61,6 @@ sudo nginx -t && sudo systemctl reload nginx
 ## หมายเหตุความปลอดภัย
 
 - VPS ใช้ **read-only deploy key** (ไม่ใช่ PAT) สำหรับ `git pull` แล้ว
-- container ผูก `127.0.0.1:3001` (ไม่ออกเน็ตตรง), nginx + Cloudflare อยู่หน้า
+- container ผูก `127.0.0.1:3011` (ไม่ออกเน็ตตรง), nginx + Cloudflare อยู่หน้า
+  (พอร์ตเก่าในเอกสารก่อน rename คือ 3001 — เลิกใช้แล้ว เพราะชน MikroTik)
 - ความปลอดภัยจริงยังอยู่ที่ **Supabase RLS + SECURITY DEFINER RPC** เหมือนเดิม
