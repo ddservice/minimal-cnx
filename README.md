@@ -28,19 +28,21 @@ npm run build
 cd ~/apps/minimalcnx && bash deploy.sh
 ```
 
+## Deploy notes (VPS)
+
+Container binds **`127.0.0.1:3011`** (not 3001 — MikroTik). See `CLAUDE.md` § Run / build / deploy.
+
 ## New migrations (run in Supabase SQL Editor if not already applied)
 
-- **`sql/add_loyalty_system.sql`** — required for `/loyalty` (tables, trigger, RLS, seed branches)
-- **`sql/harden_loyalty_rls.sql`** — blocks direct points tampering on `customers`
-- **`sql/harden_loyalty_writes.sql`** — tightens earn/redeem INSERT + void via RPC (run after loyalty is live)
-- **`sql/add_loyalty_indexes.sql`** — speeds history/CDP queries
-- **`sql/harden_loyalty_reads.sql`** — only loyalty staff / manager+ can read customers & txs
-- **`sql/add_loyalty_rewards.sql`** — editable rewards catalog (admin UI)
-- **`sql/add_customer_privacy_consent.sql`** — PDPA consent columns on customers
-- **`sql/add_analytics_range_kpis.sql`** — speeds `/analytics` (one RPC for many months)
-- **`sql/fix_loyalty_staff_profiles_rls.sql`** — only if you ran an older `add_loyalty_system.sql` before staff_profiles policies existed
+Full list + order lives in [`CLAUDE.md`](./CLAUDE.md). Highlights:
 
-After SQL: Admin → **สาขา / พนักงานสะสมแต้ม** (`/admin/loyalty`) to link each staff user to a branch.
+- **`sql/harden_security.sql`** + **`sql/fix_bugs.sql`** — core security / report fixes
+- **`sql/add_audit_context.sql`** — Super Admin audit (IP / device / login) at `/admin/audit` (re-run if you re-run `harden_security.sql`)
+- **Loyalty (order):** `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → `harden_loyalty_writes.sql` → `add_loyalty_indexes.sql` → `harden_loyalty_reads.sql` → `add_loyalty_rewards.sql` → `add_customer_privacy_consent.sql`
+- **`sql/add_analytics_range_kpis.sql`** — speeds `/analytics`
+- **`sql/fix_loyalty_staff_profiles_rls.sql`** — only if older loyalty migration lacked staff_profiles policies
+
+After SQL: Admin → **สาขา / พนักงานสะสมแต้ม** (`/admin/loyalty`) to link each staff user to a branch. Partner counters: role **`loyalty_staff`**.
 
 ## Claude Code project layout
 

@@ -193,10 +193,11 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 Legacy feature parity is complete. Loyalty staff-portal path is code-complete for shop use.
 
 **Loyalty ops checklist (2026-08-10):**
-1. Confirm Supabase has applied (in order): `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → **`harden_loyalty_writes.sql`** → **`add_loyalty_indexes.sql`** → **`harden_loyalty_reads.sql`** → **`add_loyalty_rewards.sql`** → **`add_customer_privacy_consent.sql`**. Also recommended: **`add_analytics_range_kpis.sql`**.
-2. Deploy on VPS: `cd ~/apps/minimalcnx && bash deploy.sh`.
+1. Confirm Supabase has applied (in order): `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → **`harden_loyalty_writes.sql`** → **`add_loyalty_indexes.sql`** → **`harden_loyalty_reads.sql`** → **`add_loyalty_rewards.sql`** → **`add_customer_privacy_consent.sql`**. Also recommended: **`add_analytics_range_kpis.sql`**. Core: **`harden_security.sql`** + **`add_audit_context.sql`** (Super Admin `/admin/audit`).
+2. Deploy on VPS: `cd ~/apps/minimalcnx && bash deploy.sh` (binds **3011**, not 3001).
 3. Admin links each staff user → branch at `/admin/loyalty`. Partner-branch counters: create users with role **`loyalty_staff`** (sees only `/loyalty`, PWA start URL).
 4. Hand staff [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md) — include Add to Home Screen.
+5. After deploy: log out/in once as admin and confirm `/admin/audit` shows IP under username (proves `add_audit_context.sql` + nginx CF headers).
 
 **Perf / security notes (2026-08-10):**
 - CDP analytics loads txs for last **90 days** (cap 3000) — not full history.
