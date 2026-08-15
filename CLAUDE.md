@@ -35,6 +35,16 @@ Maintained by Claude. **Update this file after every change** to the project.
 - **`lib/session.js`'s `requireSession()` uses `getSession()`, not `getUser()` — deliberately, not an oversight.** `getUser()` makes a real network round-trip to Supabase's Auth server to re-verify the JWT; `getSession()` just reads/decodes it from cookies locally. `middleware.js` already calls `getUser()` (the network-verified, authoritative check) on every request before any page or Server Action runs, refreshing cookies if needed — by the time `requireSession()` runs, the cookies it reads via `lib/supabase/server.js` already reflect that verified session, so re-verifying with a second `getUser()` call was pure added latency (two Supabase Auth round-trips per page load instead of one) with no real security benefit. **If you ever see `requireSession()` using `getUser()` again, that's a regression — change it back to `getSession()`.** Note this optimization was deliberately *not* extended to the many standalone `supabase.auth.getUser()` calls inside individual Server Actions (`app/*/actions.js`) — those aren't on the page-load critical path (they run on form submit, not navigation) and touching auth checks across many mutation endpoints at once was judged higher-risk for lower payoff; revisit only if Server Action latency specifically becomes a complaint.
 - **Icons are tree-shaken React SVGs (`@tabler/icons-react` via `components/icon.js`), not the full webfont.** Previously `@tabler/icons-webfont` shipped every glyph in CSS+font files on every page. Now only icons that appear in the JS graph are bundled. Use `<Icon name="ti-xxx" />` (or pass `ti-xxx` into `PageHeader`/`Kpi`). **Never add a CDN `<link>` for an icon set — and do not re-introduce the full webfont package.**
 
+## Canonical working copy (portable)
+
+**Source of truth on disk for this team:** `Z:\independentz\Web\files`  
+(Git remote: `https://github.com/ddservice/minimal-cnx.git` → branch `main`)
+
+- Open Cursor / Claude from **that path** on every machine that has the `Z:` drive (or the same independentz sync).
+- Do **not** keep a second divergent clone (e.g. under `Downloads\files`) as a separate edit location — either work only on `Z:\…\files`, or make `Downloads\files` a **junction** to `Z:\independentz\Web\files` so both paths are one folder.
+- Before coding on a new machine: `git pull --ff-only origin main` then `npm install` if `package-lock.json` changed.
+- After every change: update **`CLAUDE.md`**, then **commit → push → deploy** (VPS). Prefer small, stable diffs; no drive-by refactors.
+
 ## Run / build / deploy
 
 - Local (from repo root): `npm install && npm run dev`
@@ -191,6 +201,14 @@ Also ported ✅: **ON CONFLICT partial index fix in `sql/fix_bugs.sql` & `sql/fi
 - `sql/add_email_to_profiles.sql`, `sql/add_unit_column.sql`, `sql/admin_user_functions.sql`, `sql/fix_admin_email.sql`, `sql/fix_imm_login.sql`, `sql/fix_passwords.sql`, `sql/supabase_set_admin.sql` — older one-off fixes/utilities, not individually documented here; **status of whether each has already been applied to the live Supabase project is unconfirmed** — read each file's own header comment before re-running, and don't assume "present in `sql/`" means "not yet run".
 
 Legacy feature parity is complete. Loyalty staff-portal path is code-complete for shop use.
+
+**Production cutover checklist (stable order — do not skip):**
+1. `git status` clean on `main` + pushed.
+2. Supabase SQL (idempotent; skip only if already applied):  
+   `harden_security.sql` → **`add_audit_context.sql`** → loyalty chain (`add_loyalty_system` → `harden_loyalty_rls` → `harden_loyalty_writes` → `add_loyalty_indexes` → `harden_loyalty_reads` → `add_loyalty_rewards` → `add_customer_privacy_consent`) → optional `add_analytics_range_kpis.sql` → `fix_bugs.sql` if not already.
+3. VPS: `cd ~/apps/minimalcnx && bash deploy.sh` (port **3011**).
+4. Smoke: `/login` 200, admin `/admin/audit` shows IP after re-login, staff `/loyalty` earn/redeem if loyalty SQL applied.
+5. Update `CLAUDE.md` if behavior/migrations changed (already required every change).
 
 **Loyalty ops checklist (2026-08-10):**
 1. Confirm Supabase has applied (in order): `add_loyalty_system.sql` → `harden_loyalty_rls.sql` → **`harden_loyalty_writes.sql`** → **`add_loyalty_indexes.sql`** → **`harden_loyalty_reads.sql`** → **`add_loyalty_rewards.sql`** → **`add_customer_privacy_consent.sql`**. Also recommended: **`add_analytics_range_kpis.sql`**. Core: **`harden_security.sql`** + **`add_audit_context.sql`** (Super Admin `/admin/audit`).

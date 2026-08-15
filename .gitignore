@@ -8,3 +8,6 @@ npm-debug.log*
 # Claude Code — local-only overrides (keep shared .claude/settings.json + rules committed)
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Never commit (legacy helper; may have been used with tokens historically)
+push_to_github.bat

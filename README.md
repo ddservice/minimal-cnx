@@ -2,6 +2,8 @@
 
 Coffee-shop sales/expense/payroll + loyalty tracking system. Live at `minimalcnx.ddserviceth.com` (prod) and `minimal.ddserviceth.com` (staging).
 
+**Canonical folder (portable):** `Z:\independentz\Web\files` — open the project from here on every machine. Remote: `ddservice/minimal-cnx` (`main`).
+
 **Full docs (architecture, security, formulas, features, deploy):** see [`CLAUDE.md`](./CLAUDE.md) — that file is the maintained source of truth. This README is a quick-start only.
 
 **คู่มือสะสมแต้มสำหรับพนักงาน/ผู้จัดการ:** [`LOYALTY-USER-GUIDE.md`](./LOYALTY-USER-GUIDE.md) (รวมเปรียบเทียบกับระบบแต้มแบบ LINE + สแกน QR)

@@ -2,6 +2,7 @@
 
 Copy to `CLAUDE.local.md` for machine-specific notes:
 
-- VPS SSH host / user
-- Whether each SQL migration has been applied on the live Supabase project
+- **Canonical repo path:** `Z:\independentz\Web\files` (portable). If you also use `C:\Users\Home\Downloads\files`, it should be a junction to that path — not a second clone.
+- VPS SSH host / user (for deploy from laptop; otherwise run `deploy.sh` on the VPS)
+- Whether each SQL migration has been applied on the live Supabase project (checklist in `CLAUDE.md`)
 - Personal smoke-test accounts (never real passwords)
