@@ -52,6 +52,14 @@ docker rm -f "$NAME" marim69-beta 2>/dev/null || true
 wait_port_free
 docker run -d --name "$NAME" --restart unless-stopped -p "$PORT" "$IMAGE"
 
-sleep 2
-echo "==> health check"
-curl -s -o /dev/null -w "app -> %{http_code} (คาดหวัง 200)\n" http://127.0.0.1:${HOST_PORT}/login
+echo "==> health check (รอจนกว่า Next.js จะพร้อมทำงาน)"
+for i in {1..15}; do
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${HOST_PORT}/login || echo "000")
+  if [ "$CODE" = "200" ]; then
+    echo "app ready -> HTTP 200"
+    exit 0
+  fi
+  echo "รอ Next.js container บูต (${i}/15, status ${CODE})..."
+  sleep 2
+done
+echo "⚠️ Container ยังไม่ตอบรับ HTTP 200 หลัง 30 วิ (status ${CODE})"
